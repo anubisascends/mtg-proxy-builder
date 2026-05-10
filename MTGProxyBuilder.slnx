@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="MTGProxyBuilder.Core/MTGProxyBuilder.Core.csproj" />
+  <Project Path="MTGProxyBuilder.Tests/MTGProxyBuilder.Tests.csproj" />
+  <Project Path="MTGProxyBuilder.UI/MTGProxyBuilder.UI.csproj" />
+</Solution>

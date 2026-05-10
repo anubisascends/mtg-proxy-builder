@@ -1,0 +1,57 @@
+<Window x:Class="MTGProxyBuilder.UI.Dialogs.BackArtLibraryDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Back Art Library" Height="580" Width="680"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize" MinWidth="450" MinHeight="350"
+        Background="#1E1E1E" ShowInTaskbar="False">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" Text="Back Art Library" Foreground="White" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <TextBlock Grid.Row="0" x:Name="CountLabel" Foreground="#888" FontSize="11" Margin="0,24,0,8"/>
+
+        <!-- Actions bar -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,4,0,8">
+            <Button Content="Add from File..." Padding="10,5" Margin="0,0,6,0"
+                    Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand" FontSize="11"
+                    Click="OnAddFromFile"/>
+            <Button Content="Download MPCFill Card Backs" Padding="10,5" Margin="0,0,6,0"
+                    Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand" FontSize="11"
+                    Click="OnDownloadMpcFill" x:Name="DownloadBtn"/>
+            <Button Content="Set as Default" Padding="10,5" Margin="0,0,6,0"
+                    Background="Transparent" Foreground="#4CAF50" BorderThickness="0" Cursor="Hand" FontSize="11"
+                    Click="OnSetDefault" x:Name="DefaultBtn" IsEnabled="False"/>
+            <Button Content="Clear Default" Padding="10,5" Margin="0,0,6,0"
+                    Background="Transparent" Foreground="#AAA" BorderThickness="0" Cursor="Hand" FontSize="11"
+                    Click="OnClearDefault" x:Name="ClearDefaultBtn"/>
+            <Button Content="Remove Selected" Padding="10,5"
+                    Background="Transparent" Foreground="#E06060" BorderThickness="0" Cursor="Hand" FontSize="11"
+                    Click="OnRemoveSelected" x:Name="RemoveBtn" IsEnabled="False"/>
+        </StackPanel>
+
+        <!-- Library grid -->
+        <Border Grid.Row="2" Background="#252526" CornerRadius="4" Padding="4">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <WrapPanel x:Name="LibraryPanel" Orientation="Horizontal"/>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Status + Close -->
+        <Grid Grid.Row="3" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="StatusLabel" Foreground="#888" FontSize="11" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" Content="Close" Padding="14,7"
+                    Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand"
+                    FontSize="12" FontWeight="SemiBold" IsCancel="True" Click="OnClose"/>
+        </Grid>
+    </Grid>
+</Window>
