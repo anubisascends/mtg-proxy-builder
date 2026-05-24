@@ -7,8 +7,8 @@ namespace MTGProxyBuilder.Core.Models
     {
         private string _projectId = Guid.NewGuid().ToString();
         private string _projectName = "Untitled Card";
-        private int _cardWidthPx = 744;   // 63mm at 300 DPI
-        private int _cardHeightPx = 1039; // 88mm at 300 DPI
+        private int _cardWidthPx = 1500;
+        private int _cardHeightPx = 2100;
         private string _backgroundColor = "#000000";
         private List<LayerBase> _layers = new();
         private DateTime _createdDate = DateTime.Now;
@@ -26,14 +26,14 @@ namespace MTGProxyBuilder.Core.Models
             set { _projectName = value; OnPropertyChanged(); }
         }
 
-        /// <summary>Card width in pixels at 300 DPI. Default: 744 (63mm).</summary>
+        /// <summary>Card width in pixels. Default: 1500.</summary>
         public int CardWidthPx
         {
             get => _cardWidthPx;
             set { _cardWidthPx = value; OnPropertyChanged(); }
         }
 
-        /// <summary>Card height in pixels at 300 DPI. Default: 1039 (88mm).</summary>
+        /// <summary>Card height in pixels. Default: 2100.</summary>
         public int CardHeightPx
         {
             get => _cardHeightPx;

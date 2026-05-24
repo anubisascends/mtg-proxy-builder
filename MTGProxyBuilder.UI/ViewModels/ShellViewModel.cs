@@ -51,6 +51,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             ManageFrontArtLibraryCommand = new RelayCommand(_ => ManageFrontArtLibrary());
             ManageBackArtLibraryCommand = new RelayCommand(_ => ManageBackArtLibrary());
             OpenCardEditorCommand = new RelayCommand(_ => OpenCardEditor());
+            OpenFrameMapperCommand = new RelayCommand(_ => OpenFrameMapper());
 
             _ = CheckForUpdateAsync();
         }
@@ -77,6 +78,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ManageFrontArtLibraryCommand { get; }
         public ICommand ManageBackArtLibraryCommand { get; }
         public ICommand OpenCardEditorCommand { get; }
+        public ICommand OpenFrameMapperCommand { get; }
 
         // --- Update ---
         public bool UpdateAvailable
@@ -294,8 +296,14 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         private void OpenCardEditor()
         {
-            var vm = new CardEditorViewModel();
-            var window = new Dialogs.CardEditorWindow(vm);
+            var window = new Dialogs.CardEditorWindow();
+            window.Owner = Application.Current.MainWindow;
+            window.Show();
+        }
+
+        private void OpenFrameMapper()
+        {
+            var window = new MTGFrameMapper.MainWindow();
             window.Owner = Application.Current.MainWindow;
             window.Show();
         }

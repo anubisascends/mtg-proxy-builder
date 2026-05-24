@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MTGProxyBuilder.Core\MTGProxyBuilder.Core.csproj" />
+    <ProjectReference Include="..\MTGFrameMapper\MTGFrameMapper.csproj" />
   </ItemGroup>
 
   <ItemGroup>

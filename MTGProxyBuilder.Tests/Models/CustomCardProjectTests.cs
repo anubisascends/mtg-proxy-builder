@@ -9,8 +9,8 @@ public class CustomCardProjectTests
     {
         var project = new CustomCardProject();
         Assert.Equal("Untitled Card", project.ProjectName);
-        Assert.Equal(744, project.CardWidthPx);
-        Assert.Equal(1039, project.CardHeightPx);
+        Assert.Equal(1500, project.CardWidthPx);
+        Assert.Equal(2100, project.CardHeightPx);
         Assert.Equal("#000000", project.BackgroundColor);
         Assert.NotNull(project.Layers);
         Assert.Empty(project.Layers);

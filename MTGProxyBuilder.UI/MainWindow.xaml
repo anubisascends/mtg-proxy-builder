@@ -97,6 +97,7 @@
                 <!-- Global right buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,2">
                     <Button Style="{StaticResource ToolBtn}" Command="{Binding OpenCardEditorCommand}" Content="Card Editor" Padding="8,4"/>
+                    <Button Style="{StaticResource ToolBtn}" Command="{Binding OpenFrameMapperCommand}" Content="Frame Mapper" Padding="8,4"/>
                     <Rectangle Width="1" Fill="#555555" Margin="2,4"/>
                     <Button Style="{StaticResource ToolBtn}" Command="{Binding ManageFrontArtLibraryCommand}" Content="Front Art Library" Padding="8,4"/>
                     <Button Style="{StaticResource ToolBtn}" Command="{Binding ManageBackArtLibraryCommand}" Content="Back Art Library" Padding="8,4"/>

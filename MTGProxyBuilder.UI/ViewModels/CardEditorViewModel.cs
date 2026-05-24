@@ -25,6 +25,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         {
             _project = new CustomCardProject();
             _layers = new ObservableCollection<LayerBase>();
+            SubscribeToProject(_project);
 
             AddImageLayerCommand = new RelayCommand(_ => AddImageLayer());
             AddTextLayerCommand = new RelayCommand(_ => AddTextLayer());
@@ -35,8 +36,6 @@ namespace MTGProxyBuilder.UI.ViewModels
             SaveCommand = new RelayCommand(_ => _ = SaveAsync());
             SaveAsCommand = new RelayCommand(_ => _ = SaveAsAsync());
             ExportImageCommand = new RelayCommand(_ => ExportImage());
-            NewCommand = new RelayCommand(_ => NewProject());
-            OpenCommand = new RelayCommand(_ => _ = OpenAsync());
         }
 
         // --- Properties ---
@@ -44,7 +43,25 @@ namespace MTGProxyBuilder.UI.ViewModels
         public CustomCardProject Project
         {
             get => _project;
-            private set => SetProperty(ref _project, value);
+            private set
+            {
+                if (_project != null)
+                    _project.PropertyChanged -= OnProjectPropertyChanged;
+                SetProperty(ref _project, value);
+                if (value != null)
+                    SubscribeToProject(value);
+            }
+        }
+
+        private void SubscribeToProject(CustomCardProject project)
+        {
+            project.PropertyChanged += OnProjectPropertyChanged;
+        }
+
+        private void OnProjectPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(CustomCardProject.ProjectName))
+                OnPropertyChanged(nameof(WindowTitle));
         }
 
         public ObservableCollection<LayerBase> Layers
@@ -108,8 +125,6 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand SaveCommand { get; }
         public ICommand SaveAsCommand { get; }
         public ICommand ExportImageCommand { get; }
-        public ICommand NewCommand { get; }
-        public ICommand OpenCommand { get; }
 
         // --- Layer Operations ---
 
@@ -153,10 +168,10 @@ namespace MTGProxyBuilder.UI.ViewModels
             {
                 Name = "Text Layer",
                 Text = "Text",
-                FontSize = 36,
-                Width = 400,
-                Height = 60,
-                X = (Project.CardWidthPx - 400) / 2f,
+                FontSize = 60,
+                Width = 800,
+                Height = 100,
+                X = (Project.CardWidthPx - 800) / 2f,
                 Y = Project.CardHeightPx / 2f,
                 ZOrder = GetNextZOrder()
             };
@@ -288,15 +303,19 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         // --- File Operations ---
 
-        public void NewProject()
+        /// <summary>
+        /// Loads an existing project into this ViewModel (used by CardEditorShellViewModel).
+        /// </summary>
+        public void LoadProject(Core.Models.CustomCardProject project, string filePath)
         {
-            Project = new CustomCardProject();
-            Layers.Clear();
-            SelectedLayer = null;
-            FilePath = null;
-            HasUnsavedChanges = false;
-            StatusText = "New project";
             _compositor.ClearCaches();
+            Project = project;
+            Layers = new ObservableCollection<LayerBase>(project.Layers.OrderBy(l => l.ZOrder));
+            SelectedLayer = Layers.FirstOrDefault();
+            FilePath = filePath;
+            HasUnsavedChanges = false;
+            StatusText = $"Opened {Path.GetFileName(filePath)}";
+            OnPropertyChanged(nameof(WindowTitle));
             NotifyRefresh();
         }
 
@@ -332,34 +351,6 @@ namespace MTGProxyBuilder.UI.ViewModels
             HasUnsavedChanges = false;
             StatusText = $"Saved to {Path.GetFileName(FilePath)}";
             OnPropertyChanged(nameof(WindowTitle));
-        }
-
-        public async Task OpenAsync()
-        {
-            var dialog = new OpenFileDialog
-            {
-                Title = "Open Custom Card Project",
-                Filter = "Custom Card Project|*.ccproj"
-            };
-
-            if (dialog.ShowDialog() != true) return;
-
-            var project = await _serialization.LoadProjectAsync(dialog.FileName);
-            if (project == null)
-            {
-                StatusText = "Failed to load project";
-                return;
-            }
-
-            _compositor.ClearCaches();
-            Project = project;
-            Layers = new ObservableCollection<LayerBase>(project.Layers.OrderBy(l => l.ZOrder));
-            SelectedLayer = Layers.FirstOrDefault();
-            FilePath = dialog.FileName;
-            HasUnsavedChanges = false;
-            StatusText = $"Opened {Path.GetFileName(dialog.FileName)}";
-            OnPropertyChanged(nameof(WindowTitle));
-            NotifyRefresh();
         }
 
         public void ExportImage()
