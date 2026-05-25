@@ -41,6 +41,7 @@ public partial class MainWindow : Window
     private const double ZoomMax = 5.0;
     private const double ZoomStep = 0.1;
 
+
     private static readonly Dictionary<string, Color> RegionColors = new()
     {
         ["art"] = Color.FromRgb(0x4C, 0xAF, 0x50),
@@ -68,6 +69,11 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        InputBindings.Add(new KeyBinding(new RelayCommand(_ => OnCopyMappings(this, new RoutedEventArgs())),
+            Key.C, ModifierKeys.Control | ModifierKeys.Shift));
+        InputBindings.Add(new KeyBinding(new RelayCommand(_ => OnPasteMappings(this, new RoutedEventArgs())),
+            Key.V, ModifierKeys.Control | ModifierKeys.Shift));
 
         _catalogPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -218,6 +224,77 @@ public partial class MainWindow : Window
         return _catalog.Frames.TryGetValue(key, out var meta) && meta.Regions.Count > 0;
     }
 
+    /// <summary>
+    /// Updates the tree in-place for the given keys without collapsing anything.
+    /// </summary>
+    private void RefreshTreeItems(params string[] keys)
+    {
+        var foldersToUpdate = new HashSet<string>();
+
+        foreach (var key in keys)
+        {
+            var folder = key.Split('/')[0];
+            foldersToUpdate.Add(folder);
+
+            // Find and update the file node
+            var folderNode = FindFolderNode(folder);
+            if (folderNode == null) continue;
+
+            foreach (TreeViewItem fileNode in folderNode.Items)
+            {
+                if (fileNode.Tag as string == key)
+                {
+                    var fileName = key.Split('/')[1];
+                    var isMapped = IsMapped(key);
+                    fileNode.Header = (isMapped ? "\u2713 " : "   ") + fileName;
+                    fileNode.Foreground = new SolidColorBrush(isMapped
+                        ? Color.FromRgb(0x4C, 0xAF, 0x50)
+                        : Color.FromRgb(0xAA, 0xAA, 0xAA));
+                    break;
+                }
+            }
+        }
+
+        // Update folder headers with new mapped counts
+        foreach (var folder in foldersToUpdate)
+        {
+            var folderNode = FindFolderNode(folder);
+            if (folderNode == null) continue;
+
+            var total = folderNode.Items.Count;
+            int mapped = 0;
+            foreach (TreeViewItem fileNode in folderNode.Items)
+            {
+                if (fileNode.Tag is string tag && IsMapped(tag))
+                    mapped++;
+            }
+            folderNode.Header = $"{folder}  ({mapped}/{total})";
+        }
+
+        // Update stats
+        int totalFiles = 0, totalMapped = 0;
+        foreach (TreeViewItem folderNode in FrameTree.Items)
+        {
+            totalFiles += folderNode.Items.Count;
+            foreach (TreeViewItem fileNode in folderNode.Items)
+            {
+                if (fileNode.Tag is string tag && IsMapped(tag))
+                    totalMapped++;
+            }
+        }
+        StatsLabel.Text = $"{totalFiles} images | {totalMapped} mapped";
+    }
+
+    private TreeViewItem? FindFolderNode(string folder)
+    {
+        foreach (TreeViewItem node in FrameTree.Items)
+        {
+            if (node.Tag as string == "folder:" + folder)
+                return node;
+        }
+        return null;
+    }
+
     private void OnTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
     {
         if (e.NewValue is not TreeViewItem item) return;
@@ -258,7 +335,7 @@ public partial class MainWindow : Window
         FrameLabel.Text = $"{key}  |  {_imageWidth} x {_imageHeight}";
         SetStatus($"Loaded {key} ({_regions.Count} regions)");
 
-        // Zoom to fit after layout has updated
+        // Zoom to fit the full image after layout has updated
         Dispatcher.InvokeAsync(ZoomToFit, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
@@ -502,6 +579,38 @@ public partial class MainWindow : Window
 
     // ==================== Save / Copy ====================
 
+    private void OnCopyMappings(object sender, RoutedEventArgs e)
+    {
+        if (_regions.Count == 0) { SetStatus("No regions to copy"); return; }
+
+        var json = JsonConvert.SerializeObject(_regions, Formatting.Indented);
+        Clipboard.SetText(json);
+        SetStatus($"Copied {_regions.Count} regions to clipboard");
+    }
+
+    private void OnPasteMappings(object sender, RoutedEventArgs e)
+    {
+        if (_currentFrameKey == null) { SetStatus("Load a frame first"); return; }
+
+        if (!Clipboard.ContainsText()) { SetStatus("Clipboard is empty"); return; }
+
+        try
+        {
+            var pasted = JsonConvert.DeserializeObject<List<FrameRegion>>(Clipboard.GetText());
+            if (pasted == null || pasted.Count == 0) { SetStatus("No valid regions on clipboard"); return; }
+
+            _regions = pasted.Select(r => r.Clone()).ToList();
+            _selectedRegionIndex = -1;
+            RenderOverlay();
+            RenderRegionList();
+            SetStatus($"Pasted {_regions.Count} regions from clipboard");
+        }
+        catch
+        {
+            SetStatus("Clipboard does not contain valid region data");
+        }
+    }
+
     private void OnSave(object sender, RoutedEventArgs e)
     {
         if (_currentFrameKey == null) { SetStatus("Nothing to save"); return; }
@@ -515,7 +624,7 @@ public partial class MainWindow : Window
         };
 
         SaveCatalog();
-        BuildTree();
+        RefreshTreeItems(_currentFrameKey);
         SetStatus($"Saved {_currentFrameKey} ({_regions.Count} regions)");
     }
 
@@ -551,31 +660,45 @@ public partial class MainWindow : Window
         }
 
         SaveCatalog();
-        BuildTree();
+        RefreshTreeItems(unmapped.ToArray());
         SetStatus($"Copied regions to {unmapped.Count} frames in {folder}");
     }
 
-    // ==================== Zoom ====================
+    // ==================== Zoom & Pan ====================
+
+    private bool _isPanning;
+    private Point _panStart;
+    private double _panStartH, _panStartV;
 
     private void SetZoom(double zoom)
     {
         _zoom = Math.Clamp(zoom, ZoomMin, ZoomMax);
         CanvasScale.ScaleX = _zoom;
         CanvasScale.ScaleY = _zoom;
-        ZoomLabel.Text = $"{_zoom * 100:F0}%";
+        ZoomLabel.Text = $"{(int)(_zoom * 100)}%";
     }
 
     private void ZoomToFit()
     {
         if (_imageWidth == 0 || _imageHeight == 0) return;
 
-        var viewW = CanvasScroll.ActualWidth - 40;
-        var viewH = CanvasScroll.ActualHeight - 40;
+        double viewW = CanvasScroll.ViewportWidth;
+        double viewH = CanvasScroll.ViewportHeight;
+        if (viewW < 1) viewW = CanvasScroll.ActualWidth;
+        if (viewH < 1) viewH = CanvasScroll.ActualHeight;
         if (viewW < 1 || viewH < 1) return;
 
-        double scaleX = viewW / _imageWidth;
-        double scaleY = viewH / _imageHeight;
+        // Fit entire image with a small margin, all pixels visible, centered
+        double scaleX = (viewW - 20) / _imageWidth;
+        double scaleY = (viewH - 20) / _imageHeight;
         SetZoom(Math.Min(scaleX, scaleY));
+
+        // Center the scroll position
+        Dispatcher.InvokeAsync(() =>
+        {
+            CanvasScroll.ScrollToHorizontalOffset(0);
+            CanvasScroll.ScrollToVerticalOffset(0);
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void OnZoomIn(object sender, RoutedEventArgs e) => SetZoom(_zoom + ZoomStep);
@@ -585,12 +708,65 @@ public partial class MainWindow : Window
 
     private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+        // Ctrl+Scroll = zoom
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+        {
+            double delta = e.Delta > 0 ? ZoomStep : -ZoomStep;
+            if (_zoom < 0.5) delta *= 0.5;
+            SetZoom(_zoom + delta);
+            e.Handled = true;
+            return;
+        }
 
-        double delta = e.Delta > 0 ? ZoomStep : -ZoomStep;
-        if (_zoom < 0.3) delta *= 0.5;
-        SetZoom(_zoom + delta);
-        e.Handled = true;
+        // Shift+Scroll = horizontal scroll
+        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
+        {
+            CanvasScroll.ScrollToHorizontalOffset(
+                CanvasScroll.HorizontalOffset - e.Delta);
+            e.Handled = true;
+            return;
+        }
+
+        // Plain scroll = vertical (default behavior, let ScrollViewer handle it)
+    }
+
+    private void OnScrollMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        // Middle-click = start panning
+        if (e.ChangedButton == MouseButton.Middle)
+        {
+            _isPanning = true;
+            _panStart = e.GetPosition(CanvasScroll);
+            _panStartH = CanvasScroll.HorizontalOffset;
+            _panStartV = CanvasScroll.VerticalOffset;
+            CanvasScroll.Cursor = Cursors.ScrollAll;
+            CanvasScroll.CaptureMouse();
+            e.Handled = true;
+        }
+    }
+
+    private void OnScrollMouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Middle && _isPanning)
+        {
+            _isPanning = false;
+            CanvasScroll.Cursor = null;
+            CanvasScroll.ReleaseMouseCapture();
+            e.Handled = true;
+        }
+    }
+
+    private void OnScrollMouseMove(object sender, MouseEventArgs e)
+    {
+        if (_isPanning)
+        {
+            var pos = e.GetPosition(CanvasScroll);
+            double dx = _panStart.X - pos.X;
+            double dy = _panStart.Y - pos.Y;
+            CanvasScroll.ScrollToHorizontalOffset(_panStartH + dx);
+            CanvasScroll.ScrollToVerticalOffset(_panStartV + dy);
+            e.Handled = true;
+        }
     }
 
     // ==================== Helpers ====================
@@ -609,6 +785,7 @@ public partial class MainWindow : Window
     {
         StatusText.Text = text;
     }
+
 }
 
 // ==================== Models ====================
@@ -639,4 +816,14 @@ public class FrameCatalog
 {
     public int Version { get; set; } = 1;
     public Dictionary<string, FrameMetadataEntry> Frames { get; set; } = new();
+}
+
+
+public class RelayCommand : ICommand
+{
+    private readonly Action<object?> _execute;
+    public RelayCommand(Action<object?> execute) => _execute = execute;
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
+    public bool CanExecute(object? parameter) => true;
+    public void Execute(object? parameter) => _execute(parameter);
 }
