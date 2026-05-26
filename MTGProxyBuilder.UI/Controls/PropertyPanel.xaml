@@ -20,13 +20,6 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="CaretBrush" Value="White"/>
         </Style>
-        <Style x:Key="PropComboBox" TargetType="ComboBox">
-            <Setter Property="Background" Value="#3E3E42"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="BorderBrush" Value="#555555"/>
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Padding" Value="4,2"/>
-        </Style>
         <Style x:Key="SectionHeader" TargetType="TextBlock">
             <Setter Property="Foreground" Value="#888888"/>
             <Setter Property="FontSize" Value="10"/>
@@ -148,25 +141,40 @@
                              Text="{Binding SelectedLayer.Text, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                     <TextBlock Text="Font" Style="{StaticResource PropLabel}" Margin="0,6,0,2"/>
-                    <ComboBox x:Name="FontComboBox" Style="{StaticResource PropComboBox}"
-                              SelectedItem="{Binding SelectedLayer.FontFamily, Mode=TwoWay}"/>
+                    <ComboBox x:Name="FontComboBox"
+                              SelectedItem="{Binding SelectedLayer.FontFamily, Mode=TwoWay}"
+                              MaxDropDownHeight="300"/>
 
-                    <Grid Margin="0,6,0,0">
+                    <TextBlock Text="Size" Style="{StaticResource PropLabel}" Margin="0,6,0,2"/>
+                    <TextBox Style="{StaticResource PropTextBox}"
+                             Text="{Binding SelectedLayer.FontSize, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+
+                    <TextBlock Text="Color" Style="{StaticResource PropLabel}" Margin="0,6,0,2"/>
+                    <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Size" Style="{StaticResource PropLabel}"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Color" Style="{StaticResource PropLabel}"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource PropTextBox}"
-                                 Text="{Binding SelectedLayer.FontSize, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource PropTextBox}"
+                        <TextBox Grid.Column="0" Style="{StaticResource PropTextBox}" x:Name="FontColorBox"
                                  Text="{Binding SelectedLayer.FontColor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                        <Button Grid.Column="1" x:Name="FontColorSwatch" Width="28" Height="24"
+                                Margin="4,0,0,0" Cursor="Hand" BorderThickness="1"
+                                BorderBrush="#555555" Click="OnPickFontColor"
+                                ToolTip="Pick color"/>
+                    </Grid>
+
+                    <TextBlock Text="Stroke Color" Style="{StaticResource PropLabel}" Margin="0,6,0,2"/>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Style="{StaticResource PropTextBox}" x:Name="StrokeColorBox"
+                                 Text="{Binding SelectedLayer.StrokeColor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                        <Button Grid.Column="1" x:Name="StrokeColorSwatch" Width="28" Height="24"
+                                Margin="4,0,0,0" Cursor="Hand" BorderThickness="1"
+                                BorderBrush="#555555" Click="OnPickStrokeColor"
+                                ToolTip="Pick color"/>
                     </Grid>
 
                     <!-- Style toggles -->
@@ -191,25 +199,9 @@
                                      IsChecked="{Binding SelectedLayer.TextAlignment, Converter={StaticResource LayerTypeConv}, ConverterParameter=Right}"/>
                     </StackPanel>
 
-                    <!-- Stroke -->
-                    <TextBlock Text="STROKE" Style="{StaticResource SectionHeader}"/>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="8"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Color" Style="{StaticResource PropLabel}"/>
-                        <TextBlock Grid.Row="0" Grid.Column="2" Text="Width" Style="{StaticResource PropLabel}"/>
-                        <TextBox Grid.Row="1" Grid.Column="0" Style="{StaticResource PropTextBox}"
-                                 Text="{Binding SelectedLayer.StrokeColor, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
-                        <TextBox Grid.Row="1" Grid.Column="2" Style="{StaticResource PropTextBox}"
-                                 Text="{Binding SelectedLayer.StrokeWidth, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
-                    </Grid>
+                    <TextBlock Text="Stroke Width" Style="{StaticResource PropLabel}" Margin="0,6,0,2"/>
+                    <TextBox Style="{StaticResource PropTextBox}"
+                             Text="{Binding SelectedLayer.StrokeWidth, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
                 </StackPanel>
             </StackPanel>
         </StackPanel>

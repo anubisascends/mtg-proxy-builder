@@ -1,7 +1,10 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Resources;
+using MTGProxyBuilder.UI.Dialogs;
 
 namespace MTGProxyBuilder.UI.Controls
 {
@@ -44,12 +47,73 @@ namespace MTGProxyBuilder.UI.Controls
                 PropertiesPanel.Visibility = Visibility.Visible;
                 ImageProperties.Visibility = layer is ImageLayer ? Visibility.Visible : Visibility.Collapsed;
                 TextProperties.Visibility = layer is TextLayer ? Visibility.Visible : Visibility.Collapsed;
+
+                if (layer is TextLayer textLayer)
+                {
+                    UpdateColorSwatches(textLayer);
+                    textLayer.PropertyChanged += OnTextLayerPropertyChanged;
+                }
+            }
+        }
+
+        private void OnTextLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (sender is TextLayer tl && (e.PropertyName == nameof(TextLayer.FontColor) || e.PropertyName == nameof(TextLayer.StrokeColor)))
+                UpdateColorSwatches(tl);
+        }
+
+        private void UpdateColorSwatches(TextLayer layer)
+        {
+            FontColorSwatch.Background = ParseBrush(layer.FontColor);
+            StrokeColorSwatch.Background = ParseBrush(layer.StrokeColor);
+        }
+
+        private static SolidColorBrush ParseBrush(string? hex)
+        {
+            if (string.IsNullOrEmpty(hex)) return new SolidColorBrush(Colors.Transparent);
+            try
+            {
+                var color = (Color)ColorConverter.ConvertFromString(hex);
+                return new SolidColorBrush(color);
+            }
+            catch
+            {
+                return new SolidColorBrush(Colors.Transparent);
+            }
+        }
+
+        private void OnPickFontColor(object sender, RoutedEventArgs e)
+        {
+            var vm = DataContext as dynamic;
+            if (vm?.SelectedLayer is not TextLayer textLayer) return;
+
+            var dialog = new ColorPickerDialog(textLayer.FontColor);
+            dialog.Owner = Window.GetWindow(this);
+            if (dialog.ShowDialog() == true)
+            {
+                textLayer.FontColor = dialog.SelectedHexColor;
+                FontColorBox.Text = dialog.SelectedHexColor;
+                UpdateColorSwatches(textLayer);
+            }
+        }
+
+        private void OnPickStrokeColor(object sender, RoutedEventArgs e)
+        {
+            var vm = DataContext as dynamic;
+            if (vm?.SelectedLayer is not TextLayer textLayer) return;
+
+            var dialog = new ColorPickerDialog(textLayer.StrokeColor ?? "#000000");
+            dialog.Owner = Window.GetWindow(this);
+            if (dialog.ShowDialog() == true)
+            {
+                textLayer.StrokeColor = dialog.SelectedHexColor;
+                StrokeColorBox.Text = dialog.SelectedHexColor;
+                UpdateColorSwatches(textLayer);
             }
         }
 
         private void UpdateVisibility()
         {
-            // Will be called by the ViewModel binding changes
         }
 
         // --- Routed Events ---

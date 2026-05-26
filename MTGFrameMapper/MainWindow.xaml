@@ -17,6 +17,101 @@
             <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource Border}"/>
             <SolidColorBrush x:Key="AccentBlueBrush" Color="{StaticResource AccentBlue}"/>
 
+            <Style x:Key="DarkComboBoxToggle" TargetType="ToggleButton">
+                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="IsTabStop" Value="False"/>
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="ClickMode" Value="Press"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="#3E3E42" BorderBrush="#555555" BorderThickness="1" CornerRadius="3">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="20"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Path Grid.Column="1" Data="M 0 0 L 4 4 L 8 0 Z" Fill="#AAAAAA"
+                                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#0078D4"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ComboBox">
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Background" Value="#3E3E42"/>
+                <Setter Property="BorderBrush" Value="#555555"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="4,3"/>
+                <Setter Property="FontSize" Value="11"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBox">
+                            <Grid>
+                                <ToggleButton Style="{StaticResource DarkComboBoxToggle}"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                <ContentPresenter IsHitTestVisible="False"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                  Margin="{TemplateBinding Padding}"
+                                                  VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <ContentPresenter.Resources>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="White"/>
+                                        </Style>
+                                    </ContentPresenter.Resources>
+                                </ContentPresenter>
+                                <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
+                                       AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                    <Border Background="#3E3E42" BorderBrush="#555555" BorderThickness="1"
+                                            CornerRadius="0,0,3,3"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                            MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="ComboBoxItem">
+                <Setter Property="Background" Value="#3E3E42"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Padding" Value="4,3"/>
+                <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ComboBoxItem">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsHighlighted" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#0078D4"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#4E4E52"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="ToolBtn" TargetType="Button">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Foreground" Value="#CCC"/>
@@ -88,19 +183,7 @@
         <Border Grid.Row="0" Background="#252526" BorderBrush="#333333" BorderThickness="0,0,0,1" Padding="6,4">
             <WrapPanel>
                 <TextBlock Text="Region:" Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center" Margin="4,0"/>
-                <ComboBox x:Name="RegionPreset" Width="130" Background="#3E3E42" Foreground="White"
-                          BorderBrush="#555555" FontSize="11" Padding="4,2" SelectedIndex="0">
-                    <ComboBox.Resources>
-                        <Style TargetType="ComboBoxItem">
-                            <Setter Property="Background" Value="#3E3E42"/>
-                            <Setter Property="Foreground" Value="White"/>
-                            <Style.Triggers>
-                                <Trigger Property="IsHighlighted" Value="True">
-                                    <Setter Property="Background" Value="#0078D4"/>
-                                </Trigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ComboBox.Resources>
+                <ComboBox x:Name="RegionPreset" Width="130" SelectedIndex="0">
                     <ComboBoxItem Content="Art Box" Tag="art"/>
                     <ComboBoxItem Content="Name" Tag="name"/>
                     <ComboBoxItem Content="Mana Cost" Tag="manaCost"/>
@@ -180,7 +263,8 @@
                           HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
 
             <!-- Center: Image canvas -->
-            <Border Grid.Column="2" ClipToBounds="True">
+            <Border Grid.Column="2" ClipToBounds="True" Padding="10"
+                    x:Name="ViewportBorder" SizeChanged="OnViewportSizeChanged">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#2B3A4A" Offset="0"/>
@@ -189,48 +273,16 @@
                         <GradientStop Color="#3A3D45" Offset="1"/>
                     </LinearGradientBrush>
                 </Border.Background>
-                <Grid>
-                    <ScrollViewer x:Name="CanvasScroll"
-                                  HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                                  Background="Transparent"
-                                  PreviewMouseWheel="OnCanvasMouseWheel"
-                                  PreviewMouseDown="OnScrollMouseDown"
-                                  PreviewMouseUp="OnScrollMouseUp"
-                                  PreviewMouseMove="OnScrollMouseMove">
-                        <Grid x:Name="CanvasHost" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="20">
-                            <Grid.LayoutTransform>
-                                <ScaleTransform x:Name="CanvasScale" ScaleX="1" ScaleY="1"/>
-                            </Grid.LayoutTransform>
-                            <Image x:Name="FrameImage" Stretch="None" RenderOptions.BitmapScalingMode="HighQuality"/>
-                            <Canvas x:Name="OverlayCanvas" IsHitTestVisible="True"
-                                    MouseLeftButtonDown="OnCanvasMouseDown"
-                                    MouseMove="OnCanvasMouseMove"
-                                    MouseLeftButtonUp="OnCanvasMouseUp"
-                                    Background="Transparent"/>
-                        </Grid>
-                    </ScrollViewer>
-
-                    <!-- Zoom controls -->
-                    <Border Background="#CC2D2D30" CornerRadius="4" Padding="6,3"
-                            HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,16,8">
-                        <StackPanel Orientation="Horizontal">
-                            <Button Content="-" Padding="6,1" FontSize="14" FontWeight="Bold"
-                                    Background="Transparent" Foreground="#CCC" BorderThickness="0"
-                                    Cursor="Hand" Click="OnZoomOut"/>
-                            <TextBlock x:Name="ZoomLabel" Text="100%" Foreground="#CCC" FontSize="11"
-                                       VerticalAlignment="Center" Margin="6,0" MinWidth="36" TextAlignment="Center"/>
-                            <Button Content="+" Padding="6,1" FontSize="14" FontWeight="Bold"
-                                    Background="Transparent" Foreground="#CCC" BorderThickness="0"
-                                    Cursor="Hand" Click="OnZoomIn"/>
-                            <Border Width="1" Background="#555" Margin="6,2"/>
-                            <Button Content="Fit" Padding="6,1" FontSize="11"
-                                    Background="Transparent" Foreground="#AAA" BorderThickness="0"
-                                    Cursor="Hand" Click="OnZoomFit"/>
-                            <Button Content="1:1" Padding="6,1" FontSize="11"
-                                    Background="Transparent" Foreground="#AAA" BorderThickness="0"
-                                    Cursor="Hand" Click="OnZoomReset"/>
-                        </StackPanel>
-                    </Border>
+                <Grid x:Name="CanvasHost">
+                    <Image x:Name="FrameImage" Stretch="Uniform"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                    <Canvas x:Name="OverlayCanvas" IsHitTestVisible="True"
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                            MouseLeftButtonDown="OnCanvasMouseDown"
+                            MouseMove="OnCanvasMouseMove"
+                            MouseLeftButtonUp="OnCanvasMouseUp"
+                            Background="Transparent"/>
                 </Grid>
             </Border>
 

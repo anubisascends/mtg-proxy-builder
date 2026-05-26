@@ -32,14 +32,8 @@ public partial class MainWindow : Window
     // Drawing state
     private bool _isDrawing;
     private string _drawRegionName = string.Empty;
-    private Point _drawStart;
+    private Point _drawStartPx; // in image-pixel coordinates
     private Rectangle? _drawRect;
-
-    // Zoom state
-    private double _zoom = 1.0;
-    private const double ZoomMin = 0.05;
-    private const double ZoomMax = 5.0;
-    private const double ZoomStep = 0.1;
 
 
     private static readonly Dictionary<string, Color> RegionColors = new()
@@ -317,10 +311,6 @@ public partial class MainWindow : Window
         _imageHeight = bitmap.PixelHeight;
 
         FrameImage.Source = bitmap;
-        FrameImage.Width = _imageWidth;
-        FrameImage.Height = _imageHeight;
-        OverlayCanvas.Width = _imageWidth;
-        OverlayCanvas.Height = _imageHeight;
 
         // Load existing regions
         if (_catalog.Frames.TryGetValue(key, out var meta))
@@ -329,14 +319,17 @@ public partial class MainWindow : Window
             _regions = new List<FrameRegion>();
 
         _selectedRegionIndex = -1;
-        RenderOverlay();
+
+        // Update overlay after layout settles (image needs to compute its rendered size)
+        Dispatcher.InvokeAsync(() =>
+        {
+            SyncOverlaySize();
+            RenderOverlay();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
         RenderRegionList();
 
         FrameLabel.Text = $"{key}  |  {_imageWidth} x {_imageHeight}";
         SetStatus($"Loaded {key} ({_regions.Count} regions)");
-
-        // Zoom to fit the full image after layout has updated
-        Dispatcher.InvokeAsync(ZoomToFit, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     // ==================== Drawing ====================
@@ -356,14 +349,15 @@ public partial class MainWindow : Window
 
     private void OnCanvasMouseDown(object sender, MouseButtonEventArgs e)
     {
+        var px = ScreenToPixel(e.GetPosition(OverlayCanvas));
+
         if (!_isDrawing)
         {
-            // Hit test for selection
-            var pos = e.GetPosition(OverlayCanvas);
+            // Hit test for selection in image-pixel space
             for (int i = _regions.Count - 1; i >= 0; i--)
             {
                 var r = _regions[i];
-                if (pos.X >= r.X && pos.X <= r.X + r.Width && pos.Y >= r.Y && pos.Y <= r.Y + r.Height)
+                if (px.X >= r.X && px.X <= r.X + r.Width && px.Y >= r.Y && px.Y <= r.Y + r.Height)
                 {
                     _selectedRegionIndex = i;
                     RegionList.SelectedIndex = i;
@@ -377,7 +371,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        _drawStart = e.GetPosition(OverlayCanvas);
+        _drawStartPx = px;
+        var screenStart = e.GetPosition(OverlayCanvas);
         _drawRect = new Rectangle
         {
             Stroke = new SolidColorBrush(GetRegionColor(_drawRegionName)),
@@ -388,8 +383,8 @@ public partial class MainWindow : Window
                 GetRegionColor(_drawRegionName).G,
                 GetRegionColor(_drawRegionName).B))
         };
-        Canvas.SetLeft(_drawRect, _drawStart.X);
-        Canvas.SetTop(_drawRect, _drawStart.Y);
+        Canvas.SetLeft(_drawRect, screenStart.X);
+        Canvas.SetTop(_drawRect, screenStart.Y);
         OverlayCanvas.Children.Add(_drawRect);
         OverlayCanvas.CaptureMouse();
     }
@@ -398,11 +393,12 @@ public partial class MainWindow : Window
     {
         if (!_isDrawing || _drawRect == null) return;
 
-        var pos = e.GetPosition(OverlayCanvas);
-        var x = Math.Min(_drawStart.X, pos.X);
-        var y = Math.Min(_drawStart.Y, pos.Y);
-        var w = Math.Abs(pos.X - _drawStart.X);
-        var h = Math.Abs(pos.Y - _drawStart.Y);
+        var screenPos = e.GetPosition(OverlayCanvas);
+        var screenStart = PixelToScreen(_drawStartPx);
+        var x = Math.Min(screenStart.X, screenPos.X);
+        var y = Math.Min(screenStart.Y, screenPos.Y);
+        var w = Math.Abs(screenPos.X - screenStart.X);
+        var h = Math.Abs(screenPos.Y - screenStart.Y);
 
         Canvas.SetLeft(_drawRect, x);
         Canvas.SetTop(_drawRect, y);
@@ -416,13 +412,13 @@ public partial class MainWindow : Window
 
         OverlayCanvas.ReleaseMouseCapture();
 
-        var pos = e.GetPosition(OverlayCanvas);
-        var x = Math.Min(_drawStart.X, pos.X);
-        var y = Math.Min(_drawStart.Y, pos.Y);
-        var w = Math.Abs(pos.X - _drawStart.X);
-        var h = Math.Abs(pos.Y - _drawStart.Y);
+        var endPx = ScreenToPixel(e.GetPosition(OverlayCanvas));
+        var x = Math.Min(_drawStartPx.X, endPx.X);
+        var y = Math.Min(_drawStartPx.Y, endPx.Y);
+        var w = Math.Abs(endPx.X - _drawStartPx.X);
+        var h = Math.Abs(endPx.Y - _drawStartPx.Y);
 
-        if (w > 5 && h > 5)
+        if (w > 3 && h > 3)
         {
             _regions.Add(new FrameRegion
             {
@@ -445,9 +441,29 @@ public partial class MainWindow : Window
 
     // ==================== Overlay Rendering ====================
 
+    /// <summary>
+    /// Syncs the overlay canvas size to match the image's actual rendered size.
+    /// </summary>
+    private void SyncOverlaySize()
+    {
+        OverlayCanvas.Width = FrameImage.ActualWidth;
+        OverlayCanvas.Height = FrameImage.ActualHeight;
+    }
+
+    private void OnViewportSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // When the viewport resizes, the Uniform-stretched image changes size
+        Dispatcher.InvokeAsync(() =>
+        {
+            SyncOverlaySize();
+            RenderOverlay();
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     private void RenderOverlay()
     {
         OverlayCanvas.Children.Clear();
+        if (_imageWidth == 0 || _imageHeight == 0) return;
 
         for (int i = 0; i < _regions.Count; i++)
         {
@@ -455,21 +471,28 @@ public partial class MainWindow : Window
             var color = GetRegionColor(r.Name);
             var isSelected = i == _selectedRegionIndex;
 
-            // Region rectangle
+            // Convert image-pixel rect to screen coordinates
+            var topLeft = PixelToScreen(new Point(r.X, r.Y));
+            var bottomRight = PixelToScreen(new Point(r.X + r.Width, r.Y + r.Height));
+            double sx = topLeft.X;
+            double sy = topLeft.Y;
+            double sw = bottomRight.X - topLeft.X;
+            double sh = bottomRight.Y - topLeft.Y;
+
             var rect = new Rectangle
             {
-                Width = r.Width,
-                Height = r.Height,
+                Width = sw,
+                Height = sh,
                 Stroke = new SolidColorBrush(color),
                 StrokeThickness = isSelected ? 3 : 2,
                 StrokeDashArray = isSelected ? null : new DoubleCollection { 6, 3 },
                 Fill = new SolidColorBrush(Color.FromArgb(0x22, color.R, color.G, color.B))
             };
-            Canvas.SetLeft(rect, r.X);
-            Canvas.SetTop(rect, r.Y);
+            Canvas.SetLeft(rect, sx);
+            Canvas.SetTop(rect, sy);
             OverlayCanvas.Children.Add(rect);
 
-            // Label background
+            // Label
             var label = GetRegionLabel(r.Name);
             var labelText = new TextBlock
             {
@@ -489,12 +512,12 @@ public partial class MainWindow : Window
                 RadiusX = 2,
                 RadiusY = 2
             };
-            Canvas.SetLeft(labelBg, r.X);
-            Canvas.SetTop(labelBg, r.Y - 18);
+            Canvas.SetLeft(labelBg, sx);
+            Canvas.SetTop(labelBg, sy - 18);
             OverlayCanvas.Children.Add(labelBg);
 
-            Canvas.SetLeft(labelText, r.X + 4);
-            Canvas.SetTop(labelText, r.Y - 18);
+            Canvas.SetLeft(labelText, sx + 4);
+            Canvas.SetTop(labelText, sy - 18);
             OverlayCanvas.Children.Add(labelText);
         }
     }
@@ -664,109 +687,34 @@ public partial class MainWindow : Window
         SetStatus($"Copied regions to {unmapped.Count} frames in {folder}");
     }
 
-    // ==================== Zoom & Pan ====================
+    // ==================== Coordinate Conversion ====================
 
-    private bool _isPanning;
-    private Point _panStart;
-    private double _panStartH, _panStartV;
-
-    private void SetZoom(double zoom)
+    /// <summary>
+    /// Returns the scale factor from image pixels to displayed screen pixels.
+    /// The Image uses Stretch=Uniform, so WPF scales it to fit the available space.
+    /// </summary>
+    private double GetDisplayScale()
     {
-        _zoom = Math.Clamp(zoom, ZoomMin, ZoomMax);
-        CanvasScale.ScaleX = _zoom;
-        CanvasScale.ScaleY = _zoom;
-        ZoomLabel.Text = $"{(int)(_zoom * 100)}%";
+        if (_imageWidth == 0 || FrameImage.ActualWidth < 1) return 1;
+        return FrameImage.ActualWidth / _imageWidth;
     }
 
-    private void ZoomToFit()
+    /// <summary>
+    /// Converts a screen position (relative to the overlay canvas) to image-pixel coordinates.
+    /// </summary>
+    private Point ScreenToPixel(Point screen)
     {
-        if (_imageWidth == 0 || _imageHeight == 0) return;
-
-        double viewW = CanvasScroll.ViewportWidth;
-        double viewH = CanvasScroll.ViewportHeight;
-        if (viewW < 1) viewW = CanvasScroll.ActualWidth;
-        if (viewH < 1) viewH = CanvasScroll.ActualHeight;
-        if (viewW < 1 || viewH < 1) return;
-
-        // Fit entire image with a small margin, all pixels visible, centered
-        double scaleX = (viewW - 20) / _imageWidth;
-        double scaleY = (viewH - 20) / _imageHeight;
-        SetZoom(Math.Min(scaleX, scaleY));
-
-        // Center the scroll position
-        Dispatcher.InvokeAsync(() =>
-        {
-            CanvasScroll.ScrollToHorizontalOffset(0);
-            CanvasScroll.ScrollToVerticalOffset(0);
-        }, System.Windows.Threading.DispatcherPriority.Background);
+        double scale = GetDisplayScale();
+        return new Point(screen.X / scale, screen.Y / scale);
     }
 
-    private void OnZoomIn(object sender, RoutedEventArgs e) => SetZoom(_zoom + ZoomStep);
-    private void OnZoomOut(object sender, RoutedEventArgs e) => SetZoom(_zoom - ZoomStep);
-    private void OnZoomFit(object sender, RoutedEventArgs e) => ZoomToFit();
-    private void OnZoomReset(object sender, RoutedEventArgs e) => SetZoom(1.0);
-
-    private void OnCanvasMouseWheel(object sender, MouseWheelEventArgs e)
+    /// <summary>
+    /// Converts image-pixel coordinates to screen position (relative to the overlay canvas).
+    /// </summary>
+    private Point PixelToScreen(Point pixel)
     {
-        // Ctrl+Scroll = zoom
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
-        {
-            double delta = e.Delta > 0 ? ZoomStep : -ZoomStep;
-            if (_zoom < 0.5) delta *= 0.5;
-            SetZoom(_zoom + delta);
-            e.Handled = true;
-            return;
-        }
-
-        // Shift+Scroll = horizontal scroll
-        if (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift))
-        {
-            CanvasScroll.ScrollToHorizontalOffset(
-                CanvasScroll.HorizontalOffset - e.Delta);
-            e.Handled = true;
-            return;
-        }
-
-        // Plain scroll = vertical (default behavior, let ScrollViewer handle it)
-    }
-
-    private void OnScrollMouseDown(object sender, MouseButtonEventArgs e)
-    {
-        // Middle-click = start panning
-        if (e.ChangedButton == MouseButton.Middle)
-        {
-            _isPanning = true;
-            _panStart = e.GetPosition(CanvasScroll);
-            _panStartH = CanvasScroll.HorizontalOffset;
-            _panStartV = CanvasScroll.VerticalOffset;
-            CanvasScroll.Cursor = Cursors.ScrollAll;
-            CanvasScroll.CaptureMouse();
-            e.Handled = true;
-        }
-    }
-
-    private void OnScrollMouseUp(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ChangedButton == MouseButton.Middle && _isPanning)
-        {
-            _isPanning = false;
-            CanvasScroll.Cursor = null;
-            CanvasScroll.ReleaseMouseCapture();
-            e.Handled = true;
-        }
-    }
-
-    private void OnScrollMouseMove(object sender, MouseEventArgs e)
-    {
-        if (_isPanning)
-        {
-            var pos = e.GetPosition(CanvasScroll);
-            double dx = _panStart.X - pos.X;
-            double dy = _panStart.Y - pos.Y;
-            CanvasScroll.ScrollToHorizontalOffset(_panStartH + dx);
-            CanvasScroll.ScrollToVerticalOffset(_panStartV + dy);
-            e.Handled = true;
-        }
+        double scale = GetDisplayScale();
+        return new Point(pixel.X * scale, pixel.Y * scale);
     }
 
     // ==================== Helpers ====================

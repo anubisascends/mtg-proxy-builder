@@ -36,6 +36,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             SaveCommand = new RelayCommand(_ => _ = SaveAsync());
             SaveAsCommand = new RelayCommand(_ => _ = SaveAsAsync());
             ExportImageCommand = new RelayCommand(_ => ExportImage());
+            AddFrameLayerCommand = new RelayCommand(_ => AddFrameLayer());
         }
 
         // --- Properties ---
@@ -125,6 +126,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand SaveCommand { get; }
         public ICommand SaveAsCommand { get; }
         public ICommand ExportImageCommand { get; }
+        public ICommand AddFrameLayerCommand { get; }
 
         // --- Layer Operations ---
 
@@ -177,6 +179,98 @@ namespace MTGProxyBuilder.UI.ViewModels
             };
 
             AddLayer(layer);
+        }
+
+        public void AddFrameLayer()
+        {
+            var dialog = new Dialogs.FrameBrowserDialog();
+            dialog.Owner = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>().FirstOrDefault(w => w.IsActive);
+
+            if (dialog.ShowDialog() != true || dialog.SelectedFrameBytes == null) return;
+
+            // Save frame bytes to a temp file so the compositor can load it
+            var tempDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "MTGProxyBuilder", "FrameCache");
+            Directory.CreateDirectory(tempDir);
+            var fileName = dialog.SelectedFrameKey!.Replace('/', '_');
+            var tempPath = Path.Combine(tempDir, fileName);
+            File.WriteAllBytes(tempPath, dialog.SelectedFrameBytes);
+
+            // Build all layers from mapped regions first (art below frame, text above)
+            // Layer order from bottom to top: art image → frame → text layers
+
+            int baseZ = GetNextZOrder();
+
+            // 1. Art region: add placeholder image layer (user fills in later or via dialog)
+            var artRegion = dialog.FrameRegions.FirstOrDefault(r => r.Name == "art");
+            if (artRegion != null)
+            {
+                var artPath = dialog.FieldValues.GetValueOrDefault("art");
+                var artLayer = new ImageLayer
+                {
+                    Name = "Card Art",
+                    ImageSource = artPath ?? string.Empty,
+                    X = artRegion.X,
+                    Y = artRegion.Y,
+                    Width = artRegion.Width,
+                    Height = artRegion.Height,
+                    ZOrder = baseZ++
+                };
+                AddLayer(artLayer);
+            }
+
+            // 2. Frame image layer (renders on top of art)
+            var frameLayer = new ImageLayer
+            {
+                Name = Path.GetFileNameWithoutExtension(fileName),
+                ImageSource = tempPath,
+                ImageBytes = dialog.SelectedFrameBytes,
+                Width = dialog.FrameWidth,
+                Height = dialog.FrameHeight,
+                X = 0,
+                Y = 0,
+                ZOrder = baseZ++
+            };
+            AddLayer(frameLayer);
+
+            // 3. Text layers for every mapped region (on top of frame)
+            foreach (var region in dialog.FrameRegions)
+            {
+                if (region.Name == "art") continue; // Already handled above
+
+                var userValue = dialog.FieldValues.GetValueOrDefault(region.Name) ?? string.Empty;
+
+                var textLayer = new TextLayer
+                {
+                    Name = GetRegionDisplayName(region.Name),
+                    Text = userValue,
+                    X = region.X,
+                    Y = region.Y,
+                    Width = region.Width,
+                    Height = region.Height,
+                    FontSize = Math.Max(10, region.Height * 0.7f),
+                    FontColor = "#FFFFFF",
+                    ZOrder = baseZ++
+                };
+                AddLayer(textLayer);
+            }
+        }
+
+        private static string GetRegionDisplayName(string regionName)
+        {
+            return regionName switch
+            {
+                "name" => "Card Name",
+                "manaCost" => "Mana Cost",
+                "typeLine" => "Type Line",
+                "rulesText" => "Rules Text",
+                "pt" => "P/T",
+                "setSymbol" => "Set Symbol",
+                "collector" => "Collector Info",
+                _ => regionName
+            };
         }
 
         private void AddLayer(LayerBase layer)

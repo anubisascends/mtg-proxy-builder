@@ -1,0 +1,95 @@
+<Window x:Class="MTGProxyBuilder.UI.Dialogs.FrameBrowserDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Add Frame from Resources" Width="900" Height="650" MinWidth="700" MinHeight="450"
+        Background="#1E1E1E" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+
+    <Grid Margin="0">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240" MinWidth="180"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="260" MinWidth="200"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Left: Frame tree -->
+        <Border Grid.Column="0" Background="#252526">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="#2D2D30" Padding="8,6">
+                    <TextBlock Text="Frames" Foreground="#CCC" FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+                <TreeView Grid.Row="1" x:Name="FrameTree" Background="#252526" BorderThickness="0"
+                          Foreground="#CCC" FontSize="11" SelectedItemChanged="OnTreeSelectionChanged">
+                    <TreeView.Resources>
+                        <Style TargetType="TreeViewItem">
+                            <Setter Property="Foreground" Value="#CCC"/>
+                            <Setter Property="Padding" Value="2,1"/>
+                        </Style>
+                    </TreeView.Resources>
+                </TreeView>
+            </Grid>
+        </Border>
+
+        <GridSplitter Grid.Column="1" Width="3" Background="#333333"
+                      HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+
+        <!-- Center: Preview -->
+        <Border Grid.Column="2" ClipToBounds="True">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#2B3A4A" Offset="0"/>
+                    <GradientStop Color="#1E2A36" Offset="0.4"/>
+                    <GradientStop Color="#2A2D35" Offset="0.7"/>
+                    <GradientStop Color="#3A3D45" Offset="1"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <Image x:Name="PreviewImage" Stretch="Uniform" Margin="10"
+                       RenderOptions.BitmapScalingMode="HighQuality"/>
+            </ScrollViewer>
+        </Border>
+
+        <GridSplitter Grid.Column="3" Width="3" Background="#333333"
+                      HorizontalAlignment="Center" VerticalAlignment="Stretch"/>
+
+        <!-- Right: Region fields -->
+        <Border Grid.Column="4" Background="#252526">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0" Background="#2D2D30" Padding="8,6">
+                    <TextBlock Text="Card Fields" Foreground="#CCC" FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="FieldsPanel" Margin="8,6"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Bottom buttons -->
+        <Border Grid.Row="1" Grid.ColumnSpan="5" Background="#252526" BorderBrush="#333333"
+                BorderThickness="0,1,0,0" Padding="8,6">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <TextBlock x:Name="StatusLabel" Foreground="#888" FontSize="10"
+                           VerticalAlignment="Center" Margin="0,0,16,0"/>
+                <Button Content="Add to Card" Padding="14,5" FontSize="12" Cursor="Hand"
+                        Background="#0078D4" Foreground="White" BorderThickness="0"
+                        Click="OnAddToCard" x:Name="AddButton" IsEnabled="False"/>
+                <Button Content="Cancel" Padding="14,5" FontSize="12" Cursor="Hand" Margin="6,0,0,0"
+                        Background="#3E3E42" Foreground="#CCC" BorderThickness="0"
+                        Click="OnCancel"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>
