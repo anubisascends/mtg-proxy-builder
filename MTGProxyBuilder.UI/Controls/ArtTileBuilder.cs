@@ -132,6 +132,62 @@ namespace MTGProxyBuilder.UI.Controls
             return (border, img);
         }
 
+        /// <summary>Creates a placeholder tile with a "Loading..." indicator and empty Image for later assignment.</summary>
+        public static (Border Border, Image ImageControl) CreatePlaceholderTile(string label, string detail)
+        {
+            var border = new Border
+            {
+                Width = TileWidth, Height = TileHeight, Margin = new Thickness(4),
+                Background = AppBrushes.TileBg,
+                CornerRadius = new CornerRadius(4), Cursor = Cursors.Hand,
+                BorderThickness = new Thickness(2),
+                BorderBrush = Brushes.Transparent,
+                ToolTip = $"{label}\n{detail}"
+            };
+
+            var stack = new StackPanel();
+
+            var imgBorder = new Border
+            {
+                Height = ImageHeight, Background = Brushes.Black,
+                CornerRadius = new CornerRadius(3, 3, 0, 0), ClipToBounds = true
+            };
+            var grid = new System.Windows.Controls.Grid();
+            var loadingText = new TextBlock
+            {
+                Text = "Loading...", Foreground = Brushes.Gray, FontSize = 10,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            grid.Children.Add(loadingText);
+            var img = new Image { Stretch = Stretch.UniformToFill };
+            grid.Children.Add(img);
+            imgBorder.Child = grid;
+            stack.Children.Add(imgBorder);
+
+            var lbl = new TextBlock
+            {
+                Text = label,
+                Foreground = AppBrushes.TextSecondary,
+                FontSize = LabelFontSize, TextTrimming = TextTrimming.CharacterEllipsis,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(3, 4, 3, 0)
+            };
+            stack.Children.Add(lbl);
+
+            var detailLbl = new TextBlock
+            {
+                Text = detail, Foreground = AppBrushes.TextMuted,
+                FontSize = DetailFontSize, TextTrimming = TextTrimming.CharacterEllipsis,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(3, 0, 3, 2)
+            };
+            stack.Children.Add(detailLbl);
+
+            border.Child = stack;
+            return (border, img);
+        }
+
         /// <summary>Creates an action tile ("+Add to Library", "Browse File...", etc.).</summary>
         public static Border CreateActionTile(string label)
         {

@@ -45,6 +45,9 @@ namespace MTGProxyBuilder.UI.Dialogs
         // Tile tracking for search/filter
         private record TileInfo(Border Tile, string Name, string Source, string Detail, bool IsAction = false);
 
+        // Allows click handlers (closures) to see the real download path after it's been set asynchronously.
+        private class MutablePath { public string? Value; }
+
         // Per-tab state
         private class TabState
         {
@@ -223,10 +226,13 @@ namespace MTGProxyBuilder.UI.Dialogs
             else
                 await LoadBackOptionsAsync(tab, shown);
 
-            StatusLabel.Text = $"{shown.Count} option(s) found";
-            SpinnerDot.Visibility = Visibility.Collapsed;
-            PopulateSourceFilter(tab);
-            ApplyFilters(tab);
+            if (tab.Mode == ArtSelectorMode.Back)
+            {
+                StatusLabel.Text = $"{shown.Count} option(s) found";
+                SpinnerDot.Visibility = Visibility.Collapsed;
+                PopulateSourceFilter(tab);
+                ApplyFilters(tab);
+            }
         }
 
         private async Task LoadFrontOptions(TabState tab, HashSet<string> shown)
@@ -377,89 +383,193 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             int totalImages = scryfallResults.Count + mpcResults.Count;
 
-            // Warn the user if there are a lot of results to cache
-            if (totalImages > 200)
+            // --- Phase 1: Create placeholder tiles immediately ---
+            var downloadItems = new List<(Image img, MutablePath pathRef, ScryfallCard? sc, MpcFillCard? mc, string label, string detail, string? mpcSource)>();
+
+            foreach (var sc in scryfallResults.Where(sc => sc.GetImageUrl() != null))
             {
-                var answer = MessageBox.Show(
-                    $"Found {totalImages} art options ({scryfallResults.Count} Scryfall, {mpcResults.Count} MPCFill).\n\n" +
-                    "Downloading and caching all of these may take a while. Continue?",
-                    "Large Number of Results",
-                    MessageBoxButton.YesNo, MessageBoxImage.Question);
-                if (answer != MessageBoxResult.Yes)
+                string label = $"{sc.SetName} #{sc.CollectorNumber}";
+                string detail = $"Scryfall | {sc.Artist ?? ""}";
+                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                var pathRef = new MutablePath();
+
+                border.MouseLeftButtonUp += (_, _) =>
                 {
-                    StatusLabel.Text = $"{totalImages} results found (download skipped)";
-                    SpinnerDot.Visibility = Visibility.Collapsed;
-                    AddActionTile(tab, "Browse File...", OnBrowseFile);
-                    return;
-                }
+                    if (pathRef.Value != null)
+                        SelectOption(tab, label, pathRef.Value, detail, border);
+                };
+                border.MouseLeftButtonDown += (_, ev) =>
+                {
+                    if (ev.ClickCount == 2 && pathRef.Value != null)
+                    {
+                        SelectOption(tab, label, pathRef.Value, detail, border);
+                        OkClick(null!, null!);
+                    }
+                };
+                border.MouseRightButtonUp += (_, ev) =>
+                {
+                    if (pathRef.Value == null) return;
+                    var menu = new System.Windows.Controls.ContextMenu();
+                    var previewItem = new System.Windows.Controls.MenuItem { Header = "Preview Full Size" };
+                    previewItem.Click += (_, _) =>
+                    {
+                        var preview = new ImagePreviewDialog(pathRef.Value, label);
+                        preview.Owner = this;
+                        preview.ShowDialog();
+                    };
+                    menu.Items.Add(previewItem);
+                    menu.IsOpen = true;
+                    ev.Handled = true;
+                };
+
+                tab.OptionsPanel.Children.Add(border);
+                tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", detail));
+                downloadItems.Add((img, pathRef, sc, null, label, detail, null));
             }
 
-            // Download all images in parallel
-            int completed = 0;
-            var semaphore = new System.Threading.SemaphoreSlim(8);
+            foreach (var mc in mpcResults)
+            {
+                string label = mc.Name;
+                string detail = $"MPCFill | {mc.Source} | {mc.Dpi} DPI";
+                string mpcSource = mc.Source;
+                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                var pathRef = new MutablePath();
 
-            var scryfallDownloads = scryfallResults
-                .Where(sc => sc.GetImageUrl() != null)
-                .Select(async sc =>
+                border.MouseLeftButtonUp += (_, _) =>
                 {
-                    await semaphore.WaitAsync();
-                    try
+                    if (pathRef.Value != null)
+                        SelectOption(tab, label, pathRef.Value, detail, border);
+                };
+                border.MouseLeftButtonDown += (_, ev) =>
+                {
+                    if (ev.ClickCount == 2 && pathRef.Value != null)
                     {
-                        var cached = await _scryfall.DownloadAndCacheImageAsync(sc, size: "small");
-                        var done = System.Threading.Interlocked.Increment(ref completed);
-                        _ = Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Downloading art {done}/{totalImages}...");
-                        if (cached != null)
-                            return (Label: $"{sc.SetName} #{sc.CollectorNumber}",
-                                    Path: cached,
-                                    Detail: $"Scryfall | {sc.Artist ?? ""}",
-                                    ScryfallCard: (ScryfallCard?)sc,
-                                    MpcSource: (string?)null,
-                                    MpcCard: (MpcFillCard?)null);
-                        return default;
+                        SelectOption(tab, label, pathRef.Value, detail, border);
+                        OkClick(null!, null!);
                     }
-                    finally { semaphore.Release(); }
-                }).ToList();
-
-            var mpcDownloads = mpcResults.Select(async mc =>
-            {
-                await semaphore.WaitAsync();
-                try
+                };
+                border.MouseRightButtonUp += (_, ev) =>
                 {
-                    var cached = await _mpcFill.DownloadAndCacheImageAsync(mc, thumbnail: true);
-                    var done = System.Threading.Interlocked.Increment(ref completed);
-                    _ = Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Downloading art {done}/{totalImages}...");
-                    if (cached != null)
-                        return (Label: mc.Name,
-                                Path: cached,
-                                Detail: $"MPCFill | {mc.Source} | {mc.Dpi} DPI",
-                                ScryfallCard: (ScryfallCard?)null,
-                                MpcSource: (string?)mc.Source,
-                                MpcCard: (MpcFillCard?)mc);
-                    return default;
-                }
-                finally { semaphore.Release(); }
-            }).ToList();
+                    if (pathRef.Value == null) return;
+                    var menu = new System.Windows.Controls.ContextMenu();
+                    var previewItem = new System.Windows.Controls.MenuItem { Header = "Preview Full Size" };
+                    previewItem.Click += (_, _) =>
+                    {
+                        var preview = new ImagePreviewDialog(pathRef.Value, label);
+                        preview.Owner = this;
+                        preview.ShowDialog();
+                    };
+                    menu.Items.Add(previewItem);
 
-            var allDownloads = scryfallDownloads.Concat(mpcDownloads).ToList();
-            var downloadResults = await Task.WhenAll(allDownloads);
+                    if (_frontArtLibrary != null)
+                    {
+                        var saveItem = new System.Windows.Controls.MenuItem { Header = "Save to Library" };
+                        saveItem.Click += async (_, _) =>
+                        {
+                            string savePath = pathRef.Value!;
+                            if (tab.MpcFillCardsByPath.TryGetValue(savePath, out var mpcForSave))
+                            {
+                                StatusLabel.Text = "Downloading full resolution...";
+                                var fullPath = await _mpcFill.DownloadAndCacheImageAsync(mpcForSave);
+                                if (fullPath != null) savePath = fullPath;
+                            }
+                            string libName = $"{label} [{mpcSource}]";
+                            var entry = _frontArtLibrary.AddFromFile(savePath, libName, mpcSource);
+                            if (entry != null)
+                            {
+                                var scMeta = tab.ScryfallCardsByPath.Values.FirstOrDefault();
+                                if (scMeta != null)
+                                    _frontArtLibrary.ApplyMetadata(entry.Id, scMeta);
+                                _frontArtLibrary.ApplyMpcFillDefaults(entry.Id, mpcSource);
+                            }
+                            StatusLabel.Text = entry != null
+                                ? $"Saved \"{libName}\" to front art library"
+                                : $"\"{libName}\" already in library";
+                        };
+                        menu.Items.Add(saveItem);
+                    }
 
-            // Add tiles (Scryfall first, then MPCFill)
-            foreach (var result in downloadResults)
-            {
-                if (result.Path != null && !shown.Contains(result.Path))
-                {
-                    AddOption(tab, result.Label, result.Path, false, result.Detail, result.MpcSource);
-                    shown.Add(result.Path);
-                    if (result.ScryfallCard != null)
-                        tab.ScryfallCardsByPath[result.Path] = result.ScryfallCard;
-                    if (result.MpcCard != null)
-                        tab.MpcFillCardsByPath[result.Path] = result.MpcCard;
-                }
+                    menu.IsOpen = true;
+                    ev.Handled = true;
+                };
+
+                tab.OptionsPanel.Children.Add(border);
+                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, detail));
+                downloadItems.Add((img, pathRef, null, mc, label, detail, mpcSource));
             }
 
             // "Browse File" action tile only shown when no actions bar (back mode)
             if (_frontArtLibrary == null)
                 AddActionTile(tab, "Browse File...", OnBrowseFile);
+
+            PopulateSourceFilter(tab);
+            ApplyFilters(tab);
+
+            // --- Phase 2: Fire off all downloads concurrently ---
+            if (downloadItems.Count == 0)
+            {
+                StatusLabel.Text = $"{shown.Count} option(s) found";
+                SpinnerDot.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            int completed = 0;
+            var semaphore = new System.Threading.SemaphoreSlim(8);
+
+            var downloadTasks = downloadItems.Select(async item =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    string? cached;
+                    if (item.sc != null)
+                        cached = await _scryfall.DownloadAndCacheImageAsync(item.sc, size: "small");
+                    else
+                        cached = await _mpcFill.DownloadAndCacheImageAsync(item.mc!, thumbnail: true);
+
+                    var done = System.Threading.Interlocked.Increment(ref completed);
+
+                    if (cached != null && !shown.Contains(cached))
+                    {
+                        await Dispatcher.BeginInvoke(() =>
+                        {
+                            try
+                            {
+                                var bmp = new BitmapImage();
+                                bmp.BeginInit();
+                                bmp.UriSource = new Uri(cached, UriKind.Absolute);
+                                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                                bmp.DecodePixelWidth = 150;
+                                bmp.EndInit();
+                                bmp.Freeze();
+                                item.img.Source = bmp;
+                            }
+                            catch { /* image load failed, tile keeps placeholder */ }
+
+                            item.pathRef.Value = cached;
+                            shown.Add(cached);
+
+                            if (item.sc != null)
+                                tab.ScryfallCardsByPath[cached] = item.sc;
+                            if (item.mc != null)
+                                tab.MpcFillCardsByPath[cached] = item.mc;
+
+                            StatusLabel.Text = $"Downloaded {done}/{totalImages}...";
+                        });
+                    }
+                    else
+                    {
+                        _ = Dispatcher.BeginInvoke(() =>
+                            StatusLabel.Text = $"Downloaded {done}/{totalImages}...");
+                    }
+                }
+                finally { semaphore.Release(); }
+            }).ToList();
+
+            await Task.WhenAll(downloadTasks);
+
+            StatusLabel.Text = $"{shown.Count} option(s) found";
+            SpinnerDot.Visibility = Visibility.Collapsed;
         }
 
         private async Task LoadBackOptionsAsync(TabState tab, HashSet<string> shown)
@@ -483,17 +593,78 @@ namespace MTGProxyBuilder.UI.Dialogs
                     var sc = await _scryfall.GetCardByNameAsync(_card.Name);
                     if (sc?.GetBackImageUrl() != null)
                     {
-                        var cachedBack = await _scryfall.DownloadAndCacheImageAsync(sc, back: true, size: "small");
-                        if (cachedBack != null && !shown.Contains(cachedBack))
+                        string label = sc.CardFaces?.Count > 1
+                            ? $"{sc.CardFaces[1].Name} (Scryfall)"
+                            : "Back Face (Scryfall)";
+                        string detail = $"Scryfall | {sc.SetName} #{sc.CollectorNumber}";
+                        var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                        var pathRef = new MutablePath();
+
+                        border.MouseLeftButtonUp += (_, _) =>
                         {
-                            string label = sc.CardFaces?.Count > 1
-                                ? $"{sc.CardFaces[1].Name} (Scryfall)"
-                                : "Back Face (Scryfall)";
-                            AddOption(tab, label, cachedBack, false,
-                                $"Scryfall | {sc.SetName} #{sc.CollectorNumber}");
-                            shown.Add(cachedBack);
-                            tab.ScryfallCardsByPath[cachedBack] = sc;
-                        }
+                            if (pathRef.Value != null)
+                                SelectOption(tab, label, pathRef.Value, detail, border);
+                        };
+                        border.MouseLeftButtonDown += (_, ev) =>
+                        {
+                            if (ev.ClickCount == 2 && pathRef.Value != null)
+                            {
+                                SelectOption(tab, label, pathRef.Value, detail, border);
+                                OkClick(null!, null!);
+                            }
+                        };
+                        border.MouseRightButtonUp += (_, ev) =>
+                        {
+                            if (pathRef.Value == null) return;
+                            var menu = new System.Windows.Controls.ContextMenu();
+                            var previewItem = new System.Windows.Controls.MenuItem { Header = "Preview Full Size" };
+                            previewItem.Click += (_, _) =>
+                            {
+                                var preview = new ImagePreviewDialog(pathRef.Value, label);
+                                preview.Owner = this;
+                                preview.ShowDialog();
+                            };
+                            menu.Items.Add(previewItem);
+                            menu.IsOpen = true;
+                            ev.Handled = true;
+                        };
+
+                        tab.OptionsPanel.Children.Add(border);
+                        tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", detail));
+                        shown.Add("__scryfall_back_placeholder__"); // reserve slot in count
+
+                        // Fire off download in background
+                        var capturedSc = sc;
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var cachedBack = await _scryfall.DownloadAndCacheImageAsync(capturedSc, back: true, size: "small");
+                                if (cachedBack != null)
+                                {
+                                    await Dispatcher.BeginInvoke(() =>
+                                    {
+                                        try
+                                        {
+                                            var bmp = new BitmapImage();
+                                            bmp.BeginInit();
+                                            bmp.UriSource = new Uri(cachedBack, UriKind.Absolute);
+                                            bmp.CacheOption = BitmapCacheOption.OnLoad;
+                                            bmp.DecodePixelWidth = 150;
+                                            bmp.EndInit();
+                                            bmp.Freeze();
+                                            img.Source = bmp;
+                                        }
+                                        catch { /* image load failed */ }
+
+                                        pathRef.Value = cachedBack;
+                                        shown.Add(cachedBack);
+                                        tab.ScryfallCardsByPath[cachedBack] = capturedSc;
+                                    });
+                                }
+                            }
+                            catch (Exception ex) { Log.Warning(ex, "Scryfall back face download failed for {CardName}", _card.Name); }
+                        });
                     }
                 }
                 catch (Exception ex) { Log.Warning(ex, "Scryfall back face lookup failed for {CardName}", _card.Name); }
