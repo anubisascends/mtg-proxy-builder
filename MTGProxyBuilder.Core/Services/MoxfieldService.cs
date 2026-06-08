@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Serilog;
 
 namespace MTGProxyBuilder.Core.Services
 {
@@ -39,7 +40,7 @@ namespace MTGProxyBuilder.Core.Services
                 if (decksIdx >= 0 && decksIdx + 1 < segments.Length)
                     return segments[decksIdx + 1];
             }
-            catch { }
+            catch (Exception ex) { Log.Warning(ex, "Failed to parse Moxfield URL {Url}", url); }
 
             return null;
         }
@@ -51,6 +52,7 @@ namespace MTGProxyBuilder.Core.Services
         {
             try
             {
+                Log.Information("Fetching Moxfield deck {DeckId}", deckId);
                 string apiUrl = $"https://api2.moxfield.com/v2/decks/all/{deckId}";
 
                 var json = await FetchWithCurlAsync(apiUrl);
@@ -129,8 +131,9 @@ namespace MTGProxyBuilder.Core.Services
 
                 return process.ExitCode == 0 && !string.IsNullOrWhiteSpace(output) ? output : null;
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Error(ex, "Failed to fetch URL via curl: {Url}", url);
                 return null;
             }
         }
