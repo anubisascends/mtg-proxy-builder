@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using Serilog;
 
 namespace MTGProxyBuilder.Core.Services
 {
@@ -50,7 +51,7 @@ namespace MTGProxyBuilder.Core.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Image cache error: {ex.Message}");
+                Log.Error(ex, "Failed to cache image from {Url} for {CardId}", imageUrl, cardId);
                 return null;
             }
         }
@@ -98,7 +99,11 @@ namespace MTGProxyBuilder.Core.Services
                         ?? new(StringComparer.OrdinalIgnoreCase);
                 }
             }
-            catch { _metaIndex = new(StringComparer.OrdinalIgnoreCase); }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to load image cache metadata from {Path}", _metadataPath);
+                _metaIndex = new(StringComparer.OrdinalIgnoreCase);
+            }
         }
 
         private void SaveMetadata()
@@ -108,7 +113,7 @@ namespace MTGProxyBuilder.Core.Services
                 var json = JsonConvert.SerializeObject(_metaIndex, Formatting.Indented);
                 File.WriteAllText(_metadataPath, json);
             }
-            catch { }
+            catch (Exception ex) { Log.Warning(ex, "Failed to save image cache metadata"); }
         }
 
         /// <summary>Removes a single cached image by its card ID key.</summary>
@@ -120,7 +125,7 @@ namespace MTGProxyBuilder.Core.Services
             if (File.Exists(path))
             {
                 try { File.Delete(path); }
-                catch { return false; }
+                catch (Exception ex) { Log.Warning(ex, "Failed to delete cached file {Path}", path); return false; }
             }
 
             _fileIndex.Remove(cardId);
@@ -136,7 +141,7 @@ namespace MTGProxyBuilder.Core.Services
                 foreach (var file in Directory.GetFiles(_cacheDirectory))
                 {
                     try { File.Delete(file); }
-                    catch { /* skip locked files */ }
+                    catch (Exception ex) { Log.Warning(ex, "Failed to delete cache file {File}", file); }
                 }
             }
             _fileIndex.Clear();
