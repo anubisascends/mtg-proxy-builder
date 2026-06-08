@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using MTGProxyBuilder.Core.Models;
 using Newtonsoft.Json;
+using Serilog;
 
 namespace MTGProxyBuilder.Core.Services
 {
@@ -112,7 +113,7 @@ namespace MTGProxyBuilder.Core.Services
             if (File.Exists(entry.FilePath))
             {
                 try { File.Delete(entry.FilePath); }
-                catch { }
+                catch (Exception ex) { Log.Warning(ex, "Failed to delete library file {Path}", entry.FilePath); }
             }
 
             _entries.Remove(entry);
@@ -186,7 +187,7 @@ namespace MTGProxyBuilder.Core.Services
                         OnMergeExistingCatalog(existingCatalog);
                     }
                 }
-                catch { }
+                catch (Exception ex) { Log.Warning(ex, "Failed to parse existing catalog at {Path}", destCatalogPath); }
             }
 
             int total = _entries.Count;
@@ -224,7 +225,7 @@ namespace MTGProxyBuilder.Core.Services
                 if (Directory.Exists(oldDirectory) && !string.Equals(oldDirectory, newDirectory, StringComparison.OrdinalIgnoreCase))
                     Directory.Delete(oldDirectory, recursive: true);
             }
-            catch { }
+            catch (Exception ex) { Log.Warning(ex, "Failed to delete old library directory {Dir}", oldDirectory); }
 
             return newEntryIds;
         }
@@ -283,7 +284,7 @@ namespace MTGProxyBuilder.Core.Services
                     }
                     finally
                     {
-                        try { File.Delete(tempPath); } catch { }
+                        try { File.Delete(tempPath); } catch (Exception ex) { Log.Warning(ex, "Failed to clean up temp file {Path}", tempPath); }
                     }
                     onProgress?.Invoke(i + 1, imageEntries.Count);
                 }
@@ -325,7 +326,7 @@ namespace MTGProxyBuilder.Core.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Art library load error: {ex.Message}");
+                Log.Error(ex, "Failed to load art library catalog from {Path}", _catalogPath);
                 _entries = new();
             }
         }
@@ -341,7 +342,7 @@ namespace MTGProxyBuilder.Core.Services
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Art library save error: {ex.Message}");
+                Log.Error(ex, "Failed to save art library catalog to {Path}", _catalogPath);
             }
         }
     }
