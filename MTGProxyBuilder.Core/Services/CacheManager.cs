@@ -1,3 +1,5 @@
+using Serilog;
+
 namespace MTGProxyBuilder.Core.Services
 {
     /// <summary>
@@ -32,6 +34,7 @@ namespace MTGProxyBuilder.Core.Services
         {
             try
             {
+                Log.Information("Running startup cache cleanup");
                 // Clear all extracted projects — they'll be re-extracted when a project is opened
                 ClearDirectory(_extractedProjectsDir);
 
@@ -43,11 +46,11 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     foreach (var tmp in Directory.GetFiles(_rootDir, "*.tmp", SearchOption.AllDirectories))
                     {
-                        try { File.Delete(tmp); } catch { }
+                        try { File.Delete(tmp); } catch (Exception ex) { Log.Warning(ex, "Failed to delete temp file {File}", tmp); }
                     }
                 }
             }
-            catch { } // startup cleanup should never crash the app
+            catch (Exception ex) { Log.Warning(ex, "Error during startup cache cleanup"); }
         }
 
         /// <summary>
@@ -106,7 +109,7 @@ namespace MTGProxyBuilder.Core.Services
                         info.Delete();
                         files++;
                     }
-                    catch { } // skip locked files
+                    catch (Exception ex) { Log.Warning(ex, "Failed to delete file {File}", file); }
                 }
 
                 // Remove empty subdirectories
@@ -118,10 +121,10 @@ namespace MTGProxyBuilder.Core.Services
                         if (Directory.GetFileSystemEntries(dir).Length == 0)
                             Directory.Delete(dir);
                     }
-                    catch { }
+                    catch (Exception ex) { Log.Warning(ex, "Failed to remove empty directory {Dir}", dir); }
                 }
             }
-            catch { }
+            catch (Exception ex) { Log.Warning(ex, "Error clearing directory {Path}", path); }
 
             return (files, bytes);
         }
@@ -134,7 +137,7 @@ namespace MTGProxyBuilder.Core.Services
                 return Directory.GetFiles(path, "*", SearchOption.AllDirectories)
                     .Sum(f => new FileInfo(f).Length);
             }
-            catch { return 0; }
+            catch (Exception ex) { Log.Warning(ex, "Failed to calculate size of {Path}", path); return 0; }
         }
     }
 }
