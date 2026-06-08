@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Windows.Media.Imaging;
+using Serilog;
 
 namespace MTGProxyBuilder.UI.Services
 {
@@ -58,8 +59,9 @@ namespace MTGProxyBuilder.UI.Services
 
                 return thumbPath;
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Warning(ex, "Failed to generate thumbnail for {EntryId} from {Path}", entryId, sourceFilePath);
                 return null;
             }
         }
@@ -69,7 +71,7 @@ namespace MTGProxyBuilder.UI.Services
         {
             var path = GetThumbnailPath(entryId);
             if (File.Exists(path))
-                try { File.Delete(path); } catch { }
+                try { File.Delete(path); } catch (Exception ex) { Log.Warning(ex, "Failed to delete thumbnail {Path}", path); }
         }
 
         /// <summary>Deletes all thumbnails in the directory.</summary>
@@ -77,7 +79,7 @@ namespace MTGProxyBuilder.UI.Services
         {
             if (!Directory.Exists(_thumbnailDirectory)) return;
             foreach (var file in Directory.GetFiles(_thumbnailDirectory, "*.jpg"))
-                try { File.Delete(file); } catch { }
+                try { File.Delete(file); } catch (Exception ex) { Log.Warning(ex, "Failed to delete thumbnail file {File}", file); }
         }
 
         /// <summary>Regenerates thumbnails for all provided entries. Call from a background thread.</summary>

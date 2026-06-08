@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
+using Serilog;
 
 namespace MTGProxyBuilder.UI.ViewModels
 {
@@ -48,6 +49,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public async Task<(List<ScryfallCard> Results, string? Error)> SearchScryfallAsync(string query)
         {
+            Log.Information("SearchCoordinator: Scryfall search for {Query}", query);
             var (results, error) = await _scryfall.SearchCardAsync(query);
             return (results?.Take(50).ToList() ?? new(), error);
         }
@@ -56,6 +58,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             string query, int minDpi, bool fuzzySearch, bool useFavoritesOnly,
             string? nameFilter = null)
         {
+            Log.Information("SearchCoordinator: MPCFill search for {Query} (minDpi={MinDpi}, fuzzy={Fuzzy})", query, minDpi, fuzzySearch);
             var opts = BuildSearchOptions(minDpi, fuzzySearch);
             var sources = GetSources(useFavoritesOnly);
             var (results, error) = await _mpcFill.SearchAsync(
@@ -73,6 +76,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public async Task<string?> DownloadScryfallArtAsync(ScryfallCard card, bool back = false)
         {
+            Log.Information("Downloading Scryfall art for {CardName} (back={Back})", card.Name, back);
             return await _scryfall.DownloadAndCacheImageAsync(card, back: back);
         }
 

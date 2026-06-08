@@ -1,5 +1,6 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Serilog;
 
 namespace MTGProxyBuilder.Core.Services
 {
@@ -86,6 +87,7 @@ namespace MTGProxyBuilder.Core.Services
 
             try
             {
+                Log.Information("Loading MPCFill sources");
                 var response = await _httpClient.GetAsync("https://mpcfill.com/2/sources/");
                 if (!response.IsSuccessStatusCode)
                     return $"MPCFill returned {(int)response.StatusCode} when fetching sources.";
@@ -112,14 +114,17 @@ namespace MTGProxyBuilder.Core.Services
             }
             catch (HttpRequestException ex)
             {
+                Log.Error(ex, "MPCFill network error loading sources");
                 return $"Network error: {ex.Message}";
             }
             catch (TaskCanceledException)
             {
+                Log.Warning("MPCFill source loading timed out");
                 return "Request timed out.";
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Failed to load MPCFill sources");
                 return $"Error loading sources: {ex.Message}";
             }
         }
@@ -141,6 +146,7 @@ namespace MTGProxyBuilder.Core.Services
                     : _sourceManager.BuildSourcesArray();
 
                 var opts = options ?? new MpcFillSearchOptions();
+                Log.Information("MPCFill search: {Query}", query);
                 // Per-call overrides take precedence when explicitly passed
                 if (options == null)
                 {
@@ -218,28 +224,34 @@ namespace MTGProxyBuilder.Core.Services
 
                 return (allCards, null);
             }
-            catch (HttpRequestException ex) { return (new(), $"Network error: {ex.Message}"); }
-            catch (TaskCanceledException) { return (new(), "Request timed out"); }
-            catch (Exception ex) { return (new(), $"Error: {ex.Message}"); }
+            catch (HttpRequestException ex) { Log.Error(ex, "MPCFill network error searching {Query}", query); return (new(), $"Network error: {ex.Message}"); }
+            catch (TaskCanceledException) { Log.Warning("MPCFill search timed out for {Query}", query); return (new(), "Request timed out"); }
+            catch (Exception ex) { Log.Error(ex, "MPCFill search failed for {Query}", query); return (new(), $"Error: {ex.Message}"); }
         }
 
         /// <summary>Download and cache a card image from MPCFill.</summary>
-        public async Task<string?> DownloadAndCacheImageAsync(MpcFillCard card)
+        /// <param name="thumbnail">When true, downloads the small thumbnail instead of the full image.</param>
+        public async Task<string?> DownloadAndCacheImageAsync(MpcFillCard card, bool thumbnail = false)
         {
-            string cacheKey = $"mpc_{card.Identifier}";
+            // Fall back to full download if no thumbnail URL available
+            if (thumbnail && string.IsNullOrEmpty(card.SmallThumbnailUrl))
+                thumbnail = false;
+
+            string cacheKey = thumbnail ? $"thumb_{card.Identifier}" : $"mpc_{card.Identifier}";
             var cached = _imageCache.GetCachedImagePath(cacheKey);
             if (cached != null)
             {
-                // Ensure metadata is stored even for previously cached images
-                _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
+                if (!thumbnail)
+                    _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
                 return cached;
             }
 
-            string url = card.DownloadLink;
+            string url = thumbnail ? card.SmallThumbnailUrl : card.DownloadLink;
             if (string.IsNullOrEmpty(url)) return null;
 
+            Log.Information("Downloading MPCFill image {Identifier} ({Mode})", card.Identifier, thumbnail ? "thumbnail" : "full");
             var result = await _imageCache.CacheImageFromUrlAsync(_httpClient, url, cacheKey);
-            if (result != null)
+            if (result != null && !thumbnail)
                 _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
             return result;
         }
@@ -265,8 +277,9 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     results[index] = (card, await DownloadAndCacheImageAsync(card));
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Log.Warning(ex, "Failed to download MPCFill image {Identifier}", card.Identifier);
                     results[index] = (card, null);
                 }
                 finally
@@ -369,9 +382,9 @@ namespace MTGProxyBuilder.Core.Services
 
                 return (cards, null);
             }
-            catch (HttpRequestException ex) { return (new(), $"Network error: {ex.Message}"); }
-            catch (TaskCanceledException) { return (new(), "Request timed out"); }
-            catch (Exception ex) { return (new(), $"Error: {ex.Message}"); }
+            catch (HttpRequestException ex) { Log.Error(ex, "MPCFill network error fetching cardbacks"); return (new(), $"Network error: {ex.Message}"); }
+            catch (TaskCanceledException) { Log.Warning("MPCFill cardback search timed out"); return (new(), "Request timed out"); }
+            catch (Exception ex) { Log.Error(ex, "MPCFill cardback search failed"); return (new(), $"Error: {ex.Message}"); }
         }
     }
 }

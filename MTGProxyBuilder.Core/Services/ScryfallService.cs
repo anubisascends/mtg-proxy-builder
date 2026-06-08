@@ -1,5 +1,6 @@
 using MTGProxyBuilder.Core.Models;
 using Newtonsoft.Json;
+using Serilog;
 
 namespace MTGProxyBuilder.Core.Services
 {
@@ -184,6 +185,7 @@ namespace MTGProxyBuilder.Core.Services
         {
             try
             {
+                Log.Information("Scryfall search: {Query}", cardName);
                 string encoded = System.Net.WebUtility.UrlEncode(cardName);
                 string? url = $"https://api.scryfall.com/cards/search?q={encoded}";
                 var allCards = new List<ScryfallCard>();
@@ -214,14 +216,17 @@ namespace MTGProxyBuilder.Core.Services
             }
             catch (HttpRequestException ex)
             {
+                Log.Error(ex, "Scryfall network error searching for {Query}", cardName);
                 return (new(), $"Network error: {ex.Message}");
             }
             catch (TaskCanceledException)
             {
+                Log.Warning("Scryfall search timed out for {Query}", cardName);
                 return (new(), "Request timed out");
             }
             catch (Exception ex)
             {
+                Log.Error(ex, "Scryfall search failed for {Query}", cardName);
                 return (new(), $"Error: {ex.Message}");
             }
         }
@@ -237,6 +242,7 @@ namespace MTGProxyBuilder.Core.Services
             string? imageUrl = back ? card.GetBackImageUrl(size) : card.GetImageUrl(size);
             if (imageUrl == null) return null;
 
+            Log.Information("Downloading Scryfall image {CardId} ({Size}{Back})", card.Id, size, back ? ", back" : "");
             return await _imageCache.CacheImageFromUrlAsync(_httpClient, imageUrl, cacheKey);
         }
 
@@ -251,8 +257,9 @@ namespace MTGProxyBuilder.Core.Services
                 var json = await response.Content.ReadAsStringAsync();
                 return JsonConvert.DeserializeObject<ScryfallCard>(json);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Error(ex, "Failed to fetch Scryfall card by ID {Id}", scryfallId);
                 return null;
             }
         }
@@ -270,8 +277,9 @@ namespace MTGProxyBuilder.Core.Services
                 var json = await response.Content.ReadAsStringAsync();
                 return JsonConvert.DeserializeObject<ScryfallCard>(json);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Error(ex, "Failed to fetch Scryfall card by name {Name}", cardName);
                 return null;
             }
         }

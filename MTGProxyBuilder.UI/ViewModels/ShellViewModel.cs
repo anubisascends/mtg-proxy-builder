@@ -7,6 +7,7 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
+using Serilog;
 
 namespace MTGProxyBuilder.UI.ViewModels
 {
@@ -53,6 +54,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             OpenCardEditorCommand = new RelayCommand(_ => OpenCardEditor());
 
             _ = CheckForUpdateAsync();
+            Log.Information("ShellViewModel initialized");
         }
 
         public ObservableCollection<ProjectViewModel> Projects { get; }
@@ -116,6 +118,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public void NewProject()
         {
+            Log.Information("Creating new project");
             var vm = new MainViewModel();
             vm.UseSharedLibraries(_frontArtLibraryService, _backArtLibraryService);
             ApplyDefaults(vm);
@@ -149,6 +152,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 Title = "Open Project"
             };
             if (dialog.ShowDialog() != true) return;
+            Log.Information("Opening project {Path}", dialog.FileName);
 
             // Check if already open
             foreach (var p in Projects)
@@ -317,7 +321,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                     UpdateDownloadUrl = update.DownloadUrl;
                 }
             }
-            catch { }
+            catch (Exception ex) { Log.Warning(ex, "Update check failed"); }
         }
 
         private void DownloadUpdate()
@@ -332,7 +336,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                         UseShellExecute = true
                     });
                 }
-                catch { }
+                catch (Exception ex) { Log.Warning(ex, "Failed to open update URL {Url}", UpdateDownloadUrl); }
             }
         }
 
