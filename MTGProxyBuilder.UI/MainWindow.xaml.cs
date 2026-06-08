@@ -7,6 +7,7 @@ using System.Windows.Input;
 using AvalonDock.Layout;
 using AvalonDock.Layout.Serialization;
 using MTGProxyBuilder.UI.ViewModels;
+using Serilog;
 
 namespace MTGProxyBuilder.UI;
 
@@ -303,9 +304,11 @@ public partial class MainWindow : Window
             };
             serializer.Deserialize(DockLayoutPath);
         }
-        catch
+        catch (Exception ex)
         {
-            try { if (File.Exists(DockLayoutPath)) File.Delete(DockLayoutPath); } catch { }
+            Log.Warning(ex, "Failed to load dock layout from {Path}, resetting", DockLayoutPath);
+            try { if (File.Exists(DockLayoutPath)) File.Delete(DockLayoutPath); }
+            catch (Exception deleteEx) { Log.Warning(deleteEx, "Failed to delete corrupt dock layout file"); }
         }
     }
 
@@ -318,7 +321,7 @@ public partial class MainWindow : Window
             var serializer = new XmlLayoutSerializer(DockManager);
             serializer.Serialize(DockLayoutPath);
         }
-        catch { }
+        catch (Exception ex) { Log.Warning(ex, "Failed to save dock layout"); }
     }
 
     // --- Unsaved changes prompt ---
