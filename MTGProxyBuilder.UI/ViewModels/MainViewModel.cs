@@ -8,6 +8,7 @@ using System.Windows.Input;
 using Microsoft.Win32;
 using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
+using Serilog;
 
 namespace MTGProxyBuilder.UI.ViewModels
 {
@@ -275,7 +276,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                     UpdateDownloadUrl = update.DownloadUrl;
                 }
             }
-            catch { /* never crash on update check */ }
+            catch (Exception ex) { Log.Warning(ex, "Update check failed"); }
         }
 
         private void OpenSettings()
@@ -314,7 +315,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                         UseShellExecute = true
                     });
                 }
-                catch { }
+                catch (Exception ex) { Log.Warning(ex, "Failed to open update URL {Url}", UpdateDownloadUrl); }
             }
         }
 
@@ -1234,6 +1235,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         private void ShowArtSelector(CardModel card, Dialogs.ArtSelectorMode initialMode)
         {
+            Log.Information("Art selector opened for {CardName} ({Mode})", card.Name, initialMode);
             var dialog = new Dialogs.ArtSelectorDialog(
                 card, initialMode, _scryfallService, _mpcFillService, _imageCacheService,
                 _backArtLibraryService, Cards, GetMpcFillSources(), BuildMpcFillSearchOptions(),
@@ -1414,6 +1416,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             if (SelectedScryfallCard == null) return;
 
             SetBusy($"Downloading artwork for {SelectedScryfallCard.Name}...");
+            Log.Information("Adding Scryfall card {Name} ({Set})", SelectedScryfallCard.Name, SelectedScryfallCard.SetName);
 
             try
             {
@@ -1452,6 +1455,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             SyncCardsToProject();
             SetBusy("Generating PDF...");
+            Log.Information("Exporting PDF to {Path} ({CardCount} cards)", dialog.FileName, Cards.Count);
 
             try
             {
@@ -1788,6 +1792,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             if (dialog.ShowDialog() != true) return;
 
             SetBusy("Parsing MPCFill XML...");
+            Log.Information("Importing MPCFill XML from {Path}", dialog.FileName);
 
             try
             {
@@ -1860,6 +1865,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             string sourceName = source.ToString();
             SetBusy($"Connecting to {sourceName}...");
+            Log.Information("Importing deck from {Url} (source: {Source})", ImportDeckUrl, sourceName);
 
             try
             {
