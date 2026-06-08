@@ -13,6 +13,7 @@ using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
 using MTGProxyBuilder.UI.Controls;
 using MTGProxyBuilder.UI.Services;
+using Serilog;
 
 namespace MTGProxyBuilder.UI.Dialogs
 {
@@ -52,6 +53,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             public required SearchBar SearchBar { get; init; }
             public List<TileInfo> AllTiles { get; } = new();
             public Dictionary<string, ScryfallCard> ScryfallCardsByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, MpcFillCard> MpcFillCardsByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
             public string? ResultPath { get; set; }
             public string? SelectedLabel { get; set; }
             public string? SelectedDetail { get; set; }
@@ -94,6 +96,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             _backThumbnails = backLibrary != null ? new ThumbnailService(backLibrary.LibraryDirectory) : null;
 
             TitleLabel.Text = "Select Artwork";
+            Log.Information("Art selector dialog opened for {CardName} ({Mode})", card.Name, initialMode);
             CardNameLabel.Text = $"for: {card.Name}";
 
             // Initialize tab state
@@ -340,12 +343,13 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             // 2. Kick off API searches concurrently
             StatusLabel.Text = $"Searching for \"{_card.Name}\"...";
+            Log.Information("Loading front art options for {CardName}", _card.Name);
             var mpcOpts = BuildSearchOptionsFromControls();
             mpcOpts.FuzzySearch = false;
             var scryfallTask = Task.Run(async () =>
             {
                 try { return (await _scryfall.SearchCardAsync($"!\"{_card.Name}\"")).Cards; }
-                catch { return new List<ScryfallCard>(); }
+                catch (Exception ex) { Log.Warning(ex, "Scryfall search failed in art selector"); return new List<ScryfallCard>(); }
             });
             var mpcTask = Task.Run(async () =>
             {
@@ -401,7 +405,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     await semaphore.WaitAsync();
                     try
                     {
-                        var cached = await _scryfall.DownloadAndCacheImageAsync(sc, size: "normal");
+                        var cached = await _scryfall.DownloadAndCacheImageAsync(sc, size: "small");
                         var done = System.Threading.Interlocked.Increment(ref completed);
                         _ = Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Downloading art {done}/{totalImages}...");
                         if (cached != null)
@@ -409,7 +413,8 @@ namespace MTGProxyBuilder.UI.Dialogs
                                     Path: cached,
                                     Detail: $"Scryfall | {sc.Artist ?? ""}",
                                     ScryfallCard: (ScryfallCard?)sc,
-                                    MpcSource: (string?)null);
+                                    MpcSource: (string?)null,
+                                    MpcCard: (MpcFillCard?)null);
                         return default;
                     }
                     finally { semaphore.Release(); }
@@ -420,7 +425,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 await semaphore.WaitAsync();
                 try
                 {
-                    var cached = await _mpcFill.DownloadAndCacheImageAsync(mc);
+                    var cached = await _mpcFill.DownloadAndCacheImageAsync(mc, thumbnail: true);
                     var done = System.Threading.Interlocked.Increment(ref completed);
                     _ = Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Downloading art {done}/{totalImages}...");
                     if (cached != null)
@@ -428,7 +433,8 @@ namespace MTGProxyBuilder.UI.Dialogs
                                 Path: cached,
                                 Detail: $"MPCFill | {mc.Source} | {mc.Dpi} DPI",
                                 ScryfallCard: (ScryfallCard?)null,
-                                MpcSource: (string?)mc.Source);
+                                MpcSource: (string?)mc.Source,
+                                MpcCard: (MpcFillCard?)mc);
                     return default;
                 }
                 finally { semaphore.Release(); }
@@ -446,6 +452,8 @@ namespace MTGProxyBuilder.UI.Dialogs
                     shown.Add(result.Path);
                     if (result.ScryfallCard != null)
                         tab.ScryfallCardsByPath[result.Path] = result.ScryfallCard;
+                    if (result.MpcCard != null)
+                        tab.MpcFillCardsByPath[result.Path] = result.MpcCard;
                 }
             }
 
@@ -475,7 +483,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     var sc = await _scryfall.GetCardByNameAsync(_card.Name);
                     if (sc?.GetBackImageUrl() != null)
                     {
-                        var cachedBack = await _scryfall.DownloadAndCacheImageAsync(sc, back: true, size: "normal");
+                        var cachedBack = await _scryfall.DownloadAndCacheImageAsync(sc, back: true, size: "small");
                         if (cachedBack != null && !shown.Contains(cachedBack))
                         {
                             string label = sc.CardFaces?.Count > 1
@@ -488,7 +496,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                         }
                     }
                 }
-                catch { /* Scryfall unavailable — continue with library options */ }
+                catch (Exception ex) { Log.Warning(ex, "Scryfall back face lookup failed for {CardName}", _card.Name); }
             }
 
             // Library entries — build tiles instantly with deferred image loading
@@ -711,10 +719,18 @@ namespace MTGProxyBuilder.UI.Dialogs
                 if (_frontArtLibrary != null && mpcSource != null)
                 {
                     var saveItem = new System.Windows.Controls.MenuItem { Header = "Save to Library" };
-                    saveItem.Click += (_, _) =>
+                    saveItem.Click += async (_, _) =>
                     {
+                        // Download full resolution if browsing with thumbnail
+                        string savePath = path;
+                        if (tab.MpcFillCardsByPath.TryGetValue(path, out var mc))
+                        {
+                            StatusLabel.Text = "Downloading full resolution...";
+                            var fullPath = await _mpcFill.DownloadAndCacheImageAsync(mc);
+                            if (fullPath != null) savePath = fullPath;
+                        }
                         string libName = $"{capturedLabel} [{mpcSource}]";
-                        var entry = _frontArtLibrary.AddFromFile(path, libName, mpcSource);
+                        var entry = _frontArtLibrary.AddFromFile(savePath, libName, mpcSource);
                         if (entry != null)
                         {
                             var sc = tab.ScryfallCardsByPath.TryGetValue(path, out var exact) ? exact
@@ -1059,6 +1075,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             ResultMode = _activeTab.Mode;
             ResultPath = _activeTab.ResultPath;
+            Log.Information("Art selected: {Mode} for {Path}", ResultMode, ResultPath);
 
             // If the selected path is a normal-size Scryfall thumbnail, upgrade to full-size
             if (ResultMode == ArtSelectorMode.Front && ResultPath != null
@@ -1067,6 +1084,18 @@ namespace MTGProxyBuilder.UI.Dialogs
                 OkBtn.IsEnabled = false;
                 StatusLabel.Text = "Downloading full resolution...";
                 var fullPath = await _scryfall.DownloadAndCacheImageAsync(sc, size: "large");
+                if (fullPath != null)
+                    ResultPath = fullPath;
+                OkBtn.IsEnabled = true;
+            }
+
+            // Front tab: upgrade MPCFill thumbnail to full resolution
+            if (ResultMode == ArtSelectorMode.Front && ResultPath != null
+                && _frontTab.MpcFillCardsByPath.TryGetValue(ResultPath, out var mpcCard))
+            {
+                OkBtn.IsEnabled = false;
+                StatusLabel.Text = "Downloading full resolution...";
+                var fullPath = await _mpcFill.DownloadAndCacheImageAsync(mpcCard);
                 if (fullPath != null)
                     ResultPath = fullPath;
                 OkBtn.IsEnabled = true;
