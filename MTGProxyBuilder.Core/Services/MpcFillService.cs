@@ -277,8 +277,9 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     results[index] = (card, await DownloadAndCacheImageAsync(card));
                 }
-                catch
+                catch (Exception ex)
                 {
+                    Log.Warning(ex, "Failed to download MPCFill image {Identifier}", card.Identifier);
                     results[index] = (card, null);
                 }
                 finally
