@@ -25,6 +25,7 @@ namespace MTGProxyBuilder.UI
         public static readonly SolidColorBrush AccentBlue = Freeze(0x00, 0x78, 0xD4);
         public static readonly SolidColorBrush AccentGreen = Freeze(0x4C, 0xAF, 0x50);
         public static readonly SolidColorBrush AccentRed = Freeze(0xE0, 0x60, 0x60);
+        public static readonly SolidColorBrush AccentCyan = Freeze(0x4F, 0xC3, 0xF7);
         public static readonly SolidColorBrush SelectionBlue = Freeze(0x1E, 0x90, 0xFF);
 
         // Borders
