@@ -230,3 +230,224 @@ public class FilterParserTests
         Assert.Equal("Bolt", t.DisplayText);
     }
 }
+
+// ================================================================
+//  EVALUATOR TESTS
+// ================================================================
+
+public class FilterEvaluatorTests
+{
+    // Test data
+    private static readonly TileData HighDpiRetro  = new("Lightning Bolt (Full Art)", "Chilli_Axe", 1200, ["Retro", "Frame"]);
+    private static readonly TileData LowDpiPlain   = new("Lightning Bolt", "MrTeferi", 300, []);
+    private static readonly TileData ScryfallCard  = new("Lightning Bolt", "Scryfall", 0, []);
+
+    private static bool Eval(string expr, TileData tile) =>
+        FilterEvaluator.Evaluate(FilterParser.Parse(expr), tile);
+
+    private static IReadOnlyList<FilterToken> NoTokens => [];
+
+    // ----------------------------------------------------------------
+    //  Empty filter
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void EmptyTokens_MatchEverything()
+    {
+        Assert.True(FilterEvaluator.Evaluate(NoTokens, HighDpiRetro));
+        Assert.True(FilterEvaluator.Evaluate(NoTokens, LowDpiPlain));
+        Assert.True(FilterEvaluator.Evaluate(NoTokens, ScryfallCard));
+    }
+
+    // ----------------------------------------------------------------
+    //  DPI comparisons
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void DpiGt800_MatchesHighDpi()
+    {
+        Assert.True(Eval("dpi:>800", HighDpiRetro));
+    }
+
+    [Fact]
+    public void DpiGt800_NoMatchLowDpi()
+    {
+        Assert.False(Eval("dpi:>800", LowDpiPlain));
+    }
+
+    [Fact]
+    public void DpiGt800_NoMatchZeroDpi()
+    {
+        Assert.False(Eval("dpi:>800", ScryfallCard));
+    }
+
+    [Fact]
+    public void DpiLt600_MatchesLowDpi()
+    {
+        Assert.True(Eval("dpi:<600", LowDpiPlain));
+    }
+
+    [Fact]
+    public void DpiLt600_NoMatchHighDpi()
+    {
+        Assert.False(Eval("dpi:<600", HighDpiRetro));
+    }
+
+    // ----------------------------------------------------------------
+    //  Source matching
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void SourceEq_CaseInsensitive_Matches()
+    {
+        Assert.True(Eval("source:chilli_axe", HighDpiRetro));
+    }
+
+    [Fact]
+    public void SourceEq_NoMatch()
+    {
+        Assert.False(Eval("source:Chilli_Axe", LowDpiPlain));
+    }
+
+    [Fact]
+    public void SourceIn_MatchesAny()
+    {
+        Assert.True(Eval("source:in[Chilli_Axe,MrTeferi]", HighDpiRetro));
+        Assert.True(Eval("source:in[Chilli_Axe,MrTeferi]", LowDpiPlain));
+    }
+
+    [Fact]
+    public void SourceIn_NoMatch()
+    {
+        Assert.False(Eval("source:in[Chilli_Axe,MrTeferi]", ScryfallCard));
+    }
+
+    [Fact]
+    public void SourceNot_Excludes()
+    {
+        Assert.False(Eval("source:!Chilli_Axe", HighDpiRetro));
+        Assert.True(Eval("source:!Chilli_Axe", LowDpiPlain));
+    }
+
+    // ----------------------------------------------------------------
+    //  Tag matching
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void TagEq_Matches()
+    {
+        Assert.True(Eval("tag:Retro", HighDpiRetro));
+    }
+
+    [Fact]
+    public void TagEq_NoMatch()
+    {
+        Assert.False(Eval("tag:Retro", LowDpiPlain));
+    }
+
+    [Fact]
+    public void TagNot_ExcludesTagged()
+    {
+        Assert.False(Eval("tag:!Retro", HighDpiRetro));
+    }
+
+    [Fact]
+    public void TagNot_PassesUntagged()
+    {
+        Assert.True(Eval("tag:!NSFW", HighDpiRetro));
+        Assert.True(Eval("tag:!NSFW", LowDpiPlain));
+    }
+
+    // ----------------------------------------------------------------
+    //  Name substring
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void NameSubstring_Matches()
+    {
+        Assert.True(Eval("Bolt", HighDpiRetro));
+        Assert.True(Eval("Bolt", LowDpiPlain));
+    }
+
+    [Fact]
+    public void NameSubstring_CaseInsensitive()
+    {
+        Assert.True(Eval("bolt", HighDpiRetro));
+    }
+
+    [Fact]
+    public void NameSubstring_NoMatch()
+    {
+        Assert.False(Eval("Counterspell", HighDpiRetro));
+    }
+
+    [Fact]
+    public void NameNot_ExcludesMatch()
+    {
+        Assert.False(Eval("name:!Bolt", HighDpiRetro));
+        Assert.True(Eval("name:!Counterspell", HighDpiRetro));
+    }
+
+    // ----------------------------------------------------------------
+    //  Implicit AND
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void ImplicitAnd_BothMustMatch()
+    {
+        // High DPI and Retro tag — only HighDpiRetro has both
+        Assert.True(Eval("dpi:>800 tag:Retro", HighDpiRetro));
+        Assert.False(Eval("dpi:>800 tag:Retro", LowDpiPlain));
+    }
+
+    [Fact]
+    public void ImplicitAnd_FirstMatchSecondFails()
+    {
+        Assert.False(Eval("source:Chilli_Axe tag:NSFW", HighDpiRetro));
+    }
+
+    // ----------------------------------------------------------------
+    //  Explicit OR
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void ExplicitOr_EitherMatches()
+    {
+        // source:Chilli_Axe OR source:MrTeferi
+        Assert.True(Eval("source:Chilli_Axe OR source:MrTeferi", HighDpiRetro));
+        Assert.True(Eval("source:Chilli_Axe OR source:MrTeferi", LowDpiPlain));
+        Assert.False(Eval("source:Chilli_Axe OR source:MrTeferi", ScryfallCard));
+    }
+
+    [Fact]
+    public void PipeOr_WorksLikeOrKeyword()
+    {
+        Assert.True(Eval("source:Chilli_Axe | source:Scryfall", ScryfallCard));
+    }
+
+    // ----------------------------------------------------------------
+    //  Parentheses grouping
+    // ----------------------------------------------------------------
+
+    [Fact]
+    public void Parentheses_GroupingRespected()
+    {
+        // dpi:>800 OR (source:MrTeferi tag:Retro)
+        // HighDpiRetro  -> dpi:>800 = true  -> true
+        // LowDpiPlain   -> dpi:>800 = false, source:MrTeferi=true but tag:Retro=false -> false
+        // ScryfallCard  -> dpi:>800 = false, source:MrTeferi=false -> false
+        Assert.True(Eval("dpi:>800 OR (source:MrTeferi tag:Retro)", HighDpiRetro));
+        Assert.False(Eval("dpi:>800 OR (source:MrTeferi tag:Retro)", LowDpiPlain));
+        Assert.False(Eval("dpi:>800 OR (source:MrTeferi tag:Retro)", ScryfallCard));
+    }
+
+    [Fact]
+    public void Parentheses_OrInsideParens()
+    {
+        // source:Chilli_Axe AND (tag:Retro OR tag:Frame)
+        // HighDpiRetro has source=Chilli_Axe and tags Retro,Frame -> true
+        Assert.True(Eval("source:Chilli_Axe (tag:Retro OR tag:Frame)", HighDpiRetro));
+        // LowDpiPlain has source=MrTeferi -> false
+        Assert.False(Eval("source:Chilli_Axe (tag:Retro OR tag:Frame)", LowDpiPlain));
+    }
+}
