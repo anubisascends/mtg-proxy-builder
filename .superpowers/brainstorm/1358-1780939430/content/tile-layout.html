@@ -1,0 +1,73 @@
+<h2>Tile Info Panel Redesign</h2>
+<p class="subtitle">Current layout vs proposed — how should the bottom info panel look?</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Current Tile</div>
+    <div class="mockup-body" style="display:flex;justify-content:center;padding:20px;">
+      <div style="width:110px;height:165px;background:#2a2a2a;border-radius:4px;border:2px solid transparent;overflow:hidden;font-family:Segoe UI,sans-serif;">
+        <div style="height:125px;background:#111;display:flex;align-items:center;justify-content:center;border-radius:3px 3px 0 0;">
+          <span style="color:#666;font-size:32px;">&#9824;</span>
+        </div>
+        <div style="padding:3px;text-align:center;">
+          <div style="font-size:9.5px;color:#ccc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Lightning Bolt (Full Art B)</div>
+          <div style="font-size:8px;color:#888;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">MPCFill | Chilli_Axe | 1210 DPI</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">Proposed Tile</div>
+    <div class="mockup-body" style="display:flex;justify-content:center;padding:20px;">
+      <div style="width:110px;height:165px;background:#2a2a2a;border-radius:4px;border:2px solid transparent;overflow:hidden;font-family:Segoe UI,sans-serif;position:relative;">
+        <div style="height:125px;background:#111;display:flex;align-items:center;justify-content:center;border-radius:3px 3px 0 0;position:relative;">
+          <span style="color:#666;font-size:32px;">&#9824;</span>
+          <!-- Tags dropdown button -->
+          <div style="position:absolute;top:3px;right:3px;width:16px;height:16px;background:rgba(0,0,0,0.6);border-radius:3px;display:flex;align-items:center;justify-content:center;cursor:pointer;" title="Tags: Extended-Art, Frame">
+            <span style="color:#aaa;font-size:9px;line-height:1;">&#9660;</span>
+          </div>
+        </div>
+        <div style="padding:2px 4px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-size:8.5px;color:#4fc3f7;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70px;text-decoration:underline;" title="Click to filter by Chilli_Axe">Chilli_Axe</div>
+          <div style="font-size:8.5px;color:#aaa;white-space:nowrap;">1210</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>Key Changes</h3>
+  <ul style="color:#ccc;font-size:14px;line-height:1.8;">
+    <li><strong>Name removed</strong> from info panel (visible in tooltip on hover)</li>
+    <li><strong>Source</strong> (left) — clickable, sets source filter, shown in accent color</li>
+    <li><strong>DPI</strong> (right) — just the number, easy to scan</li>
+    <li><strong>Tags button</strong> (top-right overlay on image) — only visible when card has tags, shows dropdown on click</li>
+  </ul>
+</div>
+
+<h3 style="margin-top:24px;">Does this layout feel right?</h3>
+<div class="options">
+  <div class="option" data-choice="yes" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Yes, this layout works</h3>
+      <p>Source left, DPI right, tags button overlay — let's proceed</p>
+    </div>
+  </div>
+  <div class="option" data-choice="dpi-label" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Add "DPI" label</h3>
+      <p>Show "1210 DPI" instead of just "1210" for clarity</p>
+    </div>
+  </div>
+  <div class="option" data-choice="two-rows" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Two rows instead</h3>
+      <p>Source on top row, DPI on bottom row — more space for long source names</p>
+    </div>
+  </div>
+</div>

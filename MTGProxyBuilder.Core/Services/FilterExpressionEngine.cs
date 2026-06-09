@@ -112,6 +112,12 @@ namespace MTGProxyBuilder.Core.Services
             return tokens;
         }
 
+        /// <summary>Parses a single pill's text into one FilterToken. Does NOT split on whitespace.</summary>
+        public static FilterToken ParseSingle(string text)
+        {
+            return ParseRawToken(text.Trim()) ?? FreeTextToken(text.Trim());
+        }
+
         // ----------------------------------------------------------------
         //  Token parser — converts a raw string to a FilterToken
         // ----------------------------------------------------------------

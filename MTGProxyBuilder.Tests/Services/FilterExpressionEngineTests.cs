@@ -451,3 +451,180 @@ public class FilterEvaluatorTests
         Assert.False(Eval("source:Chilli_Axe (tag:Retro OR tag:Frame)", LowDpiPlain));
     }
 }
+
+// ================================================================
+//  PARSE SINGLE TESTS (values with spaces)
+// ================================================================
+
+public class FilterParseSingleTests
+{
+    [Fact]
+    public void ParseSingle_TagWithSpaces_SingleToken()
+    {
+        var token = FilterParser.ParseSingle("tag:AI Art");
+        Assert.Equal(TokenKind.Filter, token.Kind);
+        Assert.Equal(FilterField.Tag, token.Field);
+        Assert.Equal(FilterOp.Eq, token.Op);
+        Assert.Equal("AI Art", token.Value);
+    }
+
+    [Fact]
+    public void ParseSingle_TagWithMultipleSpaces()
+    {
+        var token = FilterParser.ParseSingle("tag:Non-Black Border");
+        Assert.Equal(FilterField.Tag, token.Field);
+        Assert.Equal("Non-Black Border", token.Value);
+    }
+
+    [Fact]
+    public void ParseSingle_SourceWithSpaces()
+    {
+        var token = FilterParser.ParseSingle("source:Some Artist Name");
+        Assert.Equal(FilterField.Source, token.Field);
+        Assert.Equal(FilterOp.Eq, token.Op);
+        Assert.Equal("Some Artist Name", token.Value);
+    }
+
+    [Fact]
+    public void ParseSingle_TagNotWithSpaces()
+    {
+        var token = FilterParser.ParseSingle("tag:!AI Art");
+        Assert.Equal(FilterField.Tag, token.Field);
+        Assert.Equal(FilterOp.Not, token.Op);
+        Assert.Equal("AI Art", token.Value);
+    }
+
+    [Fact]
+    public void ParseSingle_FreeTextWithSpaces()
+    {
+        var token = FilterParser.ParseSingle("Lightning Bolt");
+        Assert.Equal(FilterField.Name, token.Field);
+        Assert.Equal(FilterOp.Eq, token.Op);
+        Assert.Equal("Lightning Bolt", token.Value);
+    }
+
+    [Fact]
+    public void ParseSingle_OR_Keyword()
+    {
+        var token = FilterParser.ParseSingle("OR");
+        Assert.Equal(TokenKind.Or, token.Kind);
+    }
+
+    [Fact]
+    public void ParseSingle_Parens()
+    {
+        var open = FilterParser.ParseSingle("(");
+        Assert.Equal(TokenKind.OpenParen, open.Kind);
+        var close = FilterParser.ParseSingle(")");
+        Assert.Equal(TokenKind.CloseParen, close.Kind);
+    }
+
+    [Fact]
+    public void ParseSingle_DpiOperator()
+    {
+        var token = FilterParser.ParseSingle("dpi:>=1200");
+        Assert.Equal(FilterField.Dpi, token.Field);
+        Assert.Equal(FilterOp.Gte, token.Op);
+        Assert.Equal("1200", token.Value);
+    }
+
+    [Fact]
+    public void ParseSingle_InWithSpacesInValues()
+    {
+        var token = FilterParser.ParseSingle("tag:in[AI Art,Extended-Art]");
+        Assert.Equal(FilterOp.In, token.Op);
+        Assert.Equal(2, token.Values.Count);
+        Assert.Contains("AI Art", token.Values);
+        Assert.Contains("Extended-Art", token.Values);
+    }
+
+    [Fact]
+    public void ParseSingle_WhitespaceIsTrimmed()
+    {
+        var token = FilterParser.ParseSingle("  dpi:>800  ");
+        Assert.Equal(FilterField.Dpi, token.Field);
+        Assert.Equal(FilterOp.Gt, token.Op);
+        Assert.Equal("800", token.Value);
+    }
+}
+
+// ================================================================
+//  EVALUATOR EDGE CASE TESTS
+// ================================================================
+
+public class FilterEvaluatorEdgeCaseTests
+{
+    private static readonly TileData TaggedCard = new("Lightning Bolt (f)", "WillieTanner", 800, new List<string> { "Extended-Art", "Frame" });
+    private static readonly TileData AiArtCard = new("Lightning Bolt", "SomeSource", 600, new List<string> { "AI Art", "Misc" });
+    private static readonly TileData NoTagsCard = new("Plains", "Scryfall", 0, new List<string>());
+
+    private static bool Eval(string expression, TileData tile) =>
+        FilterEvaluator.Evaluate(FilterParser.Parse(expression), tile);
+
+    [Fact]
+    public void TagWithSpaces_MatchesViaParseSingle()
+    {
+        // Simulate what happens when PillFilterBar commits "tag:AI Art" via ParseSingle
+        var token = FilterParser.ParseSingle("tag:AI Art");
+        var tokens = new List<FilterToken> { token };
+        Assert.True(FilterEvaluator.Evaluate(tokens, AiArtCard));
+        Assert.False(FilterEvaluator.Evaluate(tokens, TaggedCard));
+    }
+
+    [Fact]
+    public void TagNot_WithSpaces_Excludes()
+    {
+        var token = FilterParser.ParseSingle("tag:!AI Art");
+        var tokens = new List<FilterToken> { token };
+        Assert.False(FilterEvaluator.Evaluate(tokens, AiArtCard));
+        Assert.True(FilterEvaluator.Evaluate(tokens, TaggedCard));
+    }
+
+    [Fact]
+    public void TagIn_WithSpacedValues()
+    {
+        var token = FilterParser.ParseSingle("tag:in[AI Art,Extended-Art]");
+        var tokens = new List<FilterToken> { token };
+        Assert.True(FilterEvaluator.Evaluate(tokens, AiArtCard));
+        Assert.True(FilterEvaluator.Evaluate(tokens, TaggedCard));
+        Assert.False(FilterEvaluator.Evaluate(tokens, NoTagsCard));
+    }
+
+    [Fact]
+    public void ZeroDpi_DpiFilter_NoFalsePositive()
+    {
+        // Scryfall cards have DPI=0, dpi:>0 should not match
+        Assert.False(Eval("dpi:>0", NoTagsCard));
+        Assert.True(Eval("dpi:>0", TaggedCard));
+    }
+
+    [Fact]
+    public void EmptyTags_TagFilter_NoMatch()
+    {
+        Assert.False(Eval("tag:Retro", NoTagsCard));
+    }
+
+    [Fact]
+    public void EmptyTags_TagNot_AlwaysTrue()
+    {
+        // Card with no tags passes "not has tag X"
+        Assert.True(Eval("tag:!NSFW", NoTagsCard));
+    }
+
+    [Fact]
+    public void NameSearch_SubstringCaseInsensitive()
+    {
+        Assert.True(Eval("bolt", TaggedCard));
+        Assert.True(Eval("BOLT", TaggedCard));
+        Assert.True(Eval("lightning", TaggedCard));
+    }
+
+    [Fact]
+    public void ComplexExpression_MultipleAndOr()
+    {
+        // (dpi:>700 tag:Frame) OR source:Scryfall
+        Assert.True(Eval("(dpi:>700 tag:Frame) OR source:Scryfall", TaggedCard));
+        Assert.True(Eval("(dpi:>700 tag:Frame) OR source:Scryfall", NoTagsCard));
+        Assert.False(Eval("(dpi:>700 tag:Frame) OR source:Scryfall", AiArtCard));
+    }
+}

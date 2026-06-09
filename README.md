@@ -20,6 +20,7 @@ The release is a self-contained single-file executable that includes everything 
 - **Scryfall Advanced Search** — visual query builder with dropdowns for all filter fields (colors, CMC, rarity, power/toughness, format, set, artist, keywords, card properties)
 - **MPCFill Integration** — search community-contributed high-DPI proxy art from MPCFill.com with source management, favorites, and DPI filtering
 - **MPCFill Filter Settings** — full control over search parameters in the Settings dialog: sort order, DPI range, max file size, fuzzy/exact match, card types (Cards/Tokens/Card Backs), 11 languages, content filters (NSFW, AI Art), and cardback filtering
+- **MPCFill Tags** — per-card tags from the MPCFill API (e.g. "Extended-Art", "Frame", "Retro") are captured and displayed
 - **Moxfield Import** — paste a Moxfield deck URL to auto-import an entire deck with artwork
 - **Archidekt Import** — paste an Archidekt deck URL (auto-detected from URL)
 - **MPCFill XML Import** — import a `cards.xml` project file exported from MPCFill's editor
@@ -42,10 +43,15 @@ The release is a self-contained single-file executable that includes everything 
 
 ### Art Selection & Libraries
 - **Art Selector Dialog** — click any card to browse all artwork from Scryfall (all printings) and MPCFill (community art) in a thumbnail grid with a zoomable preview panel showing pixel dimensions, estimated DPI, file size, and source
+- **Progressive loading** — placeholder tiles appear instantly after search, then thumbnail images stream in as they download (8 concurrent); the dialog is fully interactive during downloads
+- **Small thumbnail optimization** — art selector uses small/thumbnail images for browsing (fast), upgrading to full resolution only when the user commits a selection
+- **Tile info panel** — each tile shows clickable source name (left, cyan) and DPI (right) instead of card name; card name shown in tooltip; clicking the source adds a filter pill
+- **Tags button** — MPCFill tiles with tags show a ▼ overlay button; click to see tag pills in a popup; clicking a tag adds a filter pill
+- **Pill-based filter bar** — replaces the old search/source dropdown with a structured filter system; type `dpi:>800`, `source:Chilli_Axe`, `tag:Retro`, or free text for name search; filters tokenize into visual pills with contextual autocomplete
+- **Filter expression language** — supports `=`, `!`, `>`, `<`, `>=`, `<=`, `in[...]` operators; AND between pills (implicit), OR as explicit pill, parentheses for grouping
 - **Local-first search** — the Art Selector checks your front art library before querying online APIs; art already in the library is not re-downloaded
-- **Inline MPCFill filter panel** — collapsible panel in the Art Selector with sort order, DPI range, file size, fuzzy search, card types, 11 languages, and content filters; clear all filters or re-search with one click
 - **Save to Library** — right-click any MPCFill result tile to save it to the front art library; cards added from MPCFill search are auto-saved to the library
-- **Import Downloaded Art** — bulk-import all previously downloaded MPCFill art into the front art library with proper card names and source attribution
+- **Import Downloaded Art** — bulk-import all previously downloaded MPCFill art (including thumbnails) into the front art library; thumbnails are auto-upgraded to full resolution before import
 - **Back Art Selector** — choose card backs from Scryfall originals, a persistent library, or custom files with the same preview panel
 - **Bulk apply** — checkbox to apply front art to all cards with the same name, or back art to all cards without one
 - **MPCFill Source Manager** — browse 271+ community art sources, favorite by clicking the star, filter searches to favorites only; Refresh button to reload from the API; favorites persist across sessions
@@ -118,6 +124,7 @@ The release is a self-contained single-file executable that includes everything 
 - **Async image loading** — card images load on a background thread; cached in memory for instant redraws
 - **Cache management** — "Clear Cache" button with size display in the Layout tab
 - **Version display** — current version shown in the status bar
+- **Structured logging** — Serilog with rolling daily log files (7-day retention) in `%AppData%/MTGProxyBuilder/Logs/`; logs app lifecycle, API calls, image downloads, and all errors; global exception handlers catch unhandled crashes with user-friendly error dialog showing log file location
 
 ## Tech Stack
 
@@ -131,6 +138,7 @@ The release is a self-contained single-file executable that includes everything 
 | Card Data | Scryfall API |
 | Proxy Art | MPCFill.com API |
 | Deck Import | Moxfield API (via curl), Archidekt API |
+| Logging | Serilog 4.2 + Serilog.Sinks.File 6.0 |
 | UI Automation Tests | FlaUI (UIA3) |
 | Architecture | MVVM (Shell + per-project ViewModels) |
 
@@ -165,12 +173,15 @@ MTGProxyBuilder/
 │       ├── ScryfallService.cs         # Scryfall card search, lookup, image download
 │       ├── SvgCutLineService.cs      # Silhouette Cameo SVG cut line generator
 │       ├── UndoService.cs            # Snapshot-based undo/redo stack
+│       ├── FilterExpressionEngine.cs  # Pill filter parser, evaluator, AND/OR/parens
 │       └── UpdateCheckService.cs      # GitHub release version checker
 ├── MTGProxyBuilder.UI/               # WPF presentation layer
 │   ├── MainWindow.xaml/cs            # Shell window with tabs, docking, dark theme
-│   ├── App.xaml/cs                   # App lifecycle, cache cleanup on exit
+│   ├── App.xaml/cs                   # App lifecycle, Serilog init, global exception handlers
 │   ├── Controls/
+│   │   ├── ArtTileBuilder.cs         # Tile creation with source/DPI info panel, tags overlay
 │   │   ├── GridEditorCanvas.cs       # Multi-page canvas with drag-drop, selection, flip, outlines
+│   │   ├── PillFilterBar.xaml/cs     # Pill-based filter input with autocomplete
 │   │   └── ImagePreviewPanel.xaml    # Reusable zoomable image preview with DPI info
 │   ├── Services/
 │   │   └── ThumbnailService.cs       # JPEG thumbnail generation and caching for libraries
@@ -187,9 +198,9 @@ MTGProxyBuilder/
 │       ├── ShellViewModel.cs         # Tab management, global commands, update check
 │       ├── ProjectViewModel.cs       # Per-tab wrapper with title and unsaved indicator
 │       └── MainViewModel.cs          # Per-project commands, state, and business logic
-└── MTGProxyBuilder.Tests/            # Test suite (300+ tests)
+└── MTGProxyBuilder.Tests/            # Test suite (475+ tests)
     ├── Models/                       # Unit tests for all models
-    ├── Services/                     # Unit tests for services (incl. libraries, search options, serialization)
+    ├── Services/                     # Unit tests for services (incl. filter engine, libraries, serialization)
     └── Integration/                  # E2E pipeline tests + UI smoke tests
 ```
 
@@ -287,8 +298,9 @@ dotnet test
 - Double-click a card on the canvas to open the art selector
 - Or select a card and use the Card tab's "Select Art..." / "Select Card Back..." buttons
 - Select multiple cards (Ctrl+Click or Shift+Click), then right-click → "Select Front Art" or "Select Card Back" to apply the same artwork to all selected cards
-- The art selector shows library matches first (instant), then Scryfall printings + MPCFill community art; art already in the library is not re-downloaded
-- Expand "MPCFill Filters" to adjust sort order, DPI range, languages, card types, and content filters inline; click "Re-search MPCFill" to apply
+- The art selector shows library matches first (instant), then streams Scryfall + MPCFill thumbnails progressively; art already in the library is not re-downloaded
+- Each tile shows clickable source and DPI; click the source to add a filter pill; MPCFill tiles with tags show a dropdown button
+- Use the pill filter bar to refine results: type `dpi:>800`, `source:Chilli_Axe`, `tag:Retro`, or free text; pills combine with AND/OR logic
 - Right-click any MPCFill tile to "Save to Library" for future local-first access
 - Check "Apply to all [card name]" to update every copy at once
 
@@ -446,6 +458,7 @@ Both libraries are accessible from the global toolbar — no project needs to be
 | Location | Path | Contents |
 |----------|------|----------|
 | App Settings | `%AppData%/MTGProxyBuilder/app_settings.json` | Default token text, page size, bleed, update check, MPCFill filters |
+| Logs | `%AppData%/MTGProxyBuilder/Logs/` | Rolling daily log files (7-day retention) |
 | Dock Layout | `%AppData%/MTGProxyBuilder/dock_layout.xml` | Panel positions, sizes, docking state |
 | Image Cache | `%AppData%/MTGProxyBuilder/ImageCache/` | Downloaded card images + metadata.json (cleared on exit) |
 | Bleed Cache | `%AppData%/MTGProxyBuilder/BleedCache/` | Bleed-processed images (cleared on startup) |
@@ -462,6 +475,7 @@ Both libraries are accessible from the global toolbar — no project needs to be
 ### Application won't start
 - Ensure Windows 10/11 64-bit
 - If building from source, ensure .NET 10.0+ SDK: `dotnet --version`
+- Check `%AppData%/MTGProxyBuilder/Logs/` for crash details — the app logs all unhandled exceptions
 
 ### Scryfall search returns errors
 - Check internet connection
@@ -472,7 +486,6 @@ Both libraries are accessible from the global toolbar — no project needs to be
 - Uncheck "Favs only" if no favorites are set
 - Try unchecking "Fuzzy" for exact name matches
 - Check Settings → MPCFill for active filters (languages, card types, content filters) that may be excluding results
-- In the Art Selector, expand "MPCFill Filters" and click "Clear All Filters" then "Re-search MPCFill"
 - In the Source Manager, click "Refresh" if the source list is empty
 
 ### Moxfield import fails with 403

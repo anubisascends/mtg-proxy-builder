@@ -243,8 +243,7 @@ namespace MTGProxyBuilder.Core.Services
             var cached = _imageCache.GetCachedImagePath(cacheKey);
             if (cached != null)
             {
-                if (!thumbnail)
-                    _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
+                _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
                 return cached;
             }
 
@@ -253,7 +252,7 @@ namespace MTGProxyBuilder.Core.Services
 
             Log.Information("Downloading MPCFill image {Identifier} ({Mode})", card.Identifier, thumbnail ? "thumbnail" : "full");
             var result = await _imageCache.CacheImageFromUrlAsync(_httpClient, url, cacheKey);
-            if (result != null && !thumbnail)
+            if (result != null)
                 _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
             return result;
         }

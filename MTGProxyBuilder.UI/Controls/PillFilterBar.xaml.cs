@@ -72,9 +72,8 @@ namespace MTGProxyBuilder.UI.Controls
 
         private void CommitText(string text)
         {
-            var tokens = FilterParser.Parse(text);
-            foreach (var token in tokens)
-                AddPill(token);
+            var token = FilterParser.ParseSingle(text);
+            AddPill(token);
 
             InputBox.Text = string.Empty;
             CloseAutocomplete();
@@ -253,13 +252,11 @@ namespace MTGProxyBuilder.UI.Controls
                         // Commit any accumulated text before the paren
                         if (!string.IsNullOrWhiteSpace(remaining))
                         {
-                            var tokens = FilterParser.Parse(remaining.Trim());
-                            foreach (var t in tokens) AddPill(t);
+                            AddPill(FilterParser.ParseSingle(remaining.Trim()));
                             remaining = "";
                         }
                         // Commit the paren itself
-                        var parenToken = FilterParser.Parse(c.ToString());
-                        foreach (var t in parenToken) AddPill(t);
+                        AddPill(FilterParser.ParseSingle(c.ToString()));
                     }
                     else
                     {

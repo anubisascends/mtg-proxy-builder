@@ -297,7 +297,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                         string path = entry.FilePath;
                         string capturedName = entry.Name;
                         string detail = $"Library | {entry.Source}";
-                        border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, detail, border);
+                        border.PreviewMouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, detail, border);
                         border.MouseLeftButtonDown += (_, ev) =>
                         {
                             if (ev.ClickCount == 2) { SelectOption(tab, capturedName, path, detail, border); OkClick(null!, null!); }
@@ -402,7 +402,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     onSourceClick: s => OnSourceClickFilter(tab, s));
                 var pathRef = new MutablePath();
 
-                border.MouseLeftButtonUp += (_, _) =>
+                border.PreviewMouseLeftButtonUp += (_, _) =>
                 {
                     if (pathRef.Value != null)
                         SelectOption(tab, label, pathRef.Value, detail, border);
@@ -447,7 +447,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     onTagClick: mc.Tags.Count > 0 ? t => OnTagClickFilter(tab, t) : null);
                 var pathRef = new MutablePath();
 
-                border.MouseLeftButtonUp += (_, _) =>
+                border.PreviewMouseLeftButtonUp += (_, _) =>
                 {
                     if (pathRef.Value != null)
                         SelectOption(tab, label, pathRef.Value, detail, border);
@@ -614,7 +614,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                             onSourceClick: s => OnSourceClickFilter(tab, s));
                         var pathRef = new MutablePath();
 
-                        border.MouseLeftButtonUp += (_, _) =>
+                        border.PreviewMouseLeftButtonUp += (_, _) =>
                         {
                             if (pathRef.Value != null)
                                 SelectOption(tab, label, pathRef.Value, detail, border);
@@ -745,7 +745,7 @@ namespace MTGProxyBuilder.UI.Dialogs
 
                     string path = entry.FilePath;
                     string capturedName = entry.Name;
-                    border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, "From library", border);
+                    border.PreviewMouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, "From library", border);
                     border.MouseLeftButtonDown += (_, ev) =>
                     {
                         if (ev.ClickCount == 2) { SelectOption(tab, capturedName, path, "From library", border); OkClick(null!, null!); }
@@ -883,7 +883,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             string path = imagePath;
             string capturedLabel = label;
             string capturedSource = source;
-            border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedLabel, path, capturedSource, border);
+            border.PreviewMouseLeftButtonUp += (_, _) => SelectOption(tab, capturedLabel, path, capturedSource, border);
             border.MouseLeftButtonDown += (_, e) =>
             {
                 if (e.ClickCount == 2)
@@ -993,10 +993,52 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             if (_frontArtLibrary == null) return;
 
-            var cached = _imageCache.GetCachedByPrefix("mpc_");
-            if (cached.Count == 0)
+            // Find full-res downloads and thumbnails
+            var fullRes = _imageCache.GetCachedByPrefix("mpc_");
+            var thumbs = _imageCache.GetCachedByPrefix("thumb_");
+
+            if (fullRes.Count == 0 && thumbs.Count == 0)
             {
                 StatusLabel.Text = "No downloaded MPCFill art found in cache.";
+                return;
+            }
+
+            // For thumbnails, download full-res versions first
+            if (thumbs.Count > 0)
+            {
+                StatusLabel.Text = $"Downloading full resolution for {thumbs.Count} image(s)...";
+                int downloaded = 0;
+                var semaphore = new System.Threading.SemaphoreSlim(8);
+                var thumbDownloads = thumbs.Select(async thumb =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        var mpcCard = _frontTab.MpcFillCardsByPath
+                            .FirstOrDefault(kv => string.Equals(kv.Key, thumb.Path, StringComparison.OrdinalIgnoreCase))
+                            .Value;
+                        if (mpcCard != null)
+                        {
+                            var fullPath = await _mpcFill.DownloadAndCacheImageAsync(mpcCard);
+                            if (fullPath != null)
+                            {
+                                var done = System.Threading.Interlocked.Increment(ref downloaded);
+                                _ = Dispatcher.BeginInvoke(() =>
+                                    StatusLabel.Text = $"Downloading full resolution {done}/{thumbs.Count}...");
+                            }
+                        }
+                    }
+                    finally { semaphore.Release(); }
+                }).ToList();
+                await Task.WhenAll(thumbDownloads);
+
+                // Re-fetch full-res list after downloading
+                fullRes = _imageCache.GetCachedByPrefix("mpc_");
+            }
+
+            if (fullRes.Count == 0)
+            {
+                StatusLabel.Text = "No full resolution art available to import.";
                 return;
             }
 
@@ -1009,7 +1051,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             _frontArtLibrary.BeginBatch();
             try
             {
-                foreach (var (key, path, name, source) in cached)
+                foreach (var (key, path, name, source) in fullRes)
                 {
                     if (!File.Exists(path)) { skipped++; continue; }
                     string displayName = !string.IsNullOrEmpty(source)
@@ -1040,8 +1082,10 @@ namespace MTGProxyBuilder.UI.Dialogs
                         Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Generating thumbnails {done}/{total}...")));
             }
 
-            // Remove imported items from cache
+            // Remove imported items from cache (both full-res and thumbnails)
             foreach (var key in importedCacheKeys)
+                _imageCache.Remove(key);
+            foreach (var (key, _, _, _) in thumbs)
                 _imageCache.Remove(key);
 
             StatusLabel.Text = $"Imported {added} image(s) to library ({skipped} already existed or skipped)";
