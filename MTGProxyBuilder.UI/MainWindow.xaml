@@ -319,7 +319,11 @@
                                         <TextBox Text="{Binding ScryfallSearchQuery, UpdateSourceTrigger=PropertyChanged}"
                                                  Padding="6,5" FontSize="12"
                                                  Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
-                                                 CaretBrush="White" x:Name="ScryfallSearchBox"/>
+                                                 CaretBrush="White">
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding ScryfallSearchCommand}"/>
+                                            </TextBox.InputBindings>
+                                        </TextBox>
                                         <Button Grid.Column="1" Style="{StaticResource AccentBtn}"
                                                 Command="{Binding ScryfallSearchCommand}" Content="Search" Margin="4,0,0,0" Padding="10,5"/>
                                     </Grid>
@@ -543,7 +547,11 @@
                                         <TextBox Text="{Binding ImportDeckUrl, UpdateSourceTrigger=PropertyChanged}"
                                                  Padding="6,5" FontSize="11"
                                                  Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
-                                                 CaretBrush="White" x:Name="DeckImportUrlBox"/>
+                                                 CaretBrush="White">
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding ImportDeckCommand}"/>
+                                            </TextBox.InputBindings>
+                                        </TextBox>
                                         <Button Grid.Column="1" Style="{StaticResource AccentBtn}"
                                                 Command="{Binding ImportDeckCommand}" Content="Import" Margin="4,0,0,0" Padding="10,5"/>
                                     </Grid>

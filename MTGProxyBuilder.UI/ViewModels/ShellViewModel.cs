@@ -99,6 +99,10 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public string AppVersion => MainViewModel.GetAppVersion();
 
+        public AppSettings AppSettings => _appSettings.Settings;
+
+        public void SaveSettings() => _appSettings.Save();
+
         // --- Loading ---
         public bool IsLoading
         {

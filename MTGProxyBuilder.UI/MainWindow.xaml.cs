@@ -1,11 +1,7 @@
 using System;
-using System.IO;
-using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using AvalonDock.Layout;
-using AvalonDock.Layout.Serialization;
 using MTGProxyBuilder.UI.ViewModels;
 using Serilog;
 
@@ -20,16 +16,20 @@ public partial class MainWindow : Window
 
     private ShellViewModel Shell => (ShellViewModel)DataContext;
 
-    private static readonly string DockLayoutPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "MTGProxyBuilder", "dock_layout.xml");
-
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new ShellViewModel();
         Closing += OnWindowClosing;
-        Loaded += (_, _) => LoadDockLayout();
+        Loaded += (_, _) =>
+        {
+            var s = Shell.AppSettings;
+            SearchSection.IsExpanded = s.SidebarSearchExpanded;
+            ImportSection.IsExpanded = s.SidebarImportExpanded;
+            CardDetailsSection.IsExpanded = s.SidebarCardDetailsExpanded;
+            LayoutSection.IsExpanded = s.SidebarLayoutExpanded;
+            StorageSection.IsExpanded = s.SidebarStorageExpanded;
+        };
 
         // Wire GridCanvas events once (they route to whichever project is active)
         // Keyboard shortcuts
@@ -73,23 +73,9 @@ public partial class MainWindow : Window
             }
         };
 
-        // Wire GridCanvas events and search box Enter keys after Loaded
+        // Wire GridCanvas events after Loaded
         Loaded += (_, _) =>
         {
-            ScryfallSearchBox.KeyDown += (s, e) =>
-            {
-                if (e.Key == Key.Enter && Shell?.ActiveProject?.Inner is MainViewModel vm
-                    && vm.ScryfallSearchCommand.CanExecute(null))
-                    vm.ScryfallSearchCommand.Execute(null);
-            };
-
-            DeckImportUrlBox.KeyDown += (s, e) =>
-            {
-                if (e.Key == Key.Enter && Shell?.ActiveProject?.Inner is MainViewModel vm
-                    && vm.ImportDeckCommand.CanExecute(null))
-                    vm.ImportDeckCommand.Execute(null);
-            };
-
             GridCanvas.CardDoubleClicked += (card, isShowingBack) =>
             {
                 if (Shell?.ActiveProject?.Inner is MainViewModel vm)
@@ -255,76 +241,9 @@ public partial class MainWindow : Window
         ZoomLabel.Text = $"{(int)(_zoom * 100)}%";
     }
 
-    // --- Dock layout persistence ---
-
-    // Map ContentId → the XAML-defined content that was in each panel before serialization
-    private Dictionary<string, object>? _panelContents;
-
-    private void CapturePanelContents()
-    {
-        // Save references to the XAML content of each anchorable and the document
-        // so we can reconnect them after layout deserialization
-        _panelContents = new Dictionary<string, object>();
-
-        foreach (var anc in DockManager.Layout.Descendents().OfType<LayoutAnchorable>())
-        {
-            if (!string.IsNullOrEmpty(anc.ContentId) && anc.Content != null)
-                _panelContents[anc.ContentId] = anc.Content;
-        }
-
-        foreach (var doc in DockManager.Layout.Descendents().OfType<LayoutDocument>())
-        {
-            if (!string.IsNullOrEmpty(doc.ContentId) && doc.Content != null)
-                _panelContents[doc.ContentId] = doc.Content;
-        }
-    }
-
-    private void LoadDockLayout()
-    {
-        try
-        {
-            if (!File.Exists(DockLayoutPath)) return;
-
-            // Capture the XAML-defined content before deserialization destroys it
-            CapturePanelContents();
-
-            var serializer = new XmlLayoutSerializer(DockManager);
-            serializer.LayoutSerializationCallback += (s, args) =>
-            {
-                if (args.Model.ContentId != null && _panelContents != null
-                    && _panelContents.TryGetValue(args.Model.ContentId, out var content))
-                {
-                    args.Content = content;
-                }
-                else
-                {
-                    // Unknown panel or missing content — cancel to avoid blank panels
-                    args.Cancel = true;
-                }
-            };
-            serializer.Deserialize(DockLayoutPath);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Failed to load dock layout from {Path}, resetting", DockLayoutPath);
-            try { if (File.Exists(DockLayoutPath)) File.Delete(DockLayoutPath); }
-            catch (Exception deleteEx) { Log.Warning(deleteEx, "Failed to delete corrupt dock layout file"); }
-        }
-    }
-
-    private void SaveDockLayout()
-    {
-        try
-        {
-            var dir = Path.GetDirectoryName(DockLayoutPath);
-            if (dir != null) Directory.CreateDirectory(dir);
-            var serializer = new XmlLayoutSerializer(DockManager);
-            serializer.Serialize(DockLayoutPath);
-        }
-        catch (Exception ex) { Log.Warning(ex, "Failed to save dock layout"); }
-    }
-
     // --- Unsaved changes prompt ---
+
+    private void OnExitClick(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
 
     private void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
@@ -333,6 +252,12 @@ public partial class MainWindow : Window
             e.Cancel = true;
             return;
         }
-        SaveDockLayout();
+        var s = Shell.AppSettings;
+        s.SidebarSearchExpanded = SearchSection.IsExpanded;
+        s.SidebarImportExpanded = ImportSection.IsExpanded;
+        s.SidebarCardDetailsExpanded = CardDetailsSection.IsExpanded;
+        s.SidebarLayoutExpanded = LayoutSection.IsExpanded;
+        s.SidebarStorageExpanded = StorageSection.IsExpanded;
+        Shell.SaveSettings();
     }
 }
