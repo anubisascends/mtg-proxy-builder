@@ -143,8 +143,6 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (_frontArtLibrary != null)
                 FrontActionsBar.Visibility = Visibility.Visible;
 
-            LoadFilterControls(_mpcSearchOptions);
-
             // Set initial tab
             ArtTabControl.SelectedIndex = initialMode == ArtSelectorMode.Front ? 0 : 1;
             UpdateFooterForActiveTab();
@@ -215,7 +213,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             string? currentPath = tab.Mode == ArtSelectorMode.Front ? _card.ArtworkPath : _card.BackArtworkPath;
             if (!string.IsNullOrEmpty(currentPath) && File.Exists(currentPath))
             {
-                AddOption(tab, "Current", currentPath, true, "Currently assigned");
+                AddOption(tab, "Current", currentPath, true, "Current");
                 shown.Add(currentPath);
             }
 
@@ -348,8 +346,19 @@ namespace MTGProxyBuilder.UI.Dialogs
             // 2. Kick off API searches concurrently
             StatusLabel.Text = $"Searching for \"{_card.Name}\"...";
             Log.Information("Loading front art options for {CardName}", _card.Name);
-            var mpcOpts = BuildSearchOptionsFromControls();
-            mpcOpts.FuzzySearch = false;
+            var mpcOpts = new MpcFillSearchOptions
+            {
+                CardTypes = _mpcSearchOptions.CardTypes,
+                SortBy = _mpcSearchOptions.SortBy,
+                MinimumDpi = _mpcSearchOptions.MinimumDpi,
+                MaximumDpi = _mpcSearchOptions.MaximumDpi,
+                MaximumSize = _mpcSearchOptions.MaximumSize,
+                FuzzySearch = false,
+                FilterCardbacks = _mpcSearchOptions.FilterCardbacks,
+                Languages = _mpcSearchOptions.Languages,
+                IncludesTags = _mpcSearchOptions.IncludesTags,
+                ExcludesTags = _mpcSearchOptions.ExcludesTags
+            };
             var scryfallTask = Task.Run(async () =>
             {
                 try { return (await _scryfall.SearchCardAsync($"!\"{_card.Name}\"")).Cards; }
@@ -388,7 +397,9 @@ namespace MTGProxyBuilder.UI.Dialogs
             {
                 string label = $"{sc.SetName} #{sc.CollectorNumber}";
                 string detail = $"Scryfall | {sc.Artist ?? ""}";
-                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                    sc.Name, "Scryfall",
+                    onSourceClick: s => OnSourceClickFilter(tab, s));
                 var pathRef = new MutablePath();
 
                 border.MouseLeftButtonUp += (_, _) =>
@@ -430,7 +441,10 @@ namespace MTGProxyBuilder.UI.Dialogs
                 string label = mc.Name;
                 string detail = $"MPCFill | {mc.Source} | {mc.Dpi} DPI";
                 string mpcSource = mc.Source;
-                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                    mc.Name, mc.Source, mc.Dpi, mc.Tags,
+                    onSourceClick: s => OnSourceClickFilter(tab, s),
+                    onTagClick: mc.Tags.Count > 0 ? t => OnTagClickFilter(tab, t) : null);
                 var pathRef = new MutablePath();
 
                 border.MouseLeftButtonUp += (_, _) =>
@@ -492,7 +506,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 };
 
                 tab.OptionsPanel.Children.Add(border);
-                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, mc.Dpi, new List<string>()));
+                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, mc.Dpi, mc.Tags));
                 downloadItems.Add((img, pathRef, null, mc, label, detail, mpcSource));
             }
 
@@ -577,7 +591,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 && File.Exists(_card.OriginalBackArtworkPath)
                 && !shown.Contains(_card.OriginalBackArtworkPath))
             {
-                AddOption(tab, "Original (Scryfall)", _card.OriginalBackArtworkPath, false, "From Scryfall import");
+                AddOption(tab, "Original (Scryfall)", _card.OriginalBackArtworkPath, false, "Scryfall");
                 shown.Add(_card.OriginalBackArtworkPath);
             }
 
@@ -595,7 +609,9 @@ namespace MTGProxyBuilder.UI.Dialogs
                             ? $"{sc.CardFaces[1].Name} (Scryfall)"
                             : "Back Face (Scryfall)";
                         string detail = $"Scryfall | {sc.SetName} #{sc.CollectorNumber}";
-                        var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                        var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                            label, "Scryfall",
+                            onSourceClick: s => OnSourceClickFilter(tab, s));
                         var pathRef = new MutablePath();
 
                         border.MouseLeftButtonUp += (_, _) =>
@@ -857,19 +873,22 @@ namespace MTGProxyBuilder.UI.Dialogs
         //  TILE BUILDERS
         // ================================================================
 
-        private void AddOption(TabState tab, string label, string imagePath, bool isCurrent, string detail, string? mpcSource = null, int dpi = 0)
+        private void AddOption(TabState tab, string label, string imagePath, bool isCurrent, string source, string? mpcSource = null, int dpi = 0, List<string>? tags = null)
         {
-            var border = Controls.ArtTileBuilder.CreateOptionTile(label, imagePath, isCurrent, detail);
+            var border = Controls.ArtTileBuilder.CreateOptionTile(label, imagePath, isCurrent,
+                source, dpi, tags,
+                onSourceClick: s => OnSourceClickFilter(tab, s),
+                onTagClick: tags?.Count > 0 ? t => OnTagClickFilter(tab, t) : null);
 
             string path = imagePath;
             string capturedLabel = label;
-            string capturedDetail = detail;
-            border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedLabel, path, capturedDetail, border);
+            string capturedSource = source;
+            border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedLabel, path, capturedSource, border);
             border.MouseLeftButtonDown += (_, e) =>
             {
                 if (e.ClickCount == 2)
                 {
-                    SelectOption(tab, capturedLabel, path, capturedDetail, border);
+                    SelectOption(tab, capturedLabel, path, capturedSource, border);
                     OkClick(null!, null!);
                 }
             };
@@ -924,13 +943,13 @@ namespace MTGProxyBuilder.UI.Dialogs
             string trackSource;
             if (!string.IsNullOrEmpty(mpcSource))
                 trackSource = mpcSource;
-            else if (detail.Contains("Scryfall", StringComparison.OrdinalIgnoreCase))
+            else if (source.Contains("Scryfall", StringComparison.OrdinalIgnoreCase))
                 trackSource = "Scryfall";
-            else if (detail.Contains("Library", StringComparison.OrdinalIgnoreCase))
+            else if (source.Contains("Library", StringComparison.OrdinalIgnoreCase))
                 trackSource = "Library";
             else
-                trackSource = "";
-            tab.AllTiles.Add(new TileInfo(border, label, trackSource, dpi, new List<string>()));
+                trackSource = source;
+            tab.AllTiles.Add(new TileInfo(border, label, trackSource, dpi, tags ?? new List<string>()));
         }
 
         private void AddActionTile(TabState tab, string label, Action action)
@@ -1128,112 +1147,6 @@ namespace MTGProxyBuilder.UI.Dialogs
         private void OnTagClickFilter(TabState tab, string tag)
         {
             tab.FilterBar.AddFilter($"tag:{tag}");
-        }
-
-        // ================================================================
-        //  MPCFILL FILTER PANEL
-        // ================================================================
-
-        private void LoadFilterControls(MpcFillSearchOptions opts)
-        {
-            SelectByTag(FilterSortByBox, opts.SortBy);
-            SelectByTag(FilterMinDpiBox, opts.MinimumDpi.ToString());
-            SelectByTag(FilterMaxDpiBox, opts.MaximumDpi.ToString());
-            FilterMaxSizeBox.Text = opts.MaximumSize.ToString();
-            FilterFuzzyBox.IsChecked = opts.FuzzySearch;
-            FilterCardbacksBox.IsChecked = opts.FilterCardbacks;
-
-            FilterTypeCard.IsChecked = opts.CardTypes.Contains("CARD");
-            FilterTypeToken.IsChecked = opts.CardTypes.Contains("TOKEN");
-            FilterTypeCardback.IsChecked = opts.CardTypes.Contains("CARDBACK");
-
-            var langs = opts.Languages;
-            FilterLangEN.IsChecked = langs.Contains("EN");
-            FilterLangJA.IsChecked = langs.Contains("JA");
-            FilterLangFR.IsChecked = langs.Contains("FR");
-            FilterLangDE.IsChecked = langs.Contains("DE");
-            FilterLangES.IsChecked = langs.Contains("ES");
-            FilterLangIT.IsChecked = langs.Contains("IT");
-            FilterLangPT.IsChecked = langs.Contains("PT");
-            FilterLangZH.IsChecked = langs.Contains("ZH");
-            FilterLangRU.IsChecked = langs.Contains("RU");
-            FilterLangAR.IsChecked = langs.Contains("AR");
-            FilterLangSA.IsChecked = langs.Contains("SA");
-
-            FilterExcludeNsfw.IsChecked = opts.ExcludesTags.Contains("NSFW");
-            FilterExcludeAiArt.IsChecked = opts.ExcludesTags.Contains("AI Art");
-        }
-
-        private MpcFillSearchOptions BuildSearchOptionsFromControls()
-        {
-            var cardTypes = new List<string>();
-            if (FilterTypeCard.IsChecked == true) cardTypes.Add("CARD");
-            if (FilterTypeToken.IsChecked == true) cardTypes.Add("TOKEN");
-            if (FilterTypeCardback.IsChecked == true) cardTypes.Add("CARDBACK");
-            if (cardTypes.Count == 0) cardTypes.Add("CARD");
-
-            var languages = new List<string>();
-            if (FilterLangEN.IsChecked == true) languages.Add("EN");
-            if (FilterLangJA.IsChecked == true) languages.Add("JA");
-            if (FilterLangFR.IsChecked == true) languages.Add("FR");
-            if (FilterLangDE.IsChecked == true) languages.Add("DE");
-            if (FilterLangES.IsChecked == true) languages.Add("ES");
-            if (FilterLangIT.IsChecked == true) languages.Add("IT");
-            if (FilterLangPT.IsChecked == true) languages.Add("PT");
-            if (FilterLangZH.IsChecked == true) languages.Add("ZH");
-            if (FilterLangRU.IsChecked == true) languages.Add("RU");
-            if (FilterLangAR.IsChecked == true) languages.Add("AR");
-            if (FilterLangSA.IsChecked == true) languages.Add("SA");
-
-            var excludeTags = new List<string>();
-            if (FilterExcludeNsfw.IsChecked == true) excludeTags.Add("NSFW");
-            if (FilterExcludeAiArt.IsChecked == true) excludeTags.Add("AI Art");
-
-            return new MpcFillSearchOptions
-            {
-                CardTypes = cardTypes.ToArray(),
-                SortBy = (FilterSortByBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "nameAscending",
-                MinimumDpi = int.TryParse((FilterMinDpiBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), out var minD) ? minD : 0,
-                MaximumDpi = int.TryParse((FilterMaxDpiBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), out var maxD) ? maxD : 1500,
-                MaximumSize = int.TryParse(FilterMaxSizeBox.Text, out var ms) && ms > 0 ? ms : 30,
-                FuzzySearch = FilterFuzzyBox.IsChecked == true,
-                FilterCardbacks = FilterCardbacksBox.IsChecked == true,
-                Languages = languages.ToArray(),
-                IncludesTags = Array.Empty<string>(),
-                ExcludesTags = excludeTags.ToArray()
-            };
-        }
-
-        private static void SelectByTag(ComboBox box, string tagValue)
-        {
-            foreach (ComboBoxItem item in box.Items)
-            {
-                if (item.Tag?.ToString() == tagValue)
-                {
-                    box.SelectedItem = item;
-                    return;
-                }
-            }
-            box.SelectedIndex = box.Items.Count - 1;
-        }
-
-        private void OnClearFilters(object sender, RoutedEventArgs e)
-        {
-            LoadFilterControls(new MpcFillSearchOptions());
-        }
-
-        private async void OnResearchMpcFill(object sender, RoutedEventArgs e)
-        {
-            _mpcSearchOptions = BuildSearchOptionsFromControls();
-            _frontTab.ScryfallCardsByPath.Clear();
-            _frontTab.ResultPath = null;
-            _frontTab.SelectedBorder = null;
-            _frontTab.SelectedLabel = null;
-            _frontTab.SelectedDetail = null;
-            OkBtn.IsEnabled = false;
-            PreviewPanel.Clear();
-            SpinnerDot.Visibility = Visibility.Visible;
-            await LoadTabContentAsync(_frontTab);
         }
 
         // ================================================================

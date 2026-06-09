@@ -57,6 +57,7 @@ namespace MTGProxyBuilder.Core.Services
         public string SmallThumbnailUrl { get; set; } = string.Empty;
         public string MediumThumbnailUrl { get; set; } = string.Empty;
         public string DownloadLink { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
 
         public override string ToString() => $"{Name} [{Source}] ({Dpi} DPI)";
     }
@@ -211,7 +212,8 @@ namespace MTGProxyBuilder.Core.Services
                             Language = c["language"]?.ToString() ?? "EN",
                             SmallThumbnailUrl = c["smallThumbnailUrl"]?.ToString() ?? string.Empty,
                             MediumThumbnailUrl = c["mediumThumbnailUrl"]?.ToString() ?? string.Empty,
-                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty
+                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty,
+                            Tags = c["tags"]?.ToObject<List<string>>() ?? new()
                         });
                     }
 
@@ -371,7 +373,8 @@ namespace MTGProxyBuilder.Core.Services
                             Language = c["language"]?.ToString() ?? "EN",
                             SmallThumbnailUrl = c["smallThumbnailUrl"]?.ToString() ?? string.Empty,
                             MediumThumbnailUrl = c["mediumThumbnailUrl"]?.ToString() ?? string.Empty,
-                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty
+                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty,
+                            Tags = c["tags"]?.ToObject<List<string>>() ?? new()
                         });
                     }
                     return batchCards;

@@ -98,6 +98,18 @@ namespace MTGProxyBuilder.UI.Controls
         /// <summary>Returns true if "All" is selected in the source filter.</summary>
         public bool IsAllSourcesSelected => SourceCombo.SelectedIndex == 0;
 
+        public void SelectSource(string sourceName)
+        {
+            for (int i = 0; i < SourceCombo.Items.Count; i++)
+            {
+                if (SourceCombo.Items[i] is string s && s.Equals(sourceName, StringComparison.OrdinalIgnoreCase))
+                {
+                    SourceCombo.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+
         /// <summary>Clears the search text.</summary>
         public void Clear()
         {
