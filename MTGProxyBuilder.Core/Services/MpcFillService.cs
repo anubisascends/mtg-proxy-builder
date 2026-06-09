@@ -57,6 +57,7 @@ namespace MTGProxyBuilder.Core.Services
         public string SmallThumbnailUrl { get; set; } = string.Empty;
         public string MediumThumbnailUrl { get; set; } = string.Empty;
         public string DownloadLink { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
 
         public override string ToString() => $"{Name} [{Source}] ({Dpi} DPI)";
     }
@@ -211,7 +212,8 @@ namespace MTGProxyBuilder.Core.Services
                             Language = c["language"]?.ToString() ?? "EN",
                             SmallThumbnailUrl = c["smallThumbnailUrl"]?.ToString() ?? string.Empty,
                             MediumThumbnailUrl = c["mediumThumbnailUrl"]?.ToString() ?? string.Empty,
-                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty
+                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty,
+                            Tags = c["tags"]?.ToObject<List<string>>() ?? new()
                         });
                     }
 
@@ -241,8 +243,7 @@ namespace MTGProxyBuilder.Core.Services
             var cached = _imageCache.GetCachedImagePath(cacheKey);
             if (cached != null)
             {
-                if (!thumbnail)
-                    _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
+                _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
                 return cached;
             }
 
@@ -251,7 +252,7 @@ namespace MTGProxyBuilder.Core.Services
 
             Log.Information("Downloading MPCFill image {Identifier} ({Mode})", card.Identifier, thumbnail ? "thumbnail" : "full");
             var result = await _imageCache.CacheImageFromUrlAsync(_httpClient, url, cacheKey);
-            if (result != null && !thumbnail)
+            if (result != null)
                 _imageCache.SetMetadata(cacheKey, card.Name, card.Source);
             return result;
         }
@@ -371,7 +372,8 @@ namespace MTGProxyBuilder.Core.Services
                             Language = c["language"]?.ToString() ?? "EN",
                             SmallThumbnailUrl = c["smallThumbnailUrl"]?.ToString() ?? string.Empty,
                             MediumThumbnailUrl = c["mediumThumbnailUrl"]?.ToString() ?? string.Empty,
-                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty
+                            DownloadLink = c["downloadLink"]?.ToString() ?? string.Empty,
+                            Tags = c["tags"]?.ToObject<List<string>>() ?? new()
                         });
                     }
                     return batchCards;

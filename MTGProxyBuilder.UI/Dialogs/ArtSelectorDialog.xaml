@@ -70,91 +70,11 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- MPCFill Filter Panel -->
-                        <Expander Grid.Row="0" x:Name="FilterExpander" Header="MPCFill Filters" IsExpanded="False"
-                                  Foreground="#CCC" FontSize="11" Margin="0,0,0,6">
-                            <Border Background="#252526" CornerRadius="4" Padding="10,8" Margin="0,4,0,0">
-                                <StackPanel>
-                                    <WrapPanel Margin="0,0,0,6">
-                                        <StackPanel Margin="0,0,14,0">
-                                            <TextBlock Text="Sort Order" Foreground="#888" FontSize="9" Margin="0,0,0,2"/>
-                                            <ComboBox x:Name="FilterSortByBox" Padding="3" FontSize="10" Width="140">
-                                                <ComboBoxItem Tag="nameAscending" Content="Name A-Z"/>
-                                                <ComboBoxItem Tag="nameDescending" Content="Name Z-A"/>
-                                                <ComboBoxItem Tag="dateCreatedDescending" Content="Newest First"/>
-                                                <ComboBoxItem Tag="dateCreatedAscending" Content="Oldest First"/>
-                                                <ComboBoxItem Tag="dateModifiedDescending" Content="Recently Modified"/>
-                                                <ComboBoxItem Tag="dateModifiedAscending" Content="Least Recently Modified"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Margin="0,0,14,0">
-                                            <TextBlock Text="Min DPI" Foreground="#888" FontSize="9" Margin="0,0,0,2"/>
-                                            <ComboBox x:Name="FilterMinDpiBox" Padding="3" FontSize="10" Width="80">
-                                                <ComboBoxItem Tag="0" Content="0 (Any)"/>
-                                                <ComboBoxItem Tag="300" Content="300"/>
-                                                <ComboBoxItem Tag="600" Content="600"/>
-                                                <ComboBoxItem Tag="800" Content="800"/>
-                                                <ComboBoxItem Tag="1200" Content="1200"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Margin="0,0,14,0">
-                                            <TextBlock Text="Max DPI" Foreground="#888" FontSize="9" Margin="0,0,0,2"/>
-                                            <ComboBox x:Name="FilterMaxDpiBox" Padding="3" FontSize="10" Width="80">
-                                                <ComboBoxItem Tag="300" Content="300"/>
-                                                <ComboBoxItem Tag="600" Content="600"/>
-                                                <ComboBoxItem Tag="800" Content="800"/>
-                                                <ComboBoxItem Tag="1200" Content="1200"/>
-                                                <ComboBoxItem Tag="1500" Content="1500"/>
-                                            </ComboBox>
-                                        </StackPanel>
-                                        <StackPanel Margin="0,0,14,0">
-                                            <TextBlock Text="Max Size (MB)" Foreground="#888" FontSize="9" Margin="0,0,0,2"/>
-                                            <TextBox x:Name="FilterMaxSizeBox" Padding="4,3" FontSize="10" Width="60"
-                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                        </StackPanel>
-                                    </WrapPanel>
-                                    <WrapPanel Margin="0,0,0,6">
-                                        <CheckBox x:Name="FilterFuzzyBox" Content="Fuzzy Search" Foreground="#CCC" FontSize="10" Margin="0,0,12,0"/>
-                                        <CheckBox x:Name="FilterCardbacksBox" Content="Filter Cardbacks" Foreground="#CCC" FontSize="10" Margin="0,0,18,0"/>
-                                        <TextBlock Text="Types:" Foreground="#888" FontSize="10" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                        <CheckBox x:Name="FilterTypeCard" Content="Cards" Foreground="#CCC" FontSize="10" Margin="0,0,8,0"/>
-                                        <CheckBox x:Name="FilterTypeToken" Content="Tokens" Foreground="#CCC" FontSize="10" Margin="0,0,8,0"/>
-                                        <CheckBox x:Name="FilterTypeCardback" Content="Card Backs" Foreground="#CCC" FontSize="10" Margin="0,0,0,0"/>
-                                    </WrapPanel>
-                                    <TextBlock Text="Languages (none = all)" Foreground="#888" FontSize="9" Margin="0,0,0,2"/>
-                                    <WrapPanel Margin="0,0,0,6">
-                                        <CheckBox x:Name="FilterLangEN" Content="EN" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="48"/>
-                                        <CheckBox x:Name="FilterLangJA" Content="JA" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="45"/>
-                                        <CheckBox x:Name="FilterLangFR" Content="FR" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="45"/>
-                                        <CheckBox x:Name="FilterLangDE" Content="DE" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="48"/>
-                                        <CheckBox x:Name="FilterLangES" Content="ES" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="45"/>
-                                        <CheckBox x:Name="FilterLangIT" Content="IT" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="40"/>
-                                        <CheckBox x:Name="FilterLangPT" Content="PT" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="42"/>
-                                        <CheckBox x:Name="FilterLangZH" Content="ZH" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="45"/>
-                                        <CheckBox x:Name="FilterLangRU" Content="RU" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="45"/>
-                                        <CheckBox x:Name="FilterLangAR" Content="AR" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="44"/>
-                                        <CheckBox x:Name="FilterLangSA" Content="SA" Foreground="#CCC" FontSize="10" Margin="0,0,8,2" Width="44"/>
-                                    </WrapPanel>
-                                    <WrapPanel>
-                                        <CheckBox x:Name="FilterExcludeNsfw" Content="Exclude NSFW" Foreground="#CCC" FontSize="10" Margin="0,0,12,0"/>
-                                        <CheckBox x:Name="FilterExcludeAiArt" Content="Exclude AI Art" Foreground="#CCC" FontSize="10" Margin="0,0,24,0"/>
-                                        <Button x:Name="ClearFiltersBtn" Content="Clear All Filters" Padding="8,3" FontSize="10"
-                                                Background="#3E3E42" Foreground="#CCC" BorderThickness="0" Cursor="Hand"
-                                                Margin="0,0,8,0" Click="OnClearFilters"/>
-                                        <Button x:Name="ResearchBtn" Content="Re-search MPCFill" Padding="8,3" FontSize="10"
-                                                Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand"
-                                                Click="OnResearchMpcFill"/>
-                                    </WrapPanel>
-                                </StackPanel>
-                            </Border>
-                        </Expander>
-
                         <!-- Actions bar (front mode) -->
-                        <StackPanel Grid.Row="1" x:Name="FrontActionsBar" Orientation="Horizontal" Margin="0,0,0,6" Visibility="Collapsed">
+                        <StackPanel Grid.Row="0" x:Name="FrontActionsBar" Orientation="Horizontal" Margin="0,0,0,6" Visibility="Collapsed">
                             <Button x:Name="ImportCacheBtn" Content="Import Downloaded Art" Padding="10,5" Margin="0,0,6,0"
                                     Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand" FontSize="11"
                                     Click="OnImportCacheToLibrary"/>
@@ -166,12 +86,11 @@
                                     Click="OnBrowseFileClick"/>
                         </StackPanel>
 
-                        <!-- Search bar (front) -->
-                        <controls:SearchBar x:Name="FrontSearchBar" Grid.Row="2" Margin="0,0,0,6"
-                                            Placeholder="Search art (name:, t:, s:, r:, c:, a:, source:...)"/>
+                        <!-- Filter bar (front) -->
+                        <controls:PillFilterBar x:Name="FrontFilterBar" Grid.Row="1" Margin="0,0,0,6"/>
 
                         <!-- Front tiles -->
-                        <Border Grid.Row="3" Background="#252526" CornerRadius="4" Padding="8">
+                        <Border Grid.Row="2" Background="#252526" CornerRadius="4" Padding="8">
                             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                                 <WrapPanel x:Name="FrontOptionsPanel" Orientation="Horizontal"/>
                             </ScrollViewer>
@@ -201,9 +120,8 @@
                                     Click="OnBrowseFileClick"/>
                         </StackPanel>
 
-                        <!-- Search bar (back) -->
-                        <controls:SearchBar x:Name="BackSearchBar" Grid.Row="1" Margin="0,0,0,6"
-                                            Placeholder="Search back art..."/>
+                        <!-- Filter bar (back) -->
+                        <controls:PillFilterBar x:Name="BackFilterBar" Grid.Row="1" Margin="0,0,0,6"/>
 
                         <!-- Back tiles -->
                         <Border Grid.Row="2" Background="#252526" CornerRadius="4" Padding="8">

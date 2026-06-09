@@ -43,7 +43,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         public bool ApplyToNoBack { get; private set; }
 
         // Tile tracking for search/filter
-        private record TileInfo(Border Tile, string Name, string Source, string Detail, bool IsAction = false);
+        private record TileInfo(Border Tile, string Name, string Source, int Dpi, List<string> Tags, bool IsAction = false);
 
         // Allows click handlers (closures) to see the real download path after it's been set asynchronously.
         private class MutablePath { public string? Value; }
@@ -53,7 +53,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             public required ArtSelectorMode Mode { get; init; }
             public required WrapPanel OptionsPanel { get; init; }
-            public required SearchBar SearchBar { get; init; }
+            public required PillFilterBar FilterBar { get; init; }
             public List<TileInfo> AllTiles { get; } = new();
             public Dictionary<string, ScryfallCard> ScryfallCardsByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, MpcFillCard> MpcFillCardsByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -107,21 +107,19 @@ namespace MTGProxyBuilder.UI.Dialogs
             {
                 Mode = ArtSelectorMode.Front,
                 OptionsPanel = FrontOptionsPanel,
-                SearchBar = FrontSearchBar
+                FilterBar = FrontFilterBar
             };
             _backTab = new TabState
             {
                 Mode = ArtSelectorMode.Back,
                 OptionsPanel = BackOptionsPanel,
-                SearchBar = BackSearchBar
+                FilterBar = BackFilterBar
             };
             _activeTab = initialMode == ArtSelectorMode.Front ? _frontTab : _backTab;
 
-            // Wire search bars
-            FrontSearchBar.SearchRequested += (_, _) => ApplyFilters(_frontTab);
-            FrontSearchBar.SourceChanged += (_, _) => ApplyFilters(_frontTab);
-            BackSearchBar.SearchRequested += (_, _) => ApplyFilters(_backTab);
-            BackSearchBar.SourceChanged += (_, _) => ApplyFilters(_backTab);
+            // Wire filter bars
+            FrontFilterBar.FilterChanged += (_, _) => ApplyFilters(_frontTab);
+            BackFilterBar.FilterChanged += (_, _) => ApplyFilters(_backTab);
 
             // Set up bulk action checkbox content
             if (_allCards != null)
@@ -144,8 +142,6 @@ namespace MTGProxyBuilder.UI.Dialogs
             // Show front actions bar if library available
             if (_frontArtLibrary != null)
                 FrontActionsBar.Visibility = Visibility.Visible;
-
-            LoadFilterControls(_mpcSearchOptions);
 
             // Set initial tab
             ArtTabControl.SelectedIndex = initialMode == ArtSelectorMode.Front ? 0 : 1;
@@ -217,7 +213,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             string? currentPath = tab.Mode == ArtSelectorMode.Front ? _card.ArtworkPath : _card.BackArtworkPath;
             if (!string.IsNullOrEmpty(currentPath) && File.Exists(currentPath))
             {
-                AddOption(tab, "Current", currentPath, true, "Currently assigned");
+                AddOption(tab, "Current", currentPath, true, "Current");
                 shown.Add(currentPath);
             }
 
@@ -230,7 +226,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             {
                 StatusLabel.Text = $"{shown.Count} option(s) found";
                 SpinnerDot.Visibility = Visibility.Collapsed;
-                PopulateSourceFilter(tab);
+                PopulateAutocompleteData(tab);
                 ApplyFilters(tab);
             }
         }
@@ -301,14 +297,14 @@ namespace MTGProxyBuilder.UI.Dialogs
                         string path = entry.FilePath;
                         string capturedName = entry.Name;
                         string detail = $"Library | {entry.Source}";
-                        border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, detail, border);
+                        border.PreviewMouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, detail, border);
                         border.MouseLeftButtonDown += (_, ev) =>
                         {
                             if (ev.ClickCount == 2) { SelectOption(tab, capturedName, path, detail, border); OkClick(null!, null!); }
                         };
 
                         tab.OptionsPanel.Children.Add(border);
-                        tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, $"Library | {entry.Source}"));
+                        tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, 0, new List<string>()));
                     }
 
                     // Load library thumbnails progressively
@@ -350,8 +346,19 @@ namespace MTGProxyBuilder.UI.Dialogs
             // 2. Kick off API searches concurrently
             StatusLabel.Text = $"Searching for \"{_card.Name}\"...";
             Log.Information("Loading front art options for {CardName}", _card.Name);
-            var mpcOpts = BuildSearchOptionsFromControls();
-            mpcOpts.FuzzySearch = false;
+            var mpcOpts = new MpcFillSearchOptions
+            {
+                CardTypes = _mpcSearchOptions.CardTypes,
+                SortBy = _mpcSearchOptions.SortBy,
+                MinimumDpi = _mpcSearchOptions.MinimumDpi,
+                MaximumDpi = _mpcSearchOptions.MaximumDpi,
+                MaximumSize = _mpcSearchOptions.MaximumSize,
+                FuzzySearch = false,
+                FilterCardbacks = _mpcSearchOptions.FilterCardbacks,
+                Languages = _mpcSearchOptions.Languages,
+                IncludesTags = _mpcSearchOptions.IncludesTags,
+                ExcludesTags = _mpcSearchOptions.ExcludesTags
+            };
             var scryfallTask = Task.Run(async () =>
             {
                 try { return (await _scryfall.SearchCardAsync($"!\"{_card.Name}\"")).Cards; }
@@ -390,10 +397,12 @@ namespace MTGProxyBuilder.UI.Dialogs
             {
                 string label = $"{sc.SetName} #{sc.CollectorNumber}";
                 string detail = $"Scryfall | {sc.Artist ?? ""}";
-                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                    sc.Name, "Scryfall",
+                    onSourceClick: s => OnSourceClickFilter(tab, s));
                 var pathRef = new MutablePath();
 
-                border.MouseLeftButtonUp += (_, _) =>
+                border.PreviewMouseLeftButtonUp += (_, _) =>
                 {
                     if (pathRef.Value != null)
                         SelectOption(tab, label, pathRef.Value, detail, border);
@@ -423,7 +432,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 };
 
                 tab.OptionsPanel.Children.Add(border);
-                tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", detail));
+                tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", 0, new List<string>()));
                 downloadItems.Add((img, pathRef, sc, null, label, detail, null));
             }
 
@@ -432,10 +441,13 @@ namespace MTGProxyBuilder.UI.Dialogs
                 string label = mc.Name;
                 string detail = $"MPCFill | {mc.Source} | {mc.Dpi} DPI";
                 string mpcSource = mc.Source;
-                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                    mc.Name, mc.Source, mc.Dpi, mc.Tags,
+                    onSourceClick: s => OnSourceClickFilter(tab, s),
+                    onTagClick: mc.Tags.Count > 0 ? t => OnTagClickFilter(tab, t) : null);
                 var pathRef = new MutablePath();
 
-                border.MouseLeftButtonUp += (_, _) =>
+                border.PreviewMouseLeftButtonUp += (_, _) =>
                 {
                     if (pathRef.Value != null)
                         SelectOption(tab, label, pathRef.Value, detail, border);
@@ -494,7 +506,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 };
 
                 tab.OptionsPanel.Children.Add(border);
-                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, detail));
+                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, mc.Dpi, mc.Tags));
                 downloadItems.Add((img, pathRef, null, mc, label, detail, mpcSource));
             }
 
@@ -502,7 +514,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (_frontArtLibrary == null)
                 AddActionTile(tab, "Browse File...", OnBrowseFile);
 
-            PopulateSourceFilter(tab);
+            PopulateAutocompleteData(tab);
             ApplyFilters(tab);
 
             // --- Phase 2: Fire off all downloads concurrently ---
@@ -579,7 +591,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 && File.Exists(_card.OriginalBackArtworkPath)
                 && !shown.Contains(_card.OriginalBackArtworkPath))
             {
-                AddOption(tab, "Original (Scryfall)", _card.OriginalBackArtworkPath, false, "From Scryfall import");
+                AddOption(tab, "Original (Scryfall)", _card.OriginalBackArtworkPath, false, "Scryfall");
                 shown.Add(_card.OriginalBackArtworkPath);
             }
 
@@ -597,10 +609,12 @@ namespace MTGProxyBuilder.UI.Dialogs
                             ? $"{sc.CardFaces[1].Name} (Scryfall)"
                             : "Back Face (Scryfall)";
                         string detail = $"Scryfall | {sc.SetName} #{sc.CollectorNumber}";
-                        var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(label, detail);
+                        var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                            label, "Scryfall",
+                            onSourceClick: s => OnSourceClickFilter(tab, s));
                         var pathRef = new MutablePath();
 
-                        border.MouseLeftButtonUp += (_, _) =>
+                        border.PreviewMouseLeftButtonUp += (_, _) =>
                         {
                             if (pathRef.Value != null)
                                 SelectOption(tab, label, pathRef.Value, detail, border);
@@ -630,7 +644,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                         };
 
                         tab.OptionsPanel.Children.Add(border);
-                        tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", detail));
+                        tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", 0, new List<string>()));
                         shown.Add("__scryfall_back_placeholder__"); // reserve slot in count
 
                         // Fire off download in background
@@ -731,7 +745,7 @@ namespace MTGProxyBuilder.UI.Dialogs
 
                     string path = entry.FilePath;
                     string capturedName = entry.Name;
-                    border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, "From library", border);
+                    border.PreviewMouseLeftButtonUp += (_, _) => SelectOption(tab, capturedName, path, "From library", border);
                     border.MouseLeftButtonDown += (_, ev) =>
                     {
                         if (ev.ClickCount == 2) { SelectOption(tab, capturedName, path, "From library", border); OkClick(null!, null!); }
@@ -752,7 +766,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     };
 
                     tab.OptionsPanel.Children.Add(border);
-                    tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, "From library"));
+                    tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, 0, new List<string>()));
                 }
             }
 
@@ -859,19 +873,22 @@ namespace MTGProxyBuilder.UI.Dialogs
         //  TILE BUILDERS
         // ================================================================
 
-        private void AddOption(TabState tab, string label, string imagePath, bool isCurrent, string detail, string? mpcSource = null)
+        private void AddOption(TabState tab, string label, string imagePath, bool isCurrent, string source, string? mpcSource = null, int dpi = 0, List<string>? tags = null)
         {
-            var border = Controls.ArtTileBuilder.CreateOptionTile(label, imagePath, isCurrent, detail);
+            var border = Controls.ArtTileBuilder.CreateOptionTile(label, imagePath, isCurrent,
+                source, dpi, tags,
+                onSourceClick: s => OnSourceClickFilter(tab, s),
+                onTagClick: tags?.Count > 0 ? t => OnTagClickFilter(tab, t) : null);
 
             string path = imagePath;
             string capturedLabel = label;
-            string capturedDetail = detail;
-            border.MouseLeftButtonUp += (_, _) => SelectOption(tab, capturedLabel, path, capturedDetail, border);
+            string capturedSource = source;
+            border.PreviewMouseLeftButtonUp += (_, _) => SelectOption(tab, capturedLabel, path, capturedSource, border);
             border.MouseLeftButtonDown += (_, e) =>
             {
                 if (e.ClickCount == 2)
                 {
-                    SelectOption(tab, capturedLabel, path, capturedDetail, border);
+                    SelectOption(tab, capturedLabel, path, capturedSource, border);
                     OkClick(null!, null!);
                 }
             };
@@ -926,13 +943,13 @@ namespace MTGProxyBuilder.UI.Dialogs
             string trackSource;
             if (!string.IsNullOrEmpty(mpcSource))
                 trackSource = mpcSource;
-            else if (detail.Contains("Scryfall", StringComparison.OrdinalIgnoreCase))
+            else if (source.Contains("Scryfall", StringComparison.OrdinalIgnoreCase))
                 trackSource = "Scryfall";
-            else if (detail.Contains("Library", StringComparison.OrdinalIgnoreCase))
+            else if (source.Contains("Library", StringComparison.OrdinalIgnoreCase))
                 trackSource = "Library";
             else
-                trackSource = "";
-            tab.AllTiles.Add(new TileInfo(border, label, trackSource, detail));
+                trackSource = source;
+            tab.AllTiles.Add(new TileInfo(border, label, trackSource, dpi, tags ?? new List<string>()));
         }
 
         private void AddActionTile(TabState tab, string label, Action action)
@@ -940,7 +957,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             var border = Controls.ArtTileBuilder.CreateActionTile(label);
             border.MouseLeftButtonUp += (_, _) => action();
             tab.OptionsPanel.Children.Add(border);
-            tab.AllTiles.Add(new TileInfo(border, label, "", "", IsAction: true));
+            tab.AllTiles.Add(new TileInfo(border, label, "", 0, new List<string>(), IsAction: true));
         }
 
         // ================================================================
@@ -976,10 +993,52 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             if (_frontArtLibrary == null) return;
 
-            var cached = _imageCache.GetCachedByPrefix("mpc_");
-            if (cached.Count == 0)
+            // Find full-res downloads and thumbnails
+            var fullRes = _imageCache.GetCachedByPrefix("mpc_");
+            var thumbs = _imageCache.GetCachedByPrefix("thumb_");
+
+            if (fullRes.Count == 0 && thumbs.Count == 0)
             {
                 StatusLabel.Text = "No downloaded MPCFill art found in cache.";
+                return;
+            }
+
+            // For thumbnails, download full-res versions first
+            if (thumbs.Count > 0)
+            {
+                StatusLabel.Text = $"Downloading full resolution for {thumbs.Count} image(s)...";
+                int downloaded = 0;
+                var semaphore = new System.Threading.SemaphoreSlim(8);
+                var thumbDownloads = thumbs.Select(async thumb =>
+                {
+                    await semaphore.WaitAsync();
+                    try
+                    {
+                        var mpcCard = _frontTab.MpcFillCardsByPath
+                            .FirstOrDefault(kv => string.Equals(kv.Key, thumb.Path, StringComparison.OrdinalIgnoreCase))
+                            .Value;
+                        if (mpcCard != null)
+                        {
+                            var fullPath = await _mpcFill.DownloadAndCacheImageAsync(mpcCard);
+                            if (fullPath != null)
+                            {
+                                var done = System.Threading.Interlocked.Increment(ref downloaded);
+                                _ = Dispatcher.BeginInvoke(() =>
+                                    StatusLabel.Text = $"Downloading full resolution {done}/{thumbs.Count}...");
+                            }
+                        }
+                    }
+                    finally { semaphore.Release(); }
+                }).ToList();
+                await Task.WhenAll(thumbDownloads);
+
+                // Re-fetch full-res list after downloading
+                fullRes = _imageCache.GetCachedByPrefix("mpc_");
+            }
+
+            if (fullRes.Count == 0)
+            {
+                StatusLabel.Text = "No full resolution art available to import.";
                 return;
             }
 
@@ -992,7 +1051,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             _frontArtLibrary.BeginBatch();
             try
             {
-                foreach (var (key, path, name, source) in cached)
+                foreach (var (key, path, name, source) in fullRes)
                 {
                     if (!File.Exists(path)) { skipped++; continue; }
                     string displayName = !string.IsNullOrEmpty(source)
@@ -1023,8 +1082,10 @@ namespace MTGProxyBuilder.UI.Dialogs
                         Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Generating thumbnails {done}/{total}...")));
             }
 
-            // Remove imported items from cache
+            // Remove imported items from cache (both full-res and thumbnails)
             foreach (var key in importedCacheKeys)
+                _imageCache.Remove(key);
+            foreach (var (key, _, _, _) in thumbs)
                 _imageCache.Remove(key);
 
             StatusLabel.Text = $"Imported {added} image(s) to library ({skipped} already existed or skipped)";
@@ -1081,16 +1142,14 @@ namespace MTGProxyBuilder.UI.Dialogs
         }
 
         // ================================================================
-        //  SEARCH & SOURCE FILTER
+        //  FILTERING
         // ================================================================
 
         private void ApplyFilters(TabState tab)
         {
             if (tab.AllTiles.Count == 0) return;
 
-            string searchText = tab.SearchBar?.SearchText ?? "";
-            string sourceFilter = tab.SearchBar?.IsAllSourcesSelected == false ? tab.SearchBar.SelectedSource : "";
-
+            var filters = tab.FilterBar.Filters;
             int visible = 0;
             int total = 0;
 
@@ -1103,139 +1162,35 @@ namespace MTGProxyBuilder.UI.Dialogs
                 }
 
                 total++;
-
-                bool matchesSearch = string.IsNullOrEmpty(searchText) ||
-                    tile.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    tile.Source.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    tile.Detail.Contains(searchText, StringComparison.OrdinalIgnoreCase);
-
-                bool matchesSource = string.IsNullOrEmpty(sourceFilter) ||
-                    tile.Source.Equals(sourceFilter, StringComparison.OrdinalIgnoreCase);
-
-                bool show = matchesSearch && matchesSource;
+                var tileData = new TileData(tile.Name, tile.Source, tile.Dpi, tile.Tags);
+                bool show = FilterEvaluator.Evaluate(filters, tileData);
                 tile.Tile.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
                 if (show) visible++;
             }
 
-            if (!string.IsNullOrEmpty(searchText) || !string.IsNullOrEmpty(sourceFilter))
+            if (filters.Count > 0)
                 StatusLabel.Text = $"Showing {visible} of {total} option(s)";
         }
 
-        private void PopulateSourceFilter(TabState tab)
+        private void PopulateAutocompleteData(TabState tab)
         {
-            var sources = tab.AllTiles
-                .Where(t => !t.IsAction && !string.IsNullOrEmpty(t.Source))
-                .Select(t => t.Source)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s);
-
-            tab.SearchBar.SetSources(sources, "All Sources");
+            var sources = tab.AllTiles.Where(t => !t.IsAction && !string.IsNullOrEmpty(t.Source))
+                .Select(t => t.Source).Distinct(StringComparer.OrdinalIgnoreCase);
+            var tags = tab.AllTiles.Where(t => !t.IsAction)
+                .SelectMany(t => t.Tags).Distinct(StringComparer.OrdinalIgnoreCase);
+            var dpis = tab.AllTiles.Where(t => !t.IsAction && t.Dpi > 0)
+                .Select(t => t.Dpi).Distinct();
+            tab.FilterBar.SetAutocompleteData(sources, tags, dpis);
         }
 
-        // ================================================================
-        //  MPCFILL FILTER PANEL
-        // ================================================================
-
-        private void LoadFilterControls(MpcFillSearchOptions opts)
+        private void OnSourceClickFilter(TabState tab, string source)
         {
-            SelectByTag(FilterSortByBox, opts.SortBy);
-            SelectByTag(FilterMinDpiBox, opts.MinimumDpi.ToString());
-            SelectByTag(FilterMaxDpiBox, opts.MaximumDpi.ToString());
-            FilterMaxSizeBox.Text = opts.MaximumSize.ToString();
-            FilterFuzzyBox.IsChecked = opts.FuzzySearch;
-            FilterCardbacksBox.IsChecked = opts.FilterCardbacks;
-
-            FilterTypeCard.IsChecked = opts.CardTypes.Contains("CARD");
-            FilterTypeToken.IsChecked = opts.CardTypes.Contains("TOKEN");
-            FilterTypeCardback.IsChecked = opts.CardTypes.Contains("CARDBACK");
-
-            var langs = opts.Languages;
-            FilterLangEN.IsChecked = langs.Contains("EN");
-            FilterLangJA.IsChecked = langs.Contains("JA");
-            FilterLangFR.IsChecked = langs.Contains("FR");
-            FilterLangDE.IsChecked = langs.Contains("DE");
-            FilterLangES.IsChecked = langs.Contains("ES");
-            FilterLangIT.IsChecked = langs.Contains("IT");
-            FilterLangPT.IsChecked = langs.Contains("PT");
-            FilterLangZH.IsChecked = langs.Contains("ZH");
-            FilterLangRU.IsChecked = langs.Contains("RU");
-            FilterLangAR.IsChecked = langs.Contains("AR");
-            FilterLangSA.IsChecked = langs.Contains("SA");
-
-            FilterExcludeNsfw.IsChecked = opts.ExcludesTags.Contains("NSFW");
-            FilterExcludeAiArt.IsChecked = opts.ExcludesTags.Contains("AI Art");
+            tab.FilterBar.AddFilter($"source:{source}");
         }
 
-        private MpcFillSearchOptions BuildSearchOptionsFromControls()
+        private void OnTagClickFilter(TabState tab, string tag)
         {
-            var cardTypes = new List<string>();
-            if (FilterTypeCard.IsChecked == true) cardTypes.Add("CARD");
-            if (FilterTypeToken.IsChecked == true) cardTypes.Add("TOKEN");
-            if (FilterTypeCardback.IsChecked == true) cardTypes.Add("CARDBACK");
-            if (cardTypes.Count == 0) cardTypes.Add("CARD");
-
-            var languages = new List<string>();
-            if (FilterLangEN.IsChecked == true) languages.Add("EN");
-            if (FilterLangJA.IsChecked == true) languages.Add("JA");
-            if (FilterLangFR.IsChecked == true) languages.Add("FR");
-            if (FilterLangDE.IsChecked == true) languages.Add("DE");
-            if (FilterLangES.IsChecked == true) languages.Add("ES");
-            if (FilterLangIT.IsChecked == true) languages.Add("IT");
-            if (FilterLangPT.IsChecked == true) languages.Add("PT");
-            if (FilterLangZH.IsChecked == true) languages.Add("ZH");
-            if (FilterLangRU.IsChecked == true) languages.Add("RU");
-            if (FilterLangAR.IsChecked == true) languages.Add("AR");
-            if (FilterLangSA.IsChecked == true) languages.Add("SA");
-
-            var excludeTags = new List<string>();
-            if (FilterExcludeNsfw.IsChecked == true) excludeTags.Add("NSFW");
-            if (FilterExcludeAiArt.IsChecked == true) excludeTags.Add("AI Art");
-
-            return new MpcFillSearchOptions
-            {
-                CardTypes = cardTypes.ToArray(),
-                SortBy = (FilterSortByBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "nameAscending",
-                MinimumDpi = int.TryParse((FilterMinDpiBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), out var minD) ? minD : 0,
-                MaximumDpi = int.TryParse((FilterMaxDpiBox.SelectedItem as ComboBoxItem)?.Tag?.ToString(), out var maxD) ? maxD : 1500,
-                MaximumSize = int.TryParse(FilterMaxSizeBox.Text, out var ms) && ms > 0 ? ms : 30,
-                FuzzySearch = FilterFuzzyBox.IsChecked == true,
-                FilterCardbacks = FilterCardbacksBox.IsChecked == true,
-                Languages = languages.ToArray(),
-                IncludesTags = Array.Empty<string>(),
-                ExcludesTags = excludeTags.ToArray()
-            };
-        }
-
-        private static void SelectByTag(ComboBox box, string tagValue)
-        {
-            foreach (ComboBoxItem item in box.Items)
-            {
-                if (item.Tag?.ToString() == tagValue)
-                {
-                    box.SelectedItem = item;
-                    return;
-                }
-            }
-            box.SelectedIndex = box.Items.Count - 1;
-        }
-
-        private void OnClearFilters(object sender, RoutedEventArgs e)
-        {
-            LoadFilterControls(new MpcFillSearchOptions());
-        }
-
-        private async void OnResearchMpcFill(object sender, RoutedEventArgs e)
-        {
-            _mpcSearchOptions = BuildSearchOptionsFromControls();
-            _frontTab.ScryfallCardsByPath.Clear();
-            _frontTab.ResultPath = null;
-            _frontTab.SelectedBorder = null;
-            _frontTab.SelectedLabel = null;
-            _frontTab.SelectedDetail = null;
-            OkBtn.IsEnabled = false;
-            PreviewPanel.Clear();
-            SpinnerDot.Visibility = Visibility.Visible;
-            await LoadTabContentAsync(_frontTab);
+            tab.FilterBar.AddFilter($"tag:{tag}");
         }
 
         // ================================================================
