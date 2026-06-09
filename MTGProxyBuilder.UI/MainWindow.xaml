@@ -107,30 +107,39 @@
                 <!-- Right-aligned buttons -->
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8B9;"
+                            AutomationProperties.Name="Art Library"
                             Command="{Binding ManageFrontArtLibraryCommand}" ToolTip="Art Library"/>
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE713;"
+                            AutomationProperties.Name="Settings"
                             Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
                 </StackPanel>
                 <!-- Left-aligned button groups -->
                 <StackPanel Orientation="Horizontal">
                     <!-- Group 1: New, Open, Save -->
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE7C3;"
+                            AutomationProperties.Name="New Project"
                             Command="{Binding NewProjectCommand}" ToolTip="New Project (Ctrl+N)"/>
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8E5;"
+                            AutomationProperties.Name="Open Project"
                             Command="{Binding OpenProjectCommand}" ToolTip="Open Project (Ctrl+O)"/>
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE74E;"
+                            AutomationProperties.Name="Save"
                             Command="{Binding ActiveProject.Inner.SaveProjectCommand}" ToolTip="Save (Ctrl+S)"/>
                     <Border Width="1" Background="#444" Margin="4,4"/>
                     <!-- Group 2: Undo, Redo -->
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE7A7;"
+                            AutomationProperties.Name="Undo"
                             Command="{Binding ActiveProject.Inner.UndoCommand}" ToolTip="Undo (Ctrl+Z)"/>
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE7A6;"
+                            AutomationProperties.Name="Redo"
                             Command="{Binding ActiveProject.Inner.RedoCommand}" ToolTip="Redo (Ctrl+Y)"/>
                     <Border Width="1" Background="#444" Margin="4,4"/>
                     <!-- Group 3: Add File, Export PDF -->
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE710;"
+                            AutomationProperties.Name="Add Card from File"
                             Command="{Binding ActiveProject.Inner.AddCardFromFileCommand}" ToolTip="Add Card from File"/>
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8A5;"
+                            AutomationProperties.Name="Export PDF"
                             Command="{Binding ActiveProject.Inner.ExportPdfCommand}" ToolTip="Export PDF (Ctrl+E)"/>
                 </StackPanel>
             </DockPanel>
