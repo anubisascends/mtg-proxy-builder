@@ -43,7 +43,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         public bool ApplyToNoBack { get; private set; }
 
         // Tile tracking for search/filter
-        private record TileInfo(Border Tile, string Name, string Source, string Detail, bool IsAction = false);
+        private record TileInfo(Border Tile, string Name, string Source, int Dpi, List<string> Tags, bool IsAction = false);
 
         // Allows click handlers (closures) to see the real download path after it's been set asynchronously.
         private class MutablePath { public string? Value; }
@@ -53,7 +53,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             public required ArtSelectorMode Mode { get; init; }
             public required WrapPanel OptionsPanel { get; init; }
-            public required SearchBar SearchBar { get; init; }
+            public required PillFilterBar FilterBar { get; init; }
             public List<TileInfo> AllTiles { get; } = new();
             public Dictionary<string, ScryfallCard> ScryfallCardsByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
             public Dictionary<string, MpcFillCard> MpcFillCardsByPath { get; } = new(StringComparer.OrdinalIgnoreCase);
@@ -107,21 +107,19 @@ namespace MTGProxyBuilder.UI.Dialogs
             {
                 Mode = ArtSelectorMode.Front,
                 OptionsPanel = FrontOptionsPanel,
-                SearchBar = FrontSearchBar
+                FilterBar = FrontFilterBar
             };
             _backTab = new TabState
             {
                 Mode = ArtSelectorMode.Back,
                 OptionsPanel = BackOptionsPanel,
-                SearchBar = BackSearchBar
+                FilterBar = BackFilterBar
             };
             _activeTab = initialMode == ArtSelectorMode.Front ? _frontTab : _backTab;
 
-            // Wire search bars
-            FrontSearchBar.SearchRequested += (_, _) => ApplyFilters(_frontTab);
-            FrontSearchBar.SourceChanged += (_, _) => ApplyFilters(_frontTab);
-            BackSearchBar.SearchRequested += (_, _) => ApplyFilters(_backTab);
-            BackSearchBar.SourceChanged += (_, _) => ApplyFilters(_backTab);
+            // Wire filter bars
+            FrontFilterBar.FilterChanged += (_, _) => ApplyFilters(_frontTab);
+            BackFilterBar.FilterChanged += (_, _) => ApplyFilters(_backTab);
 
             // Set up bulk action checkbox content
             if (_allCards != null)
@@ -230,7 +228,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             {
                 StatusLabel.Text = $"{shown.Count} option(s) found";
                 SpinnerDot.Visibility = Visibility.Collapsed;
-                PopulateSourceFilter(tab);
+                PopulateAutocompleteData(tab);
                 ApplyFilters(tab);
             }
         }
@@ -308,7 +306,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                         };
 
                         tab.OptionsPanel.Children.Add(border);
-                        tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, $"Library | {entry.Source}"));
+                        tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, 0, new List<string>()));
                     }
 
                     // Load library thumbnails progressively
@@ -423,7 +421,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 };
 
                 tab.OptionsPanel.Children.Add(border);
-                tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", detail));
+                tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", 0, new List<string>()));
                 downloadItems.Add((img, pathRef, sc, null, label, detail, null));
             }
 
@@ -494,7 +492,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 };
 
                 tab.OptionsPanel.Children.Add(border);
-                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, detail));
+                tab.AllTiles.Add(new TileInfo(border, label, mpcSource, mc.Dpi, new List<string>()));
                 downloadItems.Add((img, pathRef, null, mc, label, detail, mpcSource));
             }
 
@@ -502,7 +500,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (_frontArtLibrary == null)
                 AddActionTile(tab, "Browse File...", OnBrowseFile);
 
-            PopulateSourceFilter(tab);
+            PopulateAutocompleteData(tab);
             ApplyFilters(tab);
 
             // --- Phase 2: Fire off all downloads concurrently ---
@@ -630,7 +628,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                         };
 
                         tab.OptionsPanel.Children.Add(border);
-                        tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", detail));
+                        tab.AllTiles.Add(new TileInfo(border, label, "Scryfall", 0, new List<string>()));
                         shown.Add("__scryfall_back_placeholder__"); // reserve slot in count
 
                         // Fire off download in background
@@ -752,7 +750,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     };
 
                     tab.OptionsPanel.Children.Add(border);
-                    tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, "From library"));
+                    tab.AllTiles.Add(new TileInfo(border, entry.Name, entry.Source, 0, new List<string>()));
                 }
             }
 
@@ -859,7 +857,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         //  TILE BUILDERS
         // ================================================================
 
-        private void AddOption(TabState tab, string label, string imagePath, bool isCurrent, string detail, string? mpcSource = null)
+        private void AddOption(TabState tab, string label, string imagePath, bool isCurrent, string detail, string? mpcSource = null, int dpi = 0)
         {
             var border = Controls.ArtTileBuilder.CreateOptionTile(label, imagePath, isCurrent, detail);
 
@@ -932,7 +930,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 trackSource = "Library";
             else
                 trackSource = "";
-            tab.AllTiles.Add(new TileInfo(border, label, trackSource, detail));
+            tab.AllTiles.Add(new TileInfo(border, label, trackSource, dpi, new List<string>()));
         }
 
         private void AddActionTile(TabState tab, string label, Action action)
@@ -940,7 +938,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             var border = Controls.ArtTileBuilder.CreateActionTile(label);
             border.MouseLeftButtonUp += (_, _) => action();
             tab.OptionsPanel.Children.Add(border);
-            tab.AllTiles.Add(new TileInfo(border, label, "", "", IsAction: true));
+            tab.AllTiles.Add(new TileInfo(border, label, "", 0, new List<string>(), IsAction: true));
         }
 
         // ================================================================
@@ -1081,16 +1079,14 @@ namespace MTGProxyBuilder.UI.Dialogs
         }
 
         // ================================================================
-        //  SEARCH & SOURCE FILTER
+        //  FILTERING
         // ================================================================
 
         private void ApplyFilters(TabState tab)
         {
             if (tab.AllTiles.Count == 0) return;
 
-            string searchText = tab.SearchBar?.SearchText ?? "";
-            string sourceFilter = tab.SearchBar?.IsAllSourcesSelected == false ? tab.SearchBar.SelectedSource : "";
-
+            var filters = tab.FilterBar.Filters;
             int visible = 0;
             int total = 0;
 
@@ -1103,33 +1099,35 @@ namespace MTGProxyBuilder.UI.Dialogs
                 }
 
                 total++;
-
-                bool matchesSearch = string.IsNullOrEmpty(searchText) ||
-                    tile.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    tile.Source.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
-                    tile.Detail.Contains(searchText, StringComparison.OrdinalIgnoreCase);
-
-                bool matchesSource = string.IsNullOrEmpty(sourceFilter) ||
-                    tile.Source.Equals(sourceFilter, StringComparison.OrdinalIgnoreCase);
-
-                bool show = matchesSearch && matchesSource;
+                var tileData = new TileData(tile.Name, tile.Source, tile.Dpi, tile.Tags);
+                bool show = FilterEvaluator.Evaluate(filters, tileData);
                 tile.Tile.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
                 if (show) visible++;
             }
 
-            if (!string.IsNullOrEmpty(searchText) || !string.IsNullOrEmpty(sourceFilter))
+            if (filters.Count > 0)
                 StatusLabel.Text = $"Showing {visible} of {total} option(s)";
         }
 
-        private void PopulateSourceFilter(TabState tab)
+        private void PopulateAutocompleteData(TabState tab)
         {
-            var sources = tab.AllTiles
-                .Where(t => !t.IsAction && !string.IsNullOrEmpty(t.Source))
-                .Select(t => t.Source)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s);
+            var sources = tab.AllTiles.Where(t => !t.IsAction && !string.IsNullOrEmpty(t.Source))
+                .Select(t => t.Source).Distinct(StringComparer.OrdinalIgnoreCase);
+            var tags = tab.AllTiles.Where(t => !t.IsAction)
+                .SelectMany(t => t.Tags).Distinct(StringComparer.OrdinalIgnoreCase);
+            var dpis = tab.AllTiles.Where(t => !t.IsAction && t.Dpi > 0)
+                .Select(t => t.Dpi).Distinct();
+            tab.FilterBar.SetAutocompleteData(sources, tags, dpis);
+        }
 
-            tab.SearchBar.SetSources(sources, "All Sources");
+        private void OnSourceClickFilter(TabState tab, string source)
+        {
+            tab.FilterBar.AddFilter($"source:{source}");
+        }
+
+        private void OnTagClickFilter(TabState tab, string tag)
+        {
+            tab.FilterBar.AddFilter($"tag:{tag}");
         }
 
         // ================================================================

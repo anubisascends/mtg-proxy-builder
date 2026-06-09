@@ -166,9 +166,8 @@
                                     Click="OnBrowseFileClick"/>
                         </StackPanel>
 
-                        <!-- Search bar (front) -->
-                        <controls:SearchBar x:Name="FrontSearchBar" Grid.Row="2" Margin="0,0,0,6"
-                                            Placeholder="Search art (name:, t:, s:, r:, c:, a:, source:...)"/>
+                        <!-- Filter bar (front) -->
+                        <controls:PillFilterBar x:Name="FrontFilterBar" Grid.Row="2" Margin="0,0,0,6"/>
 
                         <!-- Front tiles -->
                         <Border Grid.Row="3" Background="#252526" CornerRadius="4" Padding="8">
@@ -201,9 +200,8 @@
                                     Click="OnBrowseFileClick"/>
                         </StackPanel>
 
-                        <!-- Search bar (back) -->
-                        <controls:SearchBar x:Name="BackSearchBar" Grid.Row="1" Margin="0,0,0,6"
-                                            Placeholder="Search back art..."/>
+                        <!-- Filter bar (back) -->
+                        <controls:PillFilterBar x:Name="BackFilterBar" Grid.Row="1" Margin="0,0,0,6"/>
 
                         <!-- Back tiles -->
                         <Border Grid.Row="2" Background="#252526" CornerRadius="4" Padding="8">
