@@ -51,7 +51,6 @@ namespace MTGProxyBuilder.UI.ViewModels
             DismissUpdateCommand = new RelayCommand(_ => UpdateAvailable = false);
             ManageFrontArtLibraryCommand = new RelayCommand(_ => ManageFrontArtLibrary());
             ManageBackArtLibraryCommand = new RelayCommand(_ => ManageBackArtLibrary());
-            OpenCardEditorCommand = new RelayCommand(_ => OpenCardEditor());
 
             _ = CheckForUpdateAsync();
             Log.Information("ShellViewModel initialized");
@@ -78,7 +77,6 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand DismissUpdateCommand { get; }
         public ICommand ManageFrontArtLibraryCommand { get; }
         public ICommand ManageBackArtLibraryCommand { get; }
-        public ICommand OpenCardEditorCommand { get; }
 
         // --- Update ---
         public bool UpdateAvailable
@@ -294,14 +292,6 @@ namespace MTGProxyBuilder.UI.ViewModels
                 initialTab);
             dialog.Owner = Application.Current.MainWindow;
             dialog.ShowDialog();
-        }
-
-        private void OpenCardEditor()
-        {
-            var vm = new CardEditorViewModel();
-            var window = new Dialogs.CardEditorWindow(vm);
-            window.Owner = Application.Current.MainWindow;
-            window.Show();
         }
 
         // --- Update Check ---
