@@ -63,6 +63,21 @@ namespace MTGProxyBuilder.Core.Services
 
         [JsonProperty("backArtLibraryPath")]
         public string? BackArtLibraryPath { get; set; }
+
+        [JsonProperty("sidebarSearchExpanded")]
+        public bool SidebarSearchExpanded { get; set; } = true;
+
+        [JsonProperty("sidebarImportExpanded")]
+        public bool SidebarImportExpanded { get; set; }
+
+        [JsonProperty("sidebarCardDetailsExpanded")]
+        public bool SidebarCardDetailsExpanded { get; set; }
+
+        [JsonProperty("sidebarLayoutExpanded")]
+        public bool SidebarLayoutExpanded { get; set; }
+
+        [JsonProperty("sidebarStorageExpanded")]
+        public bool SidebarStorageExpanded { get; set; }
     }
 
     public class AppSettingsService
