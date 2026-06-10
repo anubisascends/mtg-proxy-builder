@@ -160,6 +160,187 @@
     </Style>
 
     <!-- ============================================================
+         MENU & CONTEXT MENU STYLES (dark theme)
+         ============================================================ -->
+
+    <!-- Top-level menu bar -->
+    <Style TargetType="Menu">
+        <Setter Property="Background" Value="{StaticResource PanelBgBrush}"/>
+        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+    </Style>
+
+    <!-- Menu item dropdown popup panel -->
+    <Style TargetType="{x:Type ContextMenu}">
+        <Setter Property="Background" Value="#2D2D30"/>
+        <Setter Property="Foreground" Value="#CCC"/>
+        <Setter Property="BorderBrush" Value="#555"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="Padding" Value="0,4"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContextMenu">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="2" Padding="{TemplateBinding Padding}">
+                        <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- MenuItem (covers both top-level and dropdown items) -->
+    <Style TargetType="{x:Type MenuItem}">
+        <Setter Property="Foreground" Value="#CCC"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Padding" Value="8,5"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="MenuItem">
+                    <Grid>
+                        <!-- Background highlight -->
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}"
+                                CornerRadius="2" Margin="2,0"/>
+                        <Grid Margin="10,5">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Icon"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto" SharedSizeGroup="Shortcut"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Icon/check area -->
+                            <ContentPresenter Grid.Column="0" x:Name="Icon"
+                                              Content="{TemplateBinding Icon}"
+                                              VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <!-- Header text -->
+                            <ContentPresenter Grid.Column="1"
+                                              ContentSource="Header"
+                                              RecognizesAccessKey="True"
+                                              VerticalAlignment="Center"/>
+                            <!-- Keyboard shortcut -->
+                            <TextBlock Grid.Column="2" x:Name="GestureText"
+                                       Text="{TemplateBinding InputGestureText}"
+                                       Foreground="#888" FontSize="11"
+                                       VerticalAlignment="Center" Margin="24,0,0,0"/>
+                            <!-- Submenu arrow -->
+                            <Path Grid.Column="3" x:Name="SubMenuArrow"
+                                  Data="M0,0 L4,4 L0,8" Fill="#888"
+                                  VerticalAlignment="Center" Margin="8,0,0,0"
+                                  Visibility="Collapsed"/>
+                        </Grid>
+                        <!-- Submenu popup -->
+                        <Popup x:Name="PART_Popup"
+                               IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                               Placement="Bottom" AllowsTransparency="True"
+                               Focusable="False" PopupAnimation="Fade">
+                            <Border Background="#2D2D30" BorderBrush="#555" BorderThickness="1"
+                                    CornerRadius="2" Padding="0,4">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="400">
+                                    <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle"
+                                                Grid.IsSharedSizeScope="True"/>
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <!-- Top-level item: popup opens downward -->
+                        <Trigger Property="Role" Value="TopLevelHeader">
+                            <Setter TargetName="SubMenuArrow" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <!-- Submenu item with children: show arrow, popup opens to the right -->
+                        <Trigger Property="Role" Value="SubmenuHeader">
+                            <Setter TargetName="SubMenuArrow" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="PART_Popup" Property="Placement" Value="Right"/>
+                        </Trigger>
+                        <!-- Submenu item without children: no popup/arrow -->
+                        <Trigger Property="Role" Value="SubmenuItem">
+                            <Setter TargetName="SubMenuArrow" Property="Visibility" Value="Collapsed"/>
+                        </Trigger>
+                        <!-- Hover highlight -->
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="#3E3E42"/>
+                        </Trigger>
+                        <!-- Disabled -->
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Foreground" Value="#666"/>
+                        </Trigger>
+                        <!-- Checked (for checkable menu items) -->
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="Icon" Property="Content">
+                                <Setter.Value>
+                                    <TextBlock Text="&#x2713;" Foreground="#0078D4" FontSize="12"
+                                               FontWeight="Bold" VerticalAlignment="Center"/>
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Separator in menus -->
+    <Style TargetType="{x:Type Separator}">
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="8,4"/>
+        <Setter Property="Background" Value="#444"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Background="{TemplateBinding Background}"
+                            Height="{TemplateBinding Height}"
+                            Margin="{TemplateBinding Margin}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================
+         SIDEBAR SECTION (Accordion)
+         ============================================================ -->
+
+    <Style TargetType="{x:Type local:SidebarSection}" xmlns:local="clr-namespace:MTGProxyBuilder.UI.Controls">
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type local:SidebarSection}">
+                    <Border BorderBrush="#3E3E42" BorderThickness="0,0,0,1">
+                        <StackPanel>
+                            <!-- Clickable header -->
+                            <Border x:Name="PART_Header" Background="#2D2D30" Padding="10,8" Cursor="Hand">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="Chevron" Text="&#x25B8;" Foreground="#888" FontSize="10"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" Width="10"/>
+                                    <ContentPresenter Grid.Column="1" ContentSource="Header"
+                                                      TextBlock.Foreground="#CCC" TextBlock.FontSize="12"/>
+                                </Grid>
+                            </Border>
+                            <!-- Collapsible content -->
+                            <Border x:Name="ContentBorder" Background="#2D2D30" Visibility="Collapsed">
+                                <ContentPresenter/>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True">
+                            <Setter TargetName="ContentBorder" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="Chevron" Property="Text" Value="&#x25BE;"/>
+                        </Trigger>
+                        <Trigger SourceName="PART_Header" Property="IsMouseOver" Value="True">
+                            <Setter TargetName="PART_Header" Property="Background" Value="#3E3E42"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ============================================================
          INPUT STYLES
          ============================================================ -->
 

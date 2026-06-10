@@ -140,9 +140,8 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <!-- Front search bar -->
-                        <controls:SearchBar x:Name="FrontSearchBar" Grid.Row="1" Margin="0,0,0,6"
-                                            Placeholder="Search library (name:, t:, s:, r:, c:, a:, o:, kw:, cmc, date...)"/>
+                        <!-- Front filter bar -->
+                        <controls:PillFilterBar x:Name="FrontFilterBar" Grid.Row="1" Margin="0,0,0,6"/>
 
                         <!-- Front library grid -->
                         <Border Grid.Row="2" Background="#252526" CornerRadius="4" Padding="4">
@@ -209,9 +208,8 @@
                             </StackPanel>
                         </StackPanel>
 
-                        <!-- Back search bar -->
-                        <controls:SearchBar x:Name="BackSearchBar" Grid.Row="1" Margin="0,0,0,6"
-                                            Placeholder="Search library (name:, t:, s:, r:, c:, a:, o:, kw:, cmc, date...)"/>
+                        <!-- Back filter bar -->
+                        <controls:PillFilterBar x:Name="BackFilterBar" Grid.Row="1" Margin="0,0,0,6"/>
 
                         <!-- Back library grid -->
                         <Border Grid.Row="2" Background="#252526" CornerRadius="4" Padding="4">

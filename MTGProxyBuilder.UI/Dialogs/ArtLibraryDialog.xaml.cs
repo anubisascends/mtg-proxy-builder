@@ -49,15 +49,13 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             FrontImportCacheBtn.Visibility = _imageCache != null ? Visibility.Visible : Visibility.Collapsed;
 
-            // Wire search bars
-            FrontSearchBar.SearchRequested += (_, _) => RefreshFrontGrid();
-            FrontSearchBar.SourceChanged += (_, _) => RefreshFrontGrid();
-            BackSearchBar.SearchRequested += (_, _) => RefreshBackGrid();
-            BackSearchBar.SourceChanged += (_, _) => RefreshBackGrid();
+            // Wire filter bars
+            FrontFilterBar.FilterChanged += (_, _) => RefreshFrontGrid();
+            BackFilterBar.FilterChanged += (_, _) => RefreshBackGrid();
 
             // Initial setup
             ThumbnailConverter.SetThumbnailService(_frontThumbnails);
-            PopulateFrontSourceFilter();
+            PopulateFrontAutocomplete();
             RefreshFrontGrid();
 
             if (initialTab == 1)
@@ -80,13 +78,13 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (isFront)
             {
                 ThumbnailConverter.SetThumbnailService(_frontThumbnails);
-                PopulateFrontSourceFilter();
+                PopulateFrontAutocomplete();
                 RefreshFrontGrid();
             }
             else
             {
                 ThumbnailConverter.SetThumbnailService(_backThumbnails);
-                PopulateBackSourceFilter();
+                PopulateBackAutocomplete();
                 RefreshBackGrid();
             }
 
@@ -97,26 +95,24 @@ namespace MTGProxyBuilder.UI.Dialogs
         //  FRONT ART — SEARCH & GRID
         // ================================================================
 
-        private void PopulateFrontSourceFilter()
+        private void PopulateFrontAutocomplete()
         {
             var sources = _frontLibrary.Entries
                 .Select(e => e.Source)
                 .Where(s => !string.IsNullOrEmpty(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s);
-            FrontSearchBar.SetSources(sources, "All Sources");
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            FrontFilterBar.SetAutocompleteData(sources, Enumerable.Empty<string>(), Enumerable.Empty<int>());
         }
 
         private void RefreshFrontGrid()
         {
             var entries = _frontLibrary.Entries.Where(e => File.Exists(e.FilePath)).AsEnumerable();
-            var searchPredicate = LibrarySearchParser.Parse(FrontSearchBar.SearchText);
-            entries = entries.Where(searchPredicate);
 
-            if (!FrontSearchBar.IsAllSourcesSelected)
+            var filters = FrontFilterBar.Filters;
+            if (filters.Count > 0)
             {
-                string sourceFilter = FrontSearchBar.SelectedSource;
-                entries = entries.Where(e => e.Source.Equals(sourceFilter, StringComparison.OrdinalIgnoreCase));
+                entries = entries.Where(e =>
+                    FilterEvaluator.Evaluate(filters, new TileData(e.Name, e.Source, 0, new List<string>())));
             }
 
             var filteredEntries = entries.ToList();
@@ -134,26 +130,24 @@ namespace MTGProxyBuilder.UI.Dialogs
         //  BACK ART — SEARCH & GRID
         // ================================================================
 
-        private void PopulateBackSourceFilter()
+        private void PopulateBackAutocomplete()
         {
             var sources = _backLibrary.Entries
                 .Select(e => e.Source)
                 .Where(s => !string.IsNullOrEmpty(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s);
-            BackSearchBar.SetSources(sources, "All Contributors");
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            BackFilterBar.SetAutocompleteData(sources, Enumerable.Empty<string>(), Enumerable.Empty<int>());
         }
 
         private void RefreshBackGrid()
         {
             var entries = _backLibrary.Entries.Where(e => File.Exists(e.FilePath)).AsEnumerable();
-            var searchPredicate = LibrarySearchParser.Parse(BackSearchBar.SearchText);
-            entries = entries.Where(searchPredicate);
 
-            if (!BackSearchBar.IsAllSourcesSelected)
+            var filters = BackFilterBar.Filters;
+            if (filters.Count > 0)
             {
-                string sourceFilter = BackSearchBar.SelectedSource;
-                entries = entries.Where(e => e.Source.Equals(sourceFilter, StringComparison.OrdinalIgnoreCase));
+                entries = entries.Where(e =>
+                    FilterEvaluator.Evaluate(filters, new TileData(e.Name, e.Source, 0, new List<string>())));
             }
 
             var filteredEntries = entries.ToList();
@@ -245,7 +239,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (dialog.ShowDialog() != true) return;
             foreach (var file in dialog.FileNames)
                 _frontLibrary.AddFromFile(file);
-            PopulateFrontSourceFilter();
+            PopulateFrontAutocomplete();
             RefreshFrontGrid();
         }
 
@@ -338,7 +332,7 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             if (added > 0)
             {
-                PopulateFrontSourceFilter();
+                PopulateFrontAutocomplete();
                 RefreshFrontGrid();
             }
             FrontImportCacheBtn.IsEnabled = true;
@@ -358,7 +352,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 _frontThumbnails.Delete(entry.Id);
                 _frontLibrary.Remove(entry.Id);
             }
-            PopulateFrontSourceFilter();
+            PopulateFrontAutocomplete();
             RefreshFrontGrid();
         }
 
@@ -420,7 +414,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             StatusLabel.Text = "Importing from ZIP...";
             await Task.Run(() => _frontLibrary.ImportFromZip(dialog.FileName,
                 onProgress: (done, total) => Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Importing {done}/{total}...")));
-            PopulateFrontSourceFilter();
+            PopulateFrontAutocomplete();
             RefreshFrontGrid();
         }
 
@@ -439,7 +433,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (dialog.ShowDialog() != true) return;
             foreach (var file in dialog.FileNames)
                 _backLibrary.AddFromFile(file);
-            PopulateBackSourceFilter();
+            PopulateBackAutocomplete();
             RefreshBackGrid();
         }
 
@@ -472,7 +466,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 _backThumbnails.Delete(entry.Id);
                 _backLibrary.Remove(entry.Id);
             }
-            PopulateBackSourceFilter();
+            PopulateBackAutocomplete();
             RefreshBackGrid();
         }
 
@@ -530,7 +524,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 }
                 finally { _backLibrary.EndBatch(); }
 
-                PopulateBackSourceFilter();
+                PopulateBackAutocomplete();
                 RefreshBackGrid();
             }
             catch (Exception ex)
@@ -588,7 +582,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             StatusLabel.Text = "Importing from ZIP...";
             await Task.Run(() => _backLibrary.ImportFromZip(dialog.FileName,
                 onProgress: (done, total) => Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Importing {done}/{total}...")));
-            PopulateBackSourceFilter();
+            PopulateBackAutocomplete();
             RefreshBackGrid();
         }
 

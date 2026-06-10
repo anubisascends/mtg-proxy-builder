@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Generator: Adobe Illustrator 15.1.0, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+
+<svg
+   version="1.1"
+   id="Layer_1"
+   x="0px"
+   y="0px"
+   width="131.192"
+   height="150"
+   viewBox="0 0 131.192 150"
+   enable-background="new 0 0 135 155"
+   xml:space="preserve"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"><defs
+   id="defs17" />
+<g
+   id="Layer_1_1_"
+   transform="translate(-1.953,-2.361)">
+</g>
+<g
+   id="Layer_3"
+   display="none"
+   transform="translate(-1.953,-2.361)">
+</g>
+<g
+   id="g17"
+   transform="translate(-1.953,-2.361)">
+	<path
+   d="M 125.725,4.546 110.143,29.738 90.102,36.89 95.667,5.007 86.664,7.656 77.147,24.831 h -12.81 c -12.438,0 -24.889,1.962 -37.026,5.833 l -0.39,-1.871 H 1.953 l 8.36,46.336 0.332,0.221 3.882,58.985 34.156,18.026 h 27.079 l 42.271,-21.803 7.917,-58.695 0.679,-1.03 6.516,-68.472 z"
+   id="path1" />
+	<linearGradient
+   id="SVGID_1_"
+   gradientUnits="userSpaceOnUse"
+   x1="21.779301"
+   y1="19.4536"
+   x2="121.7078"
+   y2="119.3822">
+		<stop
+   offset="0"
+   style="stop-color:#612C75"
+   id="stop1" />
+		<stop
+   offset="0.0788"
+   style="stop-color:#653279"
+   id="stop2" />
+		<stop
+   offset="0.1817"
+   style="stop-color:#714285"
+   id="stop3" />
+		<stop
+   offset="0.25"
+   style="stop-color:#7B5190"
+   id="stop4" />
+		<stop
+   offset="0.2786"
+   style="stop-color:#8C639D"
+   id="stop5" />
+		<stop
+   offset="0.3259"
+   style="stop-color:#A37BAE"
+   id="stop6" />
+		<stop
+   offset="0.3763"
+   style="stop-color:#B38CBA"
+   id="stop7" />
+		<stop
+   offset="0.4314"
+   style="stop-color:#BC96C1"
+   id="stop8" />
+		<stop
+   offset="0.5"
+   style="stop-color:#BF99C3"
+   id="stop9" />
+		<stop
+   offset="0.5686"
+   style="stop-color:#BC96C1"
+   id="stop10" />
+		<stop
+   offset="0.6237"
+   style="stop-color:#B38CBA"
+   id="stop11" />
+		<stop
+   offset="0.6741"
+   style="stop-color:#A37BAE"
+   id="stop12" />
+		<stop
+   offset="0.7214"
+   style="stop-color:#8C639D"
+   id="stop13" />
+		<stop
+   offset="0.75"
+   style="stop-color:#7B5190"
+   id="stop14" />
+		<stop
+   offset="0.8345"
+   style="stop-color:#6D3D81"
+   id="stop15" />
+		<stop
+   offset="0.9187"
+   style="stop-color:#643078"
+   id="stop16" />
+		<stop
+   offset="1"
+   style="stop-color:#612C75"
+   id="stop17" />
+	</linearGradient>
+	<path
+   fill="url(#SVGID_1_)"
+   d="m 64.983,66.933 v 50.546 H 60.72 V 82.638 L 55.479,62.582 Z m -5.816,65.56 -4.277,16.117 h 10.094 v -16.117 z m -2.8,-9.472 V 93.97 l -11.248,9.473 v 41.624 l 5.882,2.735 4.519,-19.056 h 9.464 V 123.02 H 56.367 Z M 127.56,10.655 121.99,69.199 70.44,147.557 V 84.858 l 7.617,-7.533 c 2.398,-2.517 5.518,-5.64 8.185,-6.366 l 25.017,-8.849 0.312,-4.786 -26.907,10.042 1.238,-6.747 26.066,-9.409 0.33,-5.058 -25.303,8.505 2.33,-12.422 23.996,-8.562 z m -18.926,63.26 -35.581,13.186 7.844,16.255 z M 50.945,43.223 c 0,0 6.74,-2.189 14.038,-2.465 V 29.627 c -12.607,-0.07 -25.092,1.899 -37.456,5.986 l 2.047,11.02 35.409,16.454 V 51.095 Z m 62.689,84.232 6.595,-48.88 -46.142,69.261 z M 74.531,47.826 70.439,61.39 V 80.343 L 79.476,69.991 89.536,12.359 75.243,38.19 h -4.804 v 9.636 z M 25.76,94.703 24.558,84.172 l -8.907,-5.453 3.466,52.65 21.969,11.688 V 104.721 Z M 30.625,82.951 14.651,72.285 7.665,33.567 h 15.371 l 3.11,14.995 24.069,11.993 5.9,22.396 z M 19.814,56.144 45.372,66.835 44.549,62.447 19.46,51.92 Z M 20.997,65.48 47.213,76.668 46.423,72.447 20.65,61.552 Z"
+   id="path17"
+   style="fill:url(#SVGID_1_)" />
+</g>
+</svg>

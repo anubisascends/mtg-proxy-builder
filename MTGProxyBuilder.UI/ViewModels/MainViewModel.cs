@@ -212,6 +212,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             // Moxfield import
             ImportDeckCommand = new RelayCommand(_ => ImportDeck(), _ => !string.IsNullOrWhiteSpace(ImportDeckUrl));
+            RefreshDeckCommand = new RelayCommand(_ => RefreshDeck(), _ => !string.IsNullOrEmpty(_currentProject.DeckImportUrl));
 
             // Advanced search
             BuildAdvancedQueryCommand = new RelayCommand(_ => ApplyAdvancedQuery());
@@ -238,7 +239,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             PrintModeValues = new ObservableCollection<PrintMode>(
                 Enum.GetValues<PrintMode>());
 
-            PagePresets = new ObservableCollection<string> { "A4", "A3", "Letter", "Legal", "Tabloid" };
+            PagePresets = new ObservableCollection<string> { "A1", "A2", "A3", "A4", "Letter", "Legal", "Tabloid", "Custom" };
             _selectedPagePreset = "A4";
             _selectedCardSize = CardSizePresets.First(p => p.Name == "Magic: The Gathering");
 
@@ -593,6 +594,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ApplySortToProjectCommand { get; private set; } = null!;
         public ICommand ClearFilterCommand { get; private set; } = null!;
         public ICommand ImportDeckCommand { get; }
+        public ICommand RefreshDeckCommand { get; }
         public ICommand AddMpcFillCardCommand { get; }
         public ICommand ClearAllCardsCommand { get; }
         public ICommand UpdateAllArtFromMpcFillCommand { get; }
@@ -758,8 +760,80 @@ namespace MTGProxyBuilder.UI.ViewModels
             set
             {
                 if (SetProperty(ref _selectedPagePreset, value) && value != null)
+                {
                     _currentProject.PageSettings.ApplyPagePreset(value);
+                    OnPropertyChanged(nameof(IsCustomPageSize));
+                    if (value == "Custom")
+                    {
+                        // Initialize custom fields with current dimensions
+                        _customPageWidth = $"{_currentProject.PageSettings.PageWidthMm:0.#} mm";
+                        _customPageHeight = $"{_currentProject.PageSettings.PageHeightMm:0.#} mm";
+                        OnPropertyChanged(nameof(CustomPageWidth));
+                        OnPropertyChanged(nameof(CustomPageHeight));
+                    }
+                }
             }
+        }
+
+        public bool IsCustomPageSize => _selectedPagePreset == "Custom";
+
+        private string _customPageWidth = "";
+        private string _customPageHeight = "";
+
+        public string CustomPageWidth
+        {
+            get => _customPageWidth;
+            set
+            {
+                if (SetProperty(ref _customPageWidth, value))
+                    ApplyCustomDimension(value, isWidth: true);
+            }
+        }
+
+        public string CustomPageHeight
+        {
+            get => _customPageHeight;
+            set
+            {
+                if (SetProperty(ref _customPageHeight, value))
+                    ApplyCustomDimension(value, isWidth: false);
+            }
+        }
+
+        /// <summary>
+        /// Parses a dimension string with optional unit suffix and applies it.
+        /// Supports: "210 mm", "210mm", "8.5\"", "8.5 in", "8.5in", or plain number (treated as mm).
+        /// </summary>
+        private void ApplyCustomDimension(string input, bool isWidth)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return;
+            input = input.Trim();
+
+            float valueMm;
+            if (input.EndsWith("\"") || input.EndsWith("in", StringComparison.OrdinalIgnoreCase))
+            {
+                // Inches
+                string numPart = input.TrimEnd('"').TrimEnd();
+                if (numPart.EndsWith("in", StringComparison.OrdinalIgnoreCase))
+                    numPart = numPart[..^2].TrimEnd();
+                if (!float.TryParse(numPart, System.Globalization.CultureInfo.InvariantCulture, out float inches)) return;
+                valueMm = inches * 25.4f;
+            }
+            else
+            {
+                // Millimeters (with or without "mm" suffix)
+                string numPart = input;
+                if (numPart.EndsWith("mm", StringComparison.OrdinalIgnoreCase))
+                    numPart = numPart[..^2].TrimEnd();
+                if (!float.TryParse(numPart, System.Globalization.CultureInfo.InvariantCulture, out valueMm)) return;
+            }
+
+            if (valueMm <= 0) return;
+
+            if (isWidth)
+                _currentProject.PageSettings.PageWidthMm = valueMm;
+            else
+                _currentProject.PageSettings.PageHeightMm = valueMm;
         }
 
         // --- Commands ---
@@ -1907,6 +1981,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 _currentProject.PageSettings.CenterGrid();
                 ApplyFilterAndSort();
 
+                _currentProject.DeckImportUrl = ImportDeckUrl;
                 ImportDeckUrl = string.Empty;
 
                 int totalAdded = result.Cards.Sum(c => c.Quantity);
@@ -1928,6 +2003,76 @@ namespace MTGProxyBuilder.UI.ViewModels
                 ClearBusy();
             }
         }
+
+        private async void RefreshDeck()
+        {
+            string? url = _currentProject.DeckImportUrl;
+            if (string.IsNullOrEmpty(url)) return;
+
+            var source = DeckImportService.DetectSource(url);
+            if (source == DeckSource.Unknown)
+            {
+                StatusText = "Stored deck URL is not recognized.";
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"Re-import deck from {source}?\n\nThis will clear all current cards and re-download from:\n{url}",
+                "Refresh Deck", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+
+            string sourceName = source.ToString();
+            SetBusy($"Refreshing deck from {sourceName}...");
+            Log.Information("Refreshing deck from {Url} (source: {Source})", url, sourceName);
+
+            try
+            {
+                BusyMessage = $"Fetching deck list from {sourceName}...";
+                var (fetchedDeck, error) = await _importCoordinator.FetchDeckAsync(url);
+                if (fetchedDeck is not { } deck || error != null)
+                {
+                    ClearBusy();
+                    MessageBox.Show($"Failed to fetch deck:\n{error}", $"{sourceName} Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                PushUndo();
+
+                Cards.CollectionChanged -= OnCardsCollectionChanged;
+                Cards.Clear();
+
+                var importResult = await _importCoordinator.ImportDeckCardsAsync(
+                    deck, Cards, false, UseMpcFill,
+                    MpcAdvMinDpi, MpcFuzzySearch, MpcUseFavoritesOnly,
+                    onProgress: msg => BusyMessage = msg);
+
+                BusyMessage = $"Adding {importResult.Cards.Count} cards...";
+                foreach (var c in importResult.Cards)
+                {
+                    ApplyDefaultBackArt(c);
+                    Cards.Add(c);
+                }
+                Cards.CollectionChanged += OnCardsCollectionChanged;
+
+                _currentProject.PageSettings.CenterGrid();
+                ApplyFilterAndSort();
+
+                int totalAdded = importResult.Cards.Sum(c => c.Quantity);
+                StatusText = $"Refreshed: {importResult.Cards.Count} card(s) ({totalAdded} total) from \"{deck.Name}\"";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Refresh failed: {ex.Message}";
+            }
+            finally
+            {
+                ClearBusy();
+            }
+        }
+
+        public bool HasDeckImportUrl => !string.IsNullOrEmpty(_currentProject.DeckImportUrl);
+        public string DeckImportUrlDisplay => _currentProject.DeckImportUrl ?? "";
 
         // --- Sort and Filter ---
 
@@ -2046,12 +2191,14 @@ namespace MTGProxyBuilder.UI.ViewModels
             bool Match(float presetW, float presetH) =>
                 Math.Abs(pw - presetW) < 1f && Math.Abs(ph - presetH) < 1f;
 
-            if (Match(210f, 297f)) return "A4";
+            if (Match(594f, 841f)) return "A1";
+            if (Match(420f, 594f)) return "A2";
             if (Match(297f, 420f)) return "A3";
+            if (Match(210f, 297f)) return "A4";
             if (Match(215.9f, 279.4f)) return "Letter";
             if (Match(215.9f, 355.6f)) return "Legal";
             if (Match(279.4f, 431.8f)) return "Tabloid";
-            return "A4";
+            return "Custom";
         }
 
         private void SetPagePreset(string? preset)

@@ -78,6 +78,12 @@ namespace MTGProxyBuilder.Core.Services
 
         [JsonProperty("sidebarStorageExpanded")]
         public bool SidebarStorageExpanded { get; set; }
+
+        [JsonProperty("sidebarWidth")]
+        public double SidebarWidth { get; set; } = 300;
+
+        [JsonProperty("sidebarFontSize")]
+        public double SidebarFontSize { get; set; } = 12;
     }
 
     public class AppSettingsService

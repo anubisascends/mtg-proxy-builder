@@ -54,10 +54,8 @@
             </StackPanel>
         </StackPanel>
 
-        <!-- Search bar -->
-        <controls:SearchBar x:Name="SearchBar" Grid.Row="2" Margin="0,0,0,6"
-                            Placeholder="Search library (name:, t:, s:, r:, c:, a:, o:, kw:, cmc, date...)"
-                            SearchRequested="OnSearchRequested" SourceChanged="OnSourceChanged"/>
+        <!-- Filter bar -->
+        <controls:PillFilterBar x:Name="FilterBar" Grid.Row="2" Margin="0,0,0,6"/>
 
         <!-- Main content: Virtualized grid + Preview -->
         <Grid Grid.Row="3">

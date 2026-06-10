@@ -55,6 +55,15 @@ namespace MTGProxyBuilder.Core.Models
             set { _lastModified = value; OnPropertyChanged(); }
         }
 
+        private string? _deckImportUrl;
+
+        /// <summary>The URL the deck was imported from (Moxfield/Archidekt). Null if not imported from a deck.</summary>
+        public string? DeckImportUrl
+        {
+            get => _deckImportUrl;
+            set { _deckImportUrl = value; OnPropertyChanged(); }
+        }
+
         public int TotalCards => Cards.Sum(c => c.Quantity);
 
         public int TotalPages

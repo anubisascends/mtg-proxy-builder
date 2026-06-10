@@ -16,18 +16,6 @@
         <converters:FilePathToImageConverter x:Key="FilePathToImage"/>
         <converters:NullToCollapsedConverter x:Key="NullToCollapsed"/>
 
-        <!-- Menu styles (dark theme) -->
-        <Style TargetType="Menu">
-            <Setter Property="Background" Value="#252526"/>
-            <Setter Property="Foreground" Value="#CCC"/>
-        </Style>
-        <Style TargetType="MenuItem">
-            <Setter Property="Foreground" Value="#CCC"/>
-        </Style>
-        <Style TargetType="Separator">
-            <Setter Property="Background" Value="#444"/>
-        </Style>
-
         <!-- Toolbar icon button style -->
         <Style x:Key="ToolbarIconBtn" TargetType="Button">
             <Setter Property="Width" Value="32"/>
@@ -244,7 +232,8 @@
               Visibility="{Binding DataContext.HasActiveProject, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition x:Name="SidebarColumn" Width="300" MinWidth="200" MaxWidth="600"/>
             </Grid.ColumnDefinitions>
 
             <!-- ===== CANVAS AREA (Column 0) ===== -->
@@ -310,14 +299,23 @@
                 </Grid>
             </Border>
 
-            <!-- ===== SIDEBAR (Column 1) ===== -->
-            <Border Grid.Column="1" Background="#2D2D30" BorderBrush="#3E3E42" BorderThickness="1,0,0,0">
+            <!-- ===== GRID SPLITTER ===== -->
+            <GridSplitter Grid.Column="1" Width="4" Background="#3E3E42" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" Cursor="SizeWE"/>
+
+            <!-- ===== SIDEBAR (Column 2) ===== -->
+            <Border Grid.Column="2" Background="#2D2D30" BorderBrush="#3E3E42" BorderThickness="1,0,0,0"
+                    x:Name="SidebarBorder">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel>
+                    <StackPanel x:Name="SidebarContent">
+                        <StackPanel.LayoutTransform>
+                            <ScaleTransform
+                                ScaleX="{Binding DataContext.SidebarScale, RelativeSource={RelativeSource AncestorType=Window}}"
+                                ScaleY="{Binding DataContext.SidebarScale, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </StackPanel.LayoutTransform>
 
                         <!-- ===== SEARCH SECTION ===== -->
                         <controls:SidebarSection x:Name="SearchSection" Header="Search" IsExpanded="True">
-                            <controls:SidebarSection.SectionBody>
                                 <StackPanel Margin="10,8">
                                     <!-- Search box -->
                                     <Grid Margin="0,0,0,4">
@@ -538,12 +536,10 @@
                                     <Button Style="{StaticResource ToolBtn}" Command="{Binding UpdateAllArtFromMpcFillCommand}"
                                             Content="Update All Art from MPCFill" Margin="0,6,0,0" HorizontalAlignment="Stretch"/>
                                 </StackPanel>
-                            </controls:SidebarSection.SectionBody>
                         </controls:SidebarSection>
 
                         <!-- ===== IMPORT SECTION ===== -->
                         <controls:SidebarSection x:Name="ImportSection" Header="Import">
-                            <controls:SidebarSection.SectionBody>
                                 <StackPanel Margin="10,8">
                                     <!-- Moxfield import -->
                                     <TextBlock Text="Import Deck" FontWeight="SemiBold" Foreground="#CCC" Margin="0,0,0,6" FontSize="12"/>
@@ -568,17 +564,27 @@
                                               Foreground="#999" FontSize="10" Margin="0,2,0,0"
                                               ToolTip="Cards already in the project are skipped. Basic lands are only added if the deck needs more copies than you already have."/>
 
+                                    <!-- Refresh deck (visible when a deck URL is stored) -->
+                                    <Border Margin="0,8,0,0" Background="#252526" CornerRadius="4" Padding="8,6"
+                                            Visibility="{Binding HasDeckImportUrl, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel>
+                                            <TextBlock Text="Imported Deck" Foreground="#999" FontSize="9" Margin="0,0,0,2"/>
+                                            <TextBlock Text="{Binding DeckImportUrlDisplay}" Foreground="#888" FontSize="10"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding DeckImportUrlDisplay}" Margin="0,0,0,4"/>
+                                            <Button Style="{StaticResource AccentBtn}" Command="{Binding RefreshDeckCommand}"
+                                                    Content="Refresh Deck" HorizontalAlignment="Stretch" Padding="8,4"/>
+                                        </StackPanel>
+                                    </Border>
+
                                     <TextBlock Text="Import MPCFill Project" FontWeight="SemiBold" Foreground="#CCC" Margin="0,16,0,6" FontSize="12"/>
                                     <Button Style="{StaticResource AccentBtn}" Command="{Binding ImportMpcFillXmlCommand}"
                                             Content="Import cards.xml..." HorizontalAlignment="Stretch" Padding="8,6"/>
                                     <TextBlock Text="Import a cards.xml file exported from MPCFill" Foreground="#666" FontSize="10" Margin="0,4,0,0"/>
                                 </StackPanel>
-                            </controls:SidebarSection.SectionBody>
                         </controls:SidebarSection>
 
                         <!-- ===== CARD DETAILS SECTION ===== -->
                         <controls:SidebarSection x:Name="CardDetailsSection" Header="Card Details">
-                            <controls:SidebarSection.SectionBody>
                                 <StackPanel Margin="10,8" DataContext="{Binding SelectedCard}">
                                     <TextBlock Text="(Click a card on the page)" Foreground="#666" FontStyle="Italic" FontSize="12" Margin="0,0,0,8">
                                         <TextBlock.Style>
@@ -656,7 +662,7 @@
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Margin="4,0,0,0">
                                                 <TextBlock Text="Mana Cost" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                                <TextBlock Text="{Binding ManaCost}" Foreground="#CCC" FontSize="12" Padding="6,5"/>
+                                                <controls:ManaTextBlock ManaText="{Binding ManaCost}" Foreground="#CCC" FontSize="12" SymbolSize="14" Padding="6,5"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -670,7 +676,7 @@
 
                                         <!-- Oracle Text -->
                                         <TextBlock Text="Oracle Text" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <TextBlock Text="{Binding OracleText}" Foreground="#888" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <controls:ManaTextBlock ManaText="{Binding OracleText}" Foreground="#888" FontSize="10" SymbolSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                                         <!-- Power / Toughness (creatures only) -->
                                         <Grid Margin="0,0,0,8">
@@ -746,20 +752,26 @@
                                             <TextBlock Text="{Binding Keywords}" Foreground="#CCC" FontSize="10" TextWrapping="Wrap"/>
                                         </StackPanel>
 
-                                        <!-- Set / Collector # -->
+                                        <!-- Set / Collector # with set symbol -->
                                         <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                            <!-- Set symbol icon -->
+                                            <controls:SetSymbolImage Grid.Column="0"
+                                                SetCode="{Binding SetCode}" Rarity="{Binding Rarity}"
+                                                SymbolSize="20" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                ToolTip="{Binding Rarity}"/>
+                                            <StackPanel Grid.Column="1" Margin="0,0,4,0">
                                                 <TextBlock Text="Set" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
                                                 <TextBlock Foreground="#CCC" FontSize="10" TextWrapping="Wrap">
                                                     <Run Text="{Binding SetName, Mode=OneWay}"/>
                                                     <Run Text="{Binding SetCode, Mode=OneWay, StringFormat='({0})'}" Foreground="#888"/>
                                                 </TextBlock>
                                             </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                            <StackPanel Grid.Column="2" Margin="4,0,0,0">
                                                 <TextBlock Text="#" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
                                                 <TextBlock Text="{Binding CollectorNumber}" Foreground="#CCC" FontSize="10"/>
                                             </StackPanel>
@@ -851,18 +863,38 @@
                                         <Run Text=" cards"/>
                                     </TextBlock>
                                 </StackPanel>
-                            </controls:SidebarSection.SectionBody>
                         </controls:SidebarSection>
 
                         <!-- ===== LAYOUT SECTION ===== -->
                         <controls:SidebarSection x:Name="LayoutSection" Header="Layout">
-                            <controls:SidebarSection.SectionBody>
                                 <StackPanel Margin="10,8">
                                     <!-- Page -->
                                     <TextBlock Text="PAGE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
                                     <TextBlock Text="Page Size" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
                                     <ComboBox ItemsSource="{Binding PagePresets}" SelectedItem="{Binding SelectedPagePreset}"
                                               Padding="4" Margin="0,0,0,6" FontSize="11"/>
+                                    <!-- Custom dimensions (visible when "Custom" selected) -->
+                                    <Grid Margin="0,0,0,6" Visibility="{Binding IsCustomPageSize, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Width" Foreground="#999" FontSize="9" Margin="0,0,0,2"/>
+                                            <TextBox Text="{Binding CustomPageWidth, UpdateSourceTrigger=LostFocus}"
+                                                     Padding="4,3" FontSize="10"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"
+                                                     ToolTip="e.g. 210 mm, 8.5&quot;, 8.5 in"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Height" Foreground="#999" FontSize="9" Margin="0,0,0,2"/>
+                                            <TextBox Text="{Binding CustomPageHeight, UpdateSourceTrigger=LostFocus}"
+                                                     Padding="4,3" FontSize="10"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"
+                                                     ToolTip="e.g. 297 mm, 11&quot;, 11 in"/>
+                                        </StackPanel>
+                                    </Grid>
                                     <CheckBox Content="Landscape" IsChecked="{Binding CurrentProject.PageSettings.IsLandscape}" Foreground="#CCC" Margin="0,0,0,10"/>
 
                                     <!-- Print -->
@@ -1060,12 +1092,10 @@
                                     <Button Style="{StaticResource AccentBtn}" Command="{Binding SelectBackArtForAllCommand}"
                                             Content="Select Back for All Cards..." HorizontalAlignment="Stretch" Padding="8,6"/>
                                 </StackPanel>
-                            </controls:SidebarSection.SectionBody>
                         </controls:SidebarSection>
 
                         <!-- ===== STORAGE SECTION ===== -->
                         <controls:SidebarSection x:Name="StorageSection" Header="Storage">
-                            <controls:SidebarSection.SectionBody>
                                 <StackPanel Margin="10,8">
                                     <TextBlock Text="STORAGE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
                                     <Grid Margin="0,0,0,8">
@@ -1078,7 +1108,6 @@
                                                 Content="Clear Cache" Padding="8,3" FontSize="10"/>
                                     </Grid>
                                 </StackPanel>
-                            </controls:SidebarSection.SectionBody>
                         </controls:SidebarSection>
 
                     </StackPanel>

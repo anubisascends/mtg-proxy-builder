@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using MTGProxyBuilder.UI.ViewModels;
 using Serilog;
@@ -29,6 +30,10 @@ public partial class MainWindow : Window
             CardDetailsSection.IsExpanded = s.SidebarCardDetailsExpanded;
             LayoutSection.IsExpanded = s.SidebarLayoutExpanded;
             StorageSection.IsExpanded = s.SidebarStorageExpanded;
+
+            // Restore sidebar width
+            if (s.SidebarWidth > 0)
+                SidebarColumn.Width = new GridLength(Math.Clamp(s.SidebarWidth, 200, 600));
         };
 
         // Wire GridCanvas events once (they route to whichever project is active)
@@ -258,6 +263,7 @@ public partial class MainWindow : Window
         s.SidebarCardDetailsExpanded = CardDetailsSection.IsExpanded;
         s.SidebarLayoutExpanded = LayoutSection.IsExpanded;
         s.SidebarStorageExpanded = StorageSection.IsExpanded;
+        s.SidebarWidth = SidebarColumn.Width.Value;
         Shell.SaveSettings();
     }
 }

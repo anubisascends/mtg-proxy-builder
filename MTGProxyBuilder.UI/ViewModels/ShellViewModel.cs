@@ -103,6 +103,20 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public void SaveSettings() => _appSettings.Save();
 
+        public double SidebarFontSize
+        {
+            get => _appSettings.Settings.SidebarFontSize > 0 ? _appSettings.Settings.SidebarFontSize : 12;
+            set
+            {
+                _appSettings.Settings.SidebarFontSize = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(SidebarScale));
+            }
+        }
+
+        /// <summary>Scale factor for sidebar content. 1.0 at default (12pt), scales proportionally.</summary>
+        public double SidebarScale => SidebarFontSize / 12.0;
+
         // --- Loading ---
         public bool IsLoading
         {
@@ -282,6 +296,10 @@ namespace MTGProxyBuilder.UI.ViewModels
                 foreach (var p in Projects)
                     p.Inner.UseSharedLibraries(_frontArtLibraryService, _backArtLibraryService);
             }
+
+            // Notify UI of font size change
+            OnPropertyChanged(nameof(SidebarFontSize));
+            OnPropertyChanged(nameof(SidebarScale));
         }
 
         private void ManageFrontArtLibrary() => ManageArtLibrary(0);

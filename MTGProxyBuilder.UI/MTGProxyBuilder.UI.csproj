@@ -6,6 +6,7 @@
 
   <ItemGroup>
 <PackageReference Include="SkiaSharp" Version="3.119.0" />
+<PackageReference Include="Svg.Skia" Version="2.0.0.4" />
     <PackageReference Include="VirtualizingWrapPanel" Version="2.5.1" />
     <PackageReference Include="Serilog" Version="4.2.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />

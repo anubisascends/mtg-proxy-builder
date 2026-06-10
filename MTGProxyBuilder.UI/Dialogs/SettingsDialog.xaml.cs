@@ -73,7 +73,17 @@ namespace MTGProxyBuilder.UI.Dialogs
             FrontLibPathBox.Text = s.FrontArtLibraryPath ?? "(default)";
             BackLibPathBox.Text = s.BackArtLibraryPath ?? "(default)";
 
+            // UI settings
+            FontSizeSlider.Value = s.SidebarFontSize > 0 ? s.SidebarFontSize : 12;
+            FontSizeLabel.Text = $"{FontSizeSlider.Value:0} pt";
+
             UpdateFavoritesInfo();
+        }
+
+        private void OnFontSizeSliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (FontSizeLabel != null)
+                FontSizeLabel.Text = $"{e.NewValue:0} pt";
         }
 
         private void OnNavChanged(object sender, RoutedEventArgs e)
@@ -214,6 +224,9 @@ namespace MTGProxyBuilder.UI.Dialogs
             // Library paths
             s.FrontArtLibraryPath = FrontLibPathBox.Text == "(default)" ? null : FrontLibPathBox.Text;
             s.BackArtLibraryPath = BackLibPathBox.Text == "(default)" ? null : BackLibPathBox.Text;
+
+            // UI settings
+            s.SidebarFontSize = FontSizeSlider.Value;
 
             _settingsService.Save();
             DialogResult = true;

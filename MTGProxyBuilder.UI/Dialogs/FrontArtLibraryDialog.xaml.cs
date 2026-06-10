@@ -34,7 +34,8 @@ namespace MTGProxyBuilder.UI.Dialogs
             _thumbnails = new ThumbnailService(library.LibraryDirectory);
             ThumbnailConverter.SetThumbnailService(_thumbnails);
             ImportCacheBtn.Visibility = _imageCache != null ? Visibility.Visible : Visibility.Collapsed;
-            PopulateSourceFilter();
+            FilterBar.FilterChanged += (_, _) => RefreshGrid();
+            PopulateAutocomplete();
             RefreshGrid();
         }
 
@@ -42,31 +43,24 @@ namespace MTGProxyBuilder.UI.Dialogs
         //  SEARCH & FILTER
         // ================================================================
 
-        private void PopulateSourceFilter()
+        private void PopulateAutocomplete()
         {
             var sources = _library.Entries
                 .Select(e => e.Source)
                 .Where(s => !string.IsNullOrEmpty(s))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(s => s);
-
-            SearchBar.SetSources(sources, "All Sources");
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            FilterBar.SetAutocompleteData(sources, Enumerable.Empty<string>(), Enumerable.Empty<int>());
         }
-
-        private void OnSearchRequested(object? sender, EventArgs e) => RefreshGrid();
-        private void OnSourceChanged(object? sender, EventArgs e) => RefreshGrid();
 
         private void RefreshGrid()
         {
             var entries = _library.Entries.Where(e => File.Exists(e.FilePath)).AsEnumerable();
 
-            var searchPredicate = LibrarySearchParser.Parse(SearchBar.SearchText);
-            entries = entries.Where(searchPredicate);
-
-            if (!SearchBar.IsAllSourcesSelected)
+            var filters = FilterBar.Filters;
+            if (filters.Count > 0)
             {
-                string sourceFilter = SearchBar.SelectedSource;
-                entries = entries.Where(e => e.Source.Equals(sourceFilter, StringComparison.OrdinalIgnoreCase));
+                entries = entries.Where(e =>
+                    FilterEvaluator.Evaluate(filters, new TileData(e.Name, e.Source, 0, new List<string>())));
             }
 
             var filteredEntries = entries.ToList();
@@ -127,7 +121,7 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             foreach (var file in dialog.FileNames)
                 _library.AddFromFile(file);
-            PopulateSourceFilter();
+            PopulateAutocomplete();
             RefreshGrid();
         }
 
@@ -220,7 +214,7 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             if (added > 0)
             {
-                PopulateSourceFilter();
+                PopulateAutocomplete();
                 RefreshGrid();
             }
             ImportCacheBtn.IsEnabled = true;
@@ -243,7 +237,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 _thumbnails.Delete(entry.Id);
                 _library.Remove(entry.Id);
             }
-            PopulateSourceFilter();
+            PopulateAutocomplete();
             RefreshGrid();
         }
 
@@ -348,7 +342,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                 onProgress: (done, total) =>
                     Dispatcher.BeginInvoke(() => StatusLabel.Text = $"Importing {done}/{total}...")));
 
-            PopulateSourceFilter();
+            PopulateAutocomplete();
             RefreshGrid();
         }
 
