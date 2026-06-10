@@ -230,6 +230,8 @@ namespace MTGProxyBuilder.UI.ViewModels
             DismissUpdateCommand = new RelayCommand(_ => UpdateAvailable = false);
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
 
+            ImportTextListCommand = new RelayCommand(_ => ImportTextList());
+
             // MPCFill / art source
             AddMpcFillCardCommand = new RelayCommand(_ => AddMpcFillCard(), _ => SelectedMpcFillCard != null);
             ClearAllCardsCommand = new RelayCommand(_ => ClearAllCards(), _ => Cards.Count > 0);
@@ -256,11 +258,19 @@ namespace MTGProxyBuilder.UI.ViewModels
         /// Replaces the library services with shared instances from the ShellViewModel.
         /// Call after construction to ensure all ViewModels use the same library data.
         /// </summary>
+        private ScryfallBulkDataService? _bulkDataService;
+
         public void UseSharedLibraries(FrontArtLibraryService frontLibrary, BackArtLibraryService backLibrary)
         {
             _frontArtLibraryService = frontLibrary;
             _backArtLibraryService = backLibrary;
             RefreshBackArtLibrary();
+        }
+
+        public void UseSharedServices(ScryfallBulkDataService bulkData)
+        {
+            _bulkDataService = bulkData;
+            _searchCoordinator.SetBulkDataService(bulkData);
         }
 
         private async Task CheckForUpdateAsync()
@@ -376,8 +386,51 @@ namespace MTGProxyBuilder.UI.ViewModels
                 {
                     ScryfallLookupText = value?.Name ?? string.Empty;
                     ScryfallLookupStatus = string.Empty;
+                    IsShowingBackFace = false;
+                    NotifyDisplayProperties();
                 }
             }
+        }
+
+        private bool _isShowingBackFace;
+
+        /// <summary>True when the selected card is being viewed from its back face.</summary>
+        public bool IsShowingBackFace
+        {
+            get => _isShowingBackFace;
+            set
+            {
+                if (SetProperty(ref _isShowingBackFace, value))
+                    NotifyDisplayProperties();
+            }
+        }
+
+        // --- Display properties that switch between front/back based on flip state ---
+
+        public string DisplayName => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackName : _selectedCard?.Name ?? string.Empty;
+        public string DisplayManaCost => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackManaCost : _selectedCard?.ManaCost ?? string.Empty;
+        public string DisplayTypeLine => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackTypeLine : _selectedCard?.TypeLine ?? string.Empty;
+        public string DisplayOracleText => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackOracleText : _selectedCard?.OracleText ?? string.Empty;
+        public string DisplayPower => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackPower : _selectedCard?.Power ?? string.Empty;
+        public string DisplayToughness => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackToughness : _selectedCard?.Toughness ?? string.Empty;
+        public string DisplayLoyalty => _isShowingBackFace && _selectedCard?.IsDoubleFaced == true
+            ? _selectedCard.BackLoyalty : _selectedCard?.Loyalty ?? string.Empty;
+
+        private void NotifyDisplayProperties()
+        {
+            OnPropertyChanged(nameof(DisplayName));
+            OnPropertyChanged(nameof(DisplayManaCost));
+            OnPropertyChanged(nameof(DisplayTypeLine));
+            OnPropertyChanged(nameof(DisplayOracleText));
+            OnPropertyChanged(nameof(DisplayPower));
+            OnPropertyChanged(nameof(DisplayToughness));
+            OnPropertyChanged(nameof(DisplayLoyalty));
         }
 
         public string ScryfallLookupText
@@ -660,6 +713,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ToggleMpcFavoriteFromResultCommand { get; private set; } = null!;
         public ICommand ManageMpcSourcesCommand { get; private set; } = null!;
         public ICommand ImportMpcFillXmlCommand { get; private set; } = null!;
+        public ICommand ImportTextListCommand { get; private set; } = null!;
         public ICommand ClearCacheCommand { get; private set; } = null!;
         public ICommand ManageBackArtLibraryCommand { get; private set; } = null!;
         public ICommand ManageFrontArtLibraryCommand { get; private set; } = null!;
@@ -1070,7 +1124,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             }
 
             ScryfallLookupStatus = "Searching Scryfall...";
-            var sc = await _scryfallService.GetCardByNameAsync(searchName);
+            var sc = await _searchCoordinator.ResolveCardAsync(searchName);
             if (sc == null)
             {
                 ScryfallLookupStatus = $"No card found for \"{searchName}\".";
@@ -1096,6 +1150,16 @@ namespace MTGProxyBuilder.UI.ViewModels
             card.Loyalty = sc.Loyalty ?? sc.CardFaces?.FirstOrDefault()?.Loyalty ?? string.Empty;
             card.Keywords = sc.Keywords != null ? string.Join(",", sc.Keywords) : string.Empty;
             card.IsDoubleFaced = sc.GetBackImageUrl() != null;
+
+            // Back face data
+            var backFace = sc.CardFaces?.Count > 1 ? sc.CardFaces[1] : null;
+            card.BackName = backFace?.Name ?? string.Empty;
+            card.BackManaCost = backFace?.ManaCost ?? string.Empty;
+            card.BackTypeLine = backFace?.TypeLine ?? string.Empty;
+            card.BackOracleText = backFace?.OracleText ?? string.Empty;
+            card.BackPower = backFace?.Power ?? string.Empty;
+            card.BackToughness = backFace?.Toughness ?? string.Empty;
+            card.BackLoyalty = backFace?.Loyalty ?? string.Empty;
 
             ScryfallLookupStatus = $"Found: {sc.Name} ({sc.SetName})";
             StatusText = $"Scryfall data loaded for {sc.Name}";
@@ -1133,7 +1197,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 targets.First(), Dialogs.ArtSelectorMode.Front,
                 _scryfallService, _mpcFillService, _imageCacheService,
                 _backArtLibraryService, Cards, GetMpcFillSources(), BuildMpcFillSearchOptions(),
-                _frontArtLibraryService);
+                _frontArtLibraryService, _bulkDataService);
             dialog.Owner = Application.Current.MainWindow;
 
             if (dialog.ShowDialog() == true && dialog.ResultPath != null)
@@ -1172,7 +1236,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 targets.First(), Dialogs.ArtSelectorMode.Back,
                 _scryfallService, _mpcFillService, _imageCacheService,
                 _backArtLibraryService, Cards, GetMpcFillSources(), BuildMpcFillSearchOptions(),
-                _frontArtLibraryService);
+                _frontArtLibraryService, _bulkDataService);
             dialog.Owner = Application.Current.MainWindow;
 
             if (dialog.ShowDialog() == true && dialog.ResultPath != null)
@@ -1313,7 +1377,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             var dialog = new Dialogs.ArtSelectorDialog(
                 card, initialMode, _scryfallService, _mpcFillService, _imageCacheService,
                 _backArtLibraryService, Cards, GetMpcFillSources(), BuildMpcFillSearchOptions(),
-                _frontArtLibraryService);
+                _frontArtLibraryService, _bulkDataService);
             dialog.Owner = Application.Current.MainWindow;
 
             if (dialog.ShowDialog() == true && dialog.ResultPath != null)
@@ -1374,7 +1438,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 targetCards.First(), Dialogs.ArtSelectorMode.Back,
                 _scryfallService, _mpcFillService, _imageCacheService,
                 _backArtLibraryService, Cards, GetMpcFillSources(), BuildMpcFillSearchOptions(),
-                _frontArtLibraryService);
+                _frontArtLibraryService, _bulkDataService);
             dialog.Owner = Application.Current.MainWindow;
 
             if (dialog.ShowDialog() == true && dialog.ResultPath != null)
@@ -2073,6 +2137,31 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public bool HasDeckImportUrl => !string.IsNullOrEmpty(_currentProject.DeckImportUrl);
         public string DeckImportUrlDisplay => _currentProject.DeckImportUrl ?? "";
+
+        private void ImportTextList()
+        {
+            var dialog = new Dialogs.TextImportDialog(_scryfallService, _searchCoordinator,
+                _bulkDataService ?? new ScryfallBulkDataService(),
+                _appSettings.Settings.BulkDataRefreshDays);
+            dialog.Owner = Application.Current.MainWindow;
+
+            if (dialog.ShowDialog() == true && dialog.ImportedCards.Count > 0)
+            {
+                PushUndo();
+                Cards.CollectionChanged -= OnCardsCollectionChanged;
+                foreach (var card in dialog.ImportedCards)
+                {
+                    ApplyDefaultBackArt(card);
+                    Cards.Add(card);
+                }
+                Cards.CollectionChanged += OnCardsCollectionChanged;
+                _currentProject.PageSettings.CenterGrid();
+                ApplyFilterAndSort();
+
+                int totalAdded = dialog.ImportedCards.Sum(c => c.Quantity);
+                StatusText = $"Imported {dialog.ImportedCards.Count} card(s) ({totalAdded} total)";
+            }
+        }
 
         // --- Sort and Filter ---
 

@@ -76,6 +76,38 @@ public partial class MainWindow : Window
                 if (vm.ExportPdfCommand.CanExecute(null)) vm.ExportPdfCommand.Execute(null);
                 e.Handled = true;
             }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.A)
+            {
+                GridCanvas.SelectAll();
+                e.Handled = true;
+            }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.D)
+            {
+                GridCanvas.DeselectAll();
+                e.Handled = true;
+            }
+            else if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift) && e.Key == Key.I)
+            {
+                GridCanvas.InvertSelection();
+                e.Handled = true;
+            }
+            else if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Delete)
+            {
+                // Delete selected cards — get unique card indices from canvas selection
+                var indices = GridCanvas.GetSelectedCardIndices();
+                if (indices.Count > 0 && vm.Cards.Count > 0)
+                {
+                    // Remove in reverse order to preserve indices
+                    foreach (var idx in indices.OrderByDescending(i => i))
+                    {
+                        if (idx >= 0 && idx < vm.Cards.Count)
+                            vm.Cards.RemoveAt(idx);
+                    }
+                    GridCanvas.DeselectAll();
+                    vm.StatusText = $"Removed {indices.Count} card(s)";
+                }
+                e.Handled = true;
+            }
         };
 
         // Wire GridCanvas events after Loaded
@@ -109,6 +141,16 @@ public partial class MainWindow : Window
             {
                 if (Shell?.ActiveProject?.Inner is MainViewModel vm)
                     vm.SelectFrontArtForCards(cardIndices);
+            };
+
+            GridCanvas.CardFlipStateChanged += (cardIndex, isShowingBack) =>
+            {
+                if (Shell?.ActiveProject?.Inner is MainViewModel vm
+                    && vm.SelectedCard != null
+                    && vm.Cards.IndexOf(vm.SelectedCard) == cardIndex)
+                {
+                    vm.IsShowingBackFace = isShowingBack;
+                }
             };
 
             GridCanvas.SelectBackArtRequested += (cardIndices) =>

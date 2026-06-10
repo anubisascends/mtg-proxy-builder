@@ -80,6 +80,53 @@ namespace MTGProxyBuilder.UI.Controls
             }
         }
 
+        /// <summary>Selects all card slots on the canvas.</summary>
+        public void SelectAll()
+        {
+            _selectedSlots.Clear();
+            for (int i = 0; i < _expandedSlots.Count; i++)
+                _selectedSlots.Add(i);
+            if (_expandedSlots.Count > 0)
+                _lastSelectedSlot = _expandedSlots.Count - 1;
+            SyncSelectedCard();
+            _ = RedrawAsync();
+        }
+
+        /// <summary>Inverts the current selection — selected become deselected and vice versa.</summary>
+        public void InvertSelection()
+        {
+            var newSelection = new HashSet<int>();
+            for (int i = 0; i < _expandedSlots.Count; i++)
+            {
+                if (!_selectedSlots.Contains(i))
+                    newSelection.Add(i);
+            }
+            _selectedSlots.Clear();
+            foreach (var i in newSelection)
+                _selectedSlots.Add(i);
+            SyncSelectedCard();
+            _ = RedrawAsync();
+        }
+
+        /// <summary>Deselects all card slots.</summary>
+        public void DeselectAll()
+        {
+            _selectedSlots.Clear();
+            _lastSelectedSlot = -1;
+            SyncSelectedCard();
+            _ = RedrawAsync();
+        }
+
+        /// <summary>Returns the card indices of all currently selected slots.</summary>
+        public List<int> GetSelectedCardIndices()
+        {
+            return _selectedSlots
+                .Where(s => s >= 0 && s < _expandedSlots.Count)
+                .Select(s => _expandedSlots[s].CardIndex)
+                .Distinct()
+                .ToList();
+        }
+
         // --- Dependency properties ---
 
         public static readonly DependencyProperty PageSettingsProperty =
@@ -166,6 +213,7 @@ namespace MTGProxyBuilder.UI.Controls
         public event Action<List<int>>? ApplyMajorityBackRequested; // (cardIndices)
         public event Action<List<int>>? SelectFrontArtRequested; // (cardIndices)
         public event Action<List<int>>? SelectBackArtRequested; // (cardIndices)
+        public event Action<int, bool>? CardFlipStateChanged; // (cardIndex, isShowingBack)
 
         public PageLayout? PageSettings
         {
@@ -674,6 +722,8 @@ namespace MTGProxyBuilder.UI.Controls
         {
             CanvasOperations.FlipCards(_flippedCardIndices, cardIndices);
             _ = RedrawAsync();
+            foreach (var idx in cardIndices)
+                CardFlipStateChanged?.Invoke(idx, IsCardFlipped(idx));
         }
 
         private void FlipAll()
@@ -681,6 +731,9 @@ namespace MTGProxyBuilder.UI.Controls
             CanvasOperations.FlipAll(ref _allFlipped, _flippedCardIndices);
             _ = RedrawAsync();
         }
+
+        /// <summary>Returns whether a card at the given index is currently showing its back face.</summary>
+        public bool IsShowingBack(int cardIndex) => IsCardFlipped(cardIndex);
 
         // ================================================================
         //  DRAG AND DROP

@@ -106,7 +106,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 if (!string.IsNullOrEmpty(entry.ScryfallId))
                     scryfallCard = await _search.Scryfall.GetCardByIdAsync(entry.ScryfallId);
                 if (scryfallCard == null)
-                    scryfallCard = await _search.Scryfall.GetCardByNameAsync(entry.CardName);
+                    scryfallCard = await _search.ResolveCardAsync(entry.CardName);
                 if (scryfallCard == null) { failed++; continue; }
 
                 onProgress?.Invoke($"Downloading artwork {i + 1}/{deck.Entries.Count}: {entry.CardName}...");

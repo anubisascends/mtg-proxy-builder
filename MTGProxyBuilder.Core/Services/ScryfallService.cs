@@ -102,13 +102,16 @@ namespace MTGProxyBuilder.Core.Services
         {
             bool hasBack = backArtworkPath != null;
 
-            // For double-faced cards, gather text from both faces
-            string manaCost = ManaCost ?? CardFaces?.FirstOrDefault()?.ManaCost ?? string.Empty;
-            string typeLine = TypeLine ?? CardFaces?.FirstOrDefault()?.TypeLine ?? string.Empty;
-            string oracleText = OracleText ?? CardFaces?.FirstOrDefault()?.OracleText ?? string.Empty;
-            string power = Power ?? CardFaces?.FirstOrDefault()?.Power ?? string.Empty;
-            string toughness = Toughness ?? CardFaces?.FirstOrDefault()?.Toughness ?? string.Empty;
-            string loyalty = Loyalty ?? CardFaces?.FirstOrDefault()?.Loyalty ?? string.Empty;
+            // For double-faced cards, gather text from front face
+            var frontFace = CardFaces?.Count > 0 ? CardFaces[0] : null;
+            var backFace = CardFaces?.Count > 1 ? CardFaces[1] : null;
+
+            string manaCost = ManaCost ?? frontFace?.ManaCost ?? string.Empty;
+            string typeLine = TypeLine ?? frontFace?.TypeLine ?? string.Empty;
+            string oracleText = OracleText ?? frontFace?.OracleText ?? string.Empty;
+            string power = Power ?? frontFace?.Power ?? string.Empty;
+            string toughness = Toughness ?? frontFace?.Toughness ?? string.Empty;
+            string loyalty = Loyalty ?? frontFace?.Loyalty ?? string.Empty;
 
             return new CardModel
             {
@@ -134,6 +137,13 @@ namespace MTGProxyBuilder.Core.Services
                 Toughness = toughness,
                 Loyalty = loyalty,
                 Keywords = Keywords != null ? string.Join(",", Keywords) : string.Empty,
+                BackName = backFace?.Name ?? string.Empty,
+                BackManaCost = backFace?.ManaCost ?? string.Empty,
+                BackTypeLine = backFace?.TypeLine ?? string.Empty,
+                BackOracleText = backFace?.OracleText ?? string.Empty,
+                BackPower = backFace?.Power ?? string.Empty,
+                BackToughness = backFace?.Toughness ?? string.Empty,
+                BackLoyalty = backFace?.Loyalty ?? string.Empty,
                 DateAdded = DateTime.Now
             };
         }

@@ -34,6 +34,15 @@ namespace MTGProxyBuilder.Core.Models
         private DateTime _dateAdded = DateTime.Now;
         private string _overlayText = string.Empty;
 
+        // Back face metadata (for double-faced cards)
+        private string _backName = string.Empty;
+        private string _backManaCost = string.Empty;
+        private string _backTypeLine = string.Empty;
+        private string _backOracleText = string.Empty;
+        private string _backPower = string.Empty;
+        private string _backToughness = string.Empty;
+        private string _backLoyalty = string.Empty;
+
         public string CardId
         {
             get => _cardId;
@@ -187,6 +196,50 @@ namespace MTGProxyBuilder.Core.Models
         {
             get => _keywords;
             set { _keywords = value; OnPropertyChanged(); }
+        }
+
+        // --- Back face metadata (double-faced cards) ---
+
+        public string BackName
+        {
+            get => _backName;
+            set { _backName = value; OnPropertyChanged(); }
+        }
+
+        public string BackManaCost
+        {
+            get => _backManaCost;
+            set { _backManaCost = value; OnPropertyChanged(); }
+        }
+
+        public string BackTypeLine
+        {
+            get => _backTypeLine;
+            set { _backTypeLine = value; OnPropertyChanged(); }
+        }
+
+        public string BackOracleText
+        {
+            get => _backOracleText;
+            set { _backOracleText = value; OnPropertyChanged(); }
+        }
+
+        public string BackPower
+        {
+            get => _backPower;
+            set { _backPower = value; OnPropertyChanged(); }
+        }
+
+        public string BackToughness
+        {
+            get => _backToughness;
+            set { _backToughness = value; OnPropertyChanged(); }
+        }
+
+        public string BackLoyalty
+        {
+            get => _backLoyalty;
+            set { _backLoyalty = value; OnPropertyChanged(); }
         }
 
         public DateTime DateAdded
