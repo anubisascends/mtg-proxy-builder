@@ -125,13 +125,24 @@ The release is a self-contained single-file executable that includes everything 
 - **Cache management** — "Clear Cache" button with size display in the Layout tab
 - **Version display** — current version shown in the status bar
 - **Structured logging** — Serilog with rolling daily log files (7-day retention) in `%AppData%/MTGProxyBuilder/Logs/`; logs app lifecycle, API calls, image downloads, and all errors; global exception handlers catch unhandled crashes with user-friendly error dialog showing log file location
+- **Menu bar** — File, Edit, Cards, Tools, Help menus with keyboard shortcuts
+- **Icon toolbar** — Segoe MDL2 Assets icons for common actions (New, Open, Save, Undo, Redo, Add File, Export PDF, Art Library, Settings)
+- **Sidebar accordion** — 5 collapsible sections (Search, Import, Card Details, Layout, Storage) replacing the old dockable panels; expanded/collapsed state persists across sessions
+- **Resizable sidebar** — drag the splitter between canvas and sidebar to resize (200-600px); width persists across sessions
+- **Sidebar font scaling** — adjustable in Settings (9-18pt slider); scales all sidebar content proportionally
+- **Mana symbol rendering** — 109 embedded SVG mana symbols from [CardConjurer](https://github.com/MrTeferi/cardconjurer); mana cost and oracle text display inline icons instead of plain text like `{2}{W}{U}`
+- **Set symbol display** — 2,413 embedded SVG set symbols from [Investigamer/mtg-vectors](https://github.com/Investigamer/mtg-vectors); card details show the set symbol icon colored by rarity
+- **Deck refresh** — imported deck URLs are stored on the project; a "Refresh Deck" button re-imports from the original Moxfield/Archidekt URL
+- **Custom page sizes** — A1, A2, A3, A4, Letter, Legal, Tabloid, and Custom; custom dimensions support mm and inch units (e.g. "8.5\"", "210 mm")
+- **Dark-themed menus** — all menus and context menus use the dark theme with proper styling
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
 | UI Framework | WPF (.NET 10.0-windows) |
-| Docking System | AvalonDock 4.74.1 (VS2013 Dark Theme) |
+| SVG Rendering | Svg.Skia 2.0 |
+| Mana/Set Symbols | Embedded SVGs ([CardConjurer](https://github.com/MrTeferi/cardconjurer) mana, [mtg-vectors](https://github.com/Investigamer/mtg-vectors) sets) |
 | PDF Generation | PdfSharp 6.1.1 |
 | Image Processing | SkiaSharp 3.119.0 |
 | JSON Serialization | Newtonsoft.Json 13.0.3 |
@@ -503,6 +514,13 @@ Both libraries are accessible from the global toolbar — no project needs to be
 - Click "Clear Cache" to remove downloaded images
 - Bleed cache and extracted projects are auto-cleaned on startup
 - Image cache is auto-cleaned on app exit
+
+## Credits
+
+- **Mana Symbols** — SVG mana symbols from [CardConjurer](https://github.com/MrTeferi/cardconjurer) by MrTeferi
+- **Set Symbols** — SVG set symbols from [mtg-vectors](https://github.com/Investigamer/mtg-vectors) by Investigamer
+- **Card Data** — [Scryfall API](https://scryfall.com/docs/api)
+- **Proxy Art** — [MPCFill.com](https://mpcfill.com)
 
 ## License
 

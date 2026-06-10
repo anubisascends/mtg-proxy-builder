@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.1"
+   width="600"
+   height="517.92493"
+   id="svg5"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs5" />
+  <radialGradient
+     cx="0"
+     cy="0"
+     r="1"
+     fx="0"
+     fy="0"
+     id="radialGradient570"
+     gradientUnits="userSpaceOnUse"
+     gradientTransform="matrix(19.172806,0,0,-19.172806,134.7041,259.30273)"
+     spreadMethod="pad">
+    <stop
+       style="stop-color:#bf99c3"
+       offset="0"
+       id="stop1" />
+    <stop
+       style="stop-color:#7b5190"
+       offset="0.7"
+       id="stop2" />
+    <stop
+       style="stop-color:#612c75"
+       offset="1"
+       id="stop3" />
+  </radialGradient>
+  <radialGradient
+     cx="0"
+     cy="0"
+     r="1"
+     fx="0"
+     fy="0"
+     id="radialGradient2995"
+     xlink:href="#radialGradient570"
+     gradientUnits="userSpaceOnUse"
+     gradientTransform="matrix(19.172806,0,0,-19.172806,134.7041,259.30273)"
+     spreadMethod="pad" />
+  <radialGradient
+     cx="0"
+     cy="0"
+     r="1"
+     fx="0"
+     fy="0"
+     id="radialGradient2998"
+     xlink:href="#radialGradient570"
+     gradientUnits="userSpaceOnUse"
+     gradientTransform="matrix(245.187,0,0,245.187,299.98849,258.94013)"
+     spreadMethod="pad" />
+  <path
+     d="M 260.21569,129.8393 303.67023,240.17648 349.18368,129.8393 Z M 574.42346,517.9249 H 25.57654 V 386.60216 H 182.88503 L 73.37909,129.92882 H 0 V 0 H 600 V 129.92882 H 524.76661 L 417.37073,387.94493 h 157.05273 z"
+     fill="#ffffff"
+     id="path3" />
+  <path
+     d="M 303.06918,313.70903 390.29797,102.35731 H 219.85592 Z M 53.05853,414.07136 H 224.49806 L 91.51285,102.45962 H 27.48199 V 27.43084 H 572.5308 v 75.02878 h -66.08978 l -130.23573,312.9673 h 170.74897 v 74.97762 H 53.05853 Z"
+     style="fill:#612c75"
+     id="path4" />
+  <path
+     d="m 35.11659,35.11639 v 59.64448 h 56.39626 5.10252 l 1.94382,4.65493 132.98521,311.6629 4.53983,10.691 H 224.49806 60.69312 v 60.9361 h 478.5626 V 423.11246 H 376.15414 364.67028 l 4.43752,-10.63983 130.28689,-313.00567 1.94382,-4.70609 h 5.15367 58.34008 V 35.11639 Z m 260.76559,281.39306 -83.1749,-211.35171 -4.09225,-10.48639 h 11.24089 170.44205 11.48386 l -4.39916,10.63984 -87.26715,211.35172 -7.23816,17.63503 z"
+     style="fill:url(#radialGradient2998)"
+     id="path5" />
+</svg>

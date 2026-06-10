@@ -147,10 +147,14 @@ namespace MTGProxyBuilder.Core.Models
 
         public void ApplyPagePreset(string presetName)
         {
+            if (presetName == "Custom") return; // Custom dimensions set directly
+
             var (w, h) = presetName switch
             {
-                "A4" => (210f, 297f),
+                "A1" => (594f, 841f),
+                "A2" => (420f, 594f),
                 "A3" => (297f, 420f),
+                "A4" => (210f, 297f),
                 "Letter" => (215.9f, 279.4f),
                 "Legal" => (215.9f, 355.6f),
                 "Tabloid" => (279.4f, 431.8f),

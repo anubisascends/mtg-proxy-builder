@@ -113,8 +113,10 @@
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Page Size" Style="{StaticResource FieldLabel}"/>
                                     <ComboBox x:Name="PagePresetBox" Padding="4" FontSize="11">
-                                        <ComboBoxItem>A4</ComboBoxItem>
+                                        <ComboBoxItem>A1</ComboBoxItem>
+                                        <ComboBoxItem>A2</ComboBoxItem>
                                         <ComboBoxItem>A3</ComboBoxItem>
+                                        <ComboBoxItem>A4</ComboBoxItem>
                                         <ComboBoxItem>Letter</ComboBoxItem>
                                         <ComboBoxItem>Legal</ComboBoxItem>
                                         <ComboBoxItem>Tabloid</ComboBoxItem>
@@ -139,6 +141,25 @@
                             <TextBlock Text="Application" Style="{StaticResource SectionHeader}"/>
                             <CheckBox x:Name="UpdateCheckBox" Content="Check for updates on startup"
                                       Foreground="#CCC" FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionCard}">
+                        <StackPanel>
+                            <TextBlock Text="UI" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="Sidebar Font Size" Foreground="#999" FontSize="10" Margin="0,0,0,4"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Slider x:Name="FontSizeSlider" Minimum="9" Maximum="18" TickFrequency="1"
+                                        IsSnapToTickEnabled="True" Value="12"
+                                        ValueChanged="OnFontSizeSliderChanged"/>
+                                <TextBlock Grid.Column="1" x:Name="FontSizeLabel" Text="12 pt" Foreground="#CCC"
+                                           FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0" MinWidth="40"/>
+                            </Grid>
+                            <TextBlock Text="Adjust the text size in the sidebar panels" Foreground="#666" FontSize="9" Margin="0,4,0,0"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

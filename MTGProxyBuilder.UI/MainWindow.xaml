@@ -5,8 +5,6 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:controls="clr-namespace:MTGProxyBuilder.UI.Controls"
         xmlns:converters="clr-namespace:MTGProxyBuilder.UI.Converters"
-        xmlns:avalonDock="https://github.com/Dirkster99/AvalonDock"
-        xmlns:avalonTheme="clr-namespace:AvalonDock.Themes;assembly=AvalonDock.Themes.VS2013"
         mc:Ignorable="d"
         Title="MTG Proxy Builder"
         Height="950" Width="1600" WindowStartupLocation="CenterScreen"
@@ -18,45 +16,126 @@
         <converters:FilePathToImageConverter x:Key="FilePathToImage"/>
         <converters:NullToCollapsedConverter x:Key="NullToCollapsed"/>
 
-        <!-- Tab style -->
-        <Style TargetType="TabItem">
-            <Setter Property="Background" Value="#2D2D30"/>
-            <Setter Property="Foreground" Value="#AAA"/>
-            <Setter Property="Padding" Value="12,6"/>
-            <Setter Property="FontSize" Value="11.5"/>
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TabItem">
-                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}"
-                                BorderBrush="#3E3E42" BorderThickness="0,0,0,2" x:Name="Bd">
-                            <ContentPresenter ContentSource="Header"/>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#0078D4"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#3E3E42"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
+        <!-- Toolbar icon button style -->
+        <Style x:Key="ToolbarIconBtn" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#CCC"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#3E3E42"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="#555"/>
+                </Trigger>
+            </Style.Triggers>
         </Style>
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/> <!-- Row 0: Menu bar -->
+            <RowDefinition Height="Auto"/> <!-- Row 1: Icon toolbar -->
+            <RowDefinition Height="Auto"/> <!-- Row 2: Project tab bar -->
+            <RowDefinition Height="Auto"/> <!-- Row 3: Update banner -->
+            <RowDefinition Height="*"/>    <!-- Row 4: Main content -->
+            <RowDefinition Height="Auto"/> <!-- Row 5: Status bar -->
         </Grid.RowDefinitions>
 
-        <!-- ==================== PROJECT TAB BAR ==================== -->
-        <Border Grid.Row="0" Background="#252526">
+        <!-- ==================== MENU BAR (Row 0) ==================== -->
+        <Menu Grid.Row="0" Background="#252526" Foreground="#CCC">
+            <!-- File -->
+            <MenuItem Header="_File">
+                <MenuItem Header="_New Project" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N"/>
+                <MenuItem Header="_Open Project" Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O"/>
+                <Separator/>
+                <MenuItem Header="_Save" Command="{Binding ActiveProject.Inner.SaveProjectCommand}" InputGestureText="Ctrl+S"/>
+                <MenuItem Header="Save _As" Command="{Binding ActiveProject.Inner.SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S"/>
+                <Separator/>
+                <MenuItem Header="_Export PDF" Command="{Binding ActiveProject.Inner.ExportPdfCommand}" InputGestureText="Ctrl+E"/>
+                <MenuItem Header="Export SVG Cut Lines" Command="{Binding ActiveProject.Inner.ExportSvgCommand}"/>
+                <Separator/>
+                <MenuItem Header="E_xit" Click="OnExitClick"/>
+            </MenuItem>
+            <!-- Edit -->
+            <MenuItem Header="_Edit">
+                <MenuItem Header="_Undo" Command="{Binding ActiveProject.Inner.UndoCommand}" InputGestureText="Ctrl+Z"/>
+                <MenuItem Header="_Redo" Command="{Binding ActiveProject.Inner.RedoCommand}" InputGestureText="Ctrl+Y"/>
+                <Separator/>
+                <MenuItem Header="Clear All Cards" Command="{Binding ActiveProject.Inner.ClearAllCardsCommand}"/>
+            </MenuItem>
+            <!-- Cards -->
+            <MenuItem Header="_Cards">
+                <MenuItem Header="Add from _File" Command="{Binding ActiveProject.Inner.AddCardFromFileCommand}"/>
+                <MenuItem Header="Import _Deck" Command="{Binding ActiveProject.Inner.ImportDeckCommand}"/>
+                <MenuItem Header="Import _MPCFill XML" Command="{Binding ActiveProject.Inner.ImportMpcFillXmlCommand}"/>
+                <Separator/>
+                <MenuItem Header="_Remove Selected" Command="{Binding ActiveProject.Inner.RemoveCardCommand}" InputGestureText="Del"/>
+            </MenuItem>
+            <!-- Tools -->
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Art Library" Command="{Binding ManageFrontArtLibraryCommand}"/>
+                <MenuItem Header="_Settings" Command="{Binding OpenSettingsCommand}"/>
+            </MenuItem>
+            <!-- Help -->
+            <MenuItem Header="_Help">
+                <MenuItem Header="Check for _Updates" Command="{Binding CheckForUpdateCommand}"/>
+                <MenuItem Header="_About" Command="{Binding AboutCommand}"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- ==================== ICON TOOLBAR (Row 1) ==================== -->
+        <Border Grid.Row="1" Background="#2D2D30" Padding="4,2">
+            <DockPanel>
+                <!-- Right-aligned buttons -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8B9;"
+                            AutomationProperties.Name="Art Library"
+                            Command="{Binding ManageFrontArtLibraryCommand}" ToolTip="Art Library"/>
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE713;"
+                            AutomationProperties.Name="Settings"
+                            Command="{Binding OpenSettingsCommand}" ToolTip="Settings"/>
+                </StackPanel>
+                <!-- Left-aligned button groups -->
+                <StackPanel Orientation="Horizontal">
+                    <!-- Group 1: New, Open, Save -->
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE7C3;"
+                            AutomationProperties.Name="New Project"
+                            Command="{Binding NewProjectCommand}" ToolTip="New Project (Ctrl+N)"/>
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8E5;"
+                            AutomationProperties.Name="Open Project"
+                            Command="{Binding OpenProjectCommand}" ToolTip="Open Project (Ctrl+O)"/>
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE74E;"
+                            AutomationProperties.Name="Save"
+                            Command="{Binding ActiveProject.Inner.SaveProjectCommand}" ToolTip="Save (Ctrl+S)"/>
+                    <Border Width="1" Background="#444" Margin="4,4"/>
+                    <!-- Group 2: Undo, Redo -->
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE7A7;"
+                            AutomationProperties.Name="Undo"
+                            Command="{Binding ActiveProject.Inner.UndoCommand}" ToolTip="Undo (Ctrl+Z)"/>
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE7A6;"
+                            AutomationProperties.Name="Redo"
+                            Command="{Binding ActiveProject.Inner.RedoCommand}" ToolTip="Redo (Ctrl+Y)"/>
+                    <Border Width="1" Background="#444" Margin="4,4"/>
+                    <!-- Group 3: Add File, Export PDF -->
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE710;"
+                            AutomationProperties.Name="Add Card from File"
+                            Command="{Binding ActiveProject.Inner.AddCardFromFileCommand}" ToolTip="Add Card from File"/>
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8A5;"
+                            AutomationProperties.Name="Export PDF"
+                            Command="{Binding ActiveProject.Inner.ExportPdfCommand}" ToolTip="Export PDF (Ctrl+E)"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- ==================== PROJECT TAB BAR (Row 2) ==================== -->
+        <Border Grid.Row="2" Background="#252526"
+                Visibility="{Binding HasActiveProject, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
@@ -95,56 +174,21 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <!-- Global right buttons -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,2">
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding ManageFrontArtLibraryCommand}" Content="Art Library" Padding="8,4"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding OpenSettingsCommand}" Content="Settings" Padding="8,4"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <!-- ==================== TOP TOOLBAR (per-project, binds through ActiveProject.Inner) ==================== -->
-        <Border x:Name="TabBarRoot" Grid.Row="1" Background="#2D2D30" Padding="6,4"
-                DataContext="{Binding ActiveProject.Inner}"
-                Visibility="{Binding DataContext.HasActiveProject, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-
-                <!-- Project actions -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding SaveProjectCommand}" Content="Save"/>
-                    <Border Width="1" Background="#444" Margin="6,4"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding UndoCommand}" Content="Undo" ToolTip="Ctrl+Z"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding RedoCommand}" Content="Redo" ToolTip="Ctrl+Y"/>
-                    <Border Width="1" Background="#444" Margin="6,4"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding AddCardFromFileCommand}" Content="+ File"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding RemoveCardCommand}" Content="- Card"/>
-                    <Border Width="1" Background="#444" Margin="6,4"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding ClearAllCardsCommand}" Content="Clear All" Foreground="#E06060"/>
-                </StackPanel>
-
-                <!-- Project name -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="10,0">
+                <!-- Project name + Export (per-project) -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="4,2"
+                            DataContext="{Binding ActiveProject.Inner}">
                     <TextBlock Text="Project:" Foreground="#999" VerticalAlignment="Center" Margin="0,0,6,0" FontSize="12"/>
                     <TextBox Text="{Binding ProjectName, UpdateSourceTrigger=PropertyChanged}"
                              Width="180" Padding="6,4" FontSize="12"
                              Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
                              CaretBrush="White"/>
+                    <Button Style="{StaticResource AccentBtn}" Command="{Binding ExportPdfCommand}" Content="Export PDF" Margin="8,0,4,0" Padding="10,4"/>
                 </StackPanel>
-
-                <Border Grid.Column="2"/>
-
-                <Button Grid.Column="3" Style="{StaticResource AccentBtn}" Command="{Binding ExportPdfCommand}" Content="Export PDF" Margin="4,0"/>
             </Grid>
         </Border>
 
-        <!-- ==================== UPDATE BANNER ==================== -->
-        <Border Grid.Row="2" Background="#4A3800" Padding="10,6"
+        <!-- ==================== UPDATE BANNER (Row 3) ==================== -->
+        <Border Grid.Row="3" Background="#4A3800" Padding="10,6"
                 Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVisibility}}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -166,8 +210,8 @@
             </Grid>
         </Border>
 
-        <!-- ==================== WELCOME SCREEN (no project open) ==================== -->
-        <Border Grid.Row="3" Background="#1E1E1E"
+        <!-- ==================== WELCOME SCREEN (Row 4, no project open) ==================== -->
+        <Border Grid.Row="4" Background="#1E1E1E"
                 Visibility="{Binding HasActiveProject, Converter={StaticResource InverseBoolToVisibility}}">
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                 <TextBlock Text="TCG Proxy Builder" Foreground="#555" FontSize="36" FontWeight="Light" HorizontalAlignment="Center"/>
@@ -183,21 +227,17 @@
             </StackPanel>
         </Border>
 
-        <!-- ==================== MAIN AREA (project content) ==================== -->
-        <Grid Grid.Row="3" DataContext="{Binding ActiveProject.Inner}"
+        <!-- ==================== MAIN PROJECT CONTENT (Row 4, project open) ==================== -->
+        <Grid Grid.Row="4" DataContext="{Binding ActiveProject.Inner}"
               Visibility="{Binding DataContext.HasActiveProject, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition x:Name="SidebarColumn" Width="300" MinWidth="200" MaxWidth="600"/>
+            </Grid.ColumnDefinitions>
 
-            <avalonDock:DockingManager x:Name="DockManager" Background="#1E1E1E">
-                <avalonDock:DockingManager.Theme>
-                    <avalonTheme:Vs2013DarkTheme/>
-                </avalonDock:DockingManager.Theme>
-                <avalonDock:LayoutRoot>
-                    <avalonDock:LayoutPanel Orientation="Horizontal">
-
-                        <!-- CENTER: Canvas document -->
-                        <avalonDock:LayoutDocumentPane>
-                            <avalonDock:LayoutDocument Title="Page Preview" ContentId="PagePreview" CanClose="False">
-                                <Border Background="#252526">
+            <!-- ===== CANVAS AREA (Column 0) ===== -->
+            <Border Grid.Column="0" Background="#252526">
                 <Grid>
                     <ScrollViewer x:Name="CanvasScrollViewer"
                                   HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
@@ -256,770 +296,827 @@
                                     Click="ZoomReset"/>
                         </StackPanel>
                     </Border>
-                                </Grid>
-                            </Border>
-                        </avalonDock:LayoutDocument>
-                    </avalonDock:LayoutDocumentPane>
+                </Grid>
+            </Border>
 
-                    <!-- RIGHT: Tool panels as dockable anchorables -->
-                    <avalonDock:LayoutAnchorablePane DockWidth="300">
+            <!-- ===== GRID SPLITTER ===== -->
+            <GridSplitter Grid.Column="1" Width="4" Background="#3E3E42" HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" Cursor="SizeWE"/>
 
-                        <!-- ===== SEARCH PANEL ===== -->
-                        <avalonDock:LayoutAnchorable Title="Search" ContentId="SearchPanel" CanClose="False" CanHide="True" AutoHideWidth="300">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#2D2D30">
+            <!-- ===== SIDEBAR (Column 2) ===== -->
+            <Border Grid.Column="2" Background="#2D2D30" BorderBrush="#3E3E42" BorderThickness="1,0,0,0"
+                    x:Name="SidebarBorder">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="SidebarContent">
+                        <StackPanel.LayoutTransform>
+                            <ScaleTransform
+                                ScaleX="{Binding DataContext.SidebarScale, RelativeSource={RelativeSource AncestorType=Window}}"
+                                ScaleY="{Binding DataContext.SidebarScale, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                        </StackPanel.LayoutTransform>
+
+                        <!-- ===== SEARCH SECTION ===== -->
+                        <controls:SidebarSection x:Name="SearchSection" Header="Search" IsExpanded="True">
                                 <StackPanel Margin="10,8">
-                                <!-- Search box -->
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding ScryfallSearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                                             Padding="6,5" FontSize="12"
-                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
-                                             CaretBrush="White" x:Name="ScryfallSearchBox"/>
-                                    <Button Grid.Column="1" Style="{StaticResource AccentBtn}"
-                                            Command="{Binding ScryfallSearchCommand}" Content="Search" Margin="4,0,0,0" Padding="10,5"/>
-                                </Grid>
+                                    <!-- Search box -->
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding ScryfallSearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                                                 Padding="6,5" FontSize="12"
+                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
+                                                 CaretBrush="White">
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding ScryfallSearchCommand}"/>
+                                            </TextBox.InputBindings>
+                                        </TextBox>
+                                        <Button Grid.Column="1" Style="{StaticResource AccentBtn}"
+                                                Command="{Binding ScryfallSearchCommand}" Content="Search" Margin="4,0,0,0" Padding="10,5"/>
+                                    </Grid>
 
-                                <!-- Scryfall advanced search toggle -->
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                    <CheckBox IsChecked="{Binding ShowAdvancedSearch}" Foreground="#AAA" FontSize="10" Content="Advanced Search"
-                                              VerticalContentAlignment="Center"/>
-                                    <TextBlock Text="  Scryfall syntax" Foreground="#555" FontSize="9" VerticalAlignment="Center"
-                                               Visibility="{Binding ShowAdvancedSearch, Converter={StaticResource BoolToVisibility}}"/>
-                                </StackPanel>
-
-                                <!-- Advanced search panel (Scryfall only) -->
-                                <Border Background="#252526" CornerRadius="4" Padding="8" Margin="0,0,0,6">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding ShowAdvancedSearch}" Value="True">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <StackPanel>
-                                        <TextBlock Text="Name" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                        <TextBox Text="{Binding AdvName, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-
-                                        <TextBlock Text="Type (e.g. creature, instant, legendary)" Foreground="#999" FontSize="9.5" Margin="0,4,0,1"/>
-                                        <TextBox Text="{Binding AdvType, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-
-                                        <TextBlock Text="Rules text contains" Foreground="#999" FontSize="9.5" Margin="0,4,0,1"/>
-                                        <TextBox Text="{Binding AdvOracle, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="6"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Colors (WUBRG)" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <TextBox Text="{Binding AdvColors, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2">
-                                                <TextBlock Text="Identity (WUBRG)" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <TextBox Text="{Binding AdvIdentity, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="50"/>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="6"/>
-                                                <ColumnDefinition Width="50"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Grid.ColumnSpan="2">
-                                                <TextBlock Text="Mana Value" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="50"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <ComboBox ItemsSource="{Binding ComparisonOps}" SelectedItem="{Binding AdvCmcOp}" Padding="2" FontSize="10"/>
-                                                    <TextBox Grid.Column="1" Text="{Binding AdvCmcValue, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="4,0,0,0"/>
-                                                </Grid>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="3" Grid.ColumnSpan="2">
-                                                <TextBlock Text="Rarity" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <ComboBox ItemsSource="{Binding RarityAdvOptions}" SelectedItem="{Binding AdvRarity}" Padding="2" FontSize="10"/>
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="6"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Power" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="50"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <ComboBox ItemsSource="{Binding ComparisonOps}" SelectedItem="{Binding AdvPowOp}" Padding="2" FontSize="10"/>
-                                                    <TextBox Grid.Column="1" Text="{Binding AdvPowValue, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="4,0,0,0"/>
-                                                </Grid>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2">
-                                                <TextBlock Text="Toughness" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="50"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <ComboBox ItemsSource="{Binding ComparisonOps}" SelectedItem="{Binding AdvTouOp}" Padding="2" FontSize="10"/>
-                                                    <TextBox Grid.Column="1" Text="{Binding AdvTouValue, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="4,0,0,0"/>
-                                                </Grid>
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="6"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Set code" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <TextBox Text="{Binding AdvSet, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2">
-                                                <TextBlock Text="Format" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <ComboBox ItemsSource="{Binding FormatOptions}" SelectedItem="{Binding AdvFormat}" Padding="2" FontSize="10"/>
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <Grid Margin="0,4,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="6"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0">
-                                                <TextBlock Text="Artist" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <TextBox Text="{Binding AdvArtist, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="2">
-                                                <TextBlock Text="Keyword" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
-                                                <TextBox Text="{Binding AdvKeyword, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                            </StackPanel>
-                                        </Grid>
-
-                                        <TextBlock Text="Card is..." Foreground="#999" FontSize="9.5" Margin="0,4,0,1"/>
-                                        <ComboBox ItemsSource="{Binding IsOptions}" SelectedItem="{Binding AdvIs}" Padding="2" FontSize="10" Margin="0,0,0,6"/>
-
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="4"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <Button Grid.Column="0" Style="{StaticResource AccentBtn}"
-                                                    Command="{Binding BuildAdvancedQueryCommand}" Content="Build &amp; Search" Padding="6,5"/>
-                                            <Button Grid.Column="2" Style="{StaticResource ToolBtn}"
-                                                    Command="{Binding ClearAdvancedSearchCommand}" Content="Clear" Padding="6,5"/>
-                                        </Grid>
-
-                                        <TextBlock Text="Query:" Foreground="#666" FontSize="9" Margin="0,6,0,1"/>
-                                        <TextBlock Text="{Binding ScryfallSearchQuery}" Foreground="#0078D4" FontSize="10"
-                                                   TextWrapping="Wrap" MaxHeight="40"/>
+                                    <!-- Scryfall advanced search toggle -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                        <CheckBox IsChecked="{Binding ShowAdvancedSearch}" Foreground="#AAA" FontSize="10" Content="Advanced Search"
+                                                  VerticalContentAlignment="Center"/>
+                                        <TextBlock Text="  Scryfall syntax" Foreground="#555" FontSize="9" VerticalAlignment="Center"
+                                                   Visibility="{Binding ShowAdvancedSearch, Converter={StaticResource BoolToVisibility}}"/>
                                     </StackPanel>
-                                </Border>
 
-                                <!-- Scryfall results (with thumbnails) -->
-                                <ListBox ItemsSource="{Binding ScryfallResults}" SelectedItem="{Binding SelectedScryfallCard}"
-                                         Height="180" BorderThickness="1" BorderBrush="#444"
-                                         Background="#252526" FontSize="11"
-                                         MouseDoubleClick="OnScryfallDoubleClick">
-                                    <ListBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <StackPanel Orientation="Horizontal" Margin="2">
-                                                <Border Width="36" Height="50" Background="#111" CornerRadius="3" Margin="0,0,6,0">
-                                                    <Image Source="{Binding ImageUris[small]}" Stretch="UniformToFill"/>
-                                                </Border>
-                                                <StackPanel VerticalAlignment="Center">
-                                                    <TextBlock Text="{Binding Name}" FontSize="10.5" Foreground="#DDD" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
-                                                    <TextBlock FontSize="9" Foreground="#888">
-                                                        <Run Text="{Binding SetName, Mode=OneWay}"/>
-                                                        <Run Text=" #"/><Run Text="{Binding CollectorNumber, Mode=OneWay}"/>
-                                                    </TextBlock>
-                                                </StackPanel>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListBox.ItemTemplate>
-                                </ListBox>
-
-                                <!-- Preview panel (shown when a result is selected) -->
-                                <Border Height="200" Background="#111" CornerRadius="4" Margin="0,6,0,0"
-                                        Visibility="{Binding SearchPreviewUrl, Converter={StaticResource NullToCollapsed}, FallbackValue=Collapsed}">
-                                    <Image Source="{Binding SearchPreviewUrl}" Stretch="Uniform" Margin="4"/>
-                                </Border>
-
-                                <!-- Add button -->
-                                <Button Style="{StaticResource AccentBtn}" Command="{Binding AddScryfallCardCommand}"
-                                        Content="Add Selected Card" Margin="0,6,0,0" HorizontalAlignment="Stretch"/>
-
-                                <Button Style="{StaticResource ToolBtn}" Command="{Binding UpdateAllArtFromMpcFillCommand}"
-                                        Content="Update All Art from MPCFill" Margin="0,6,0,0" HorizontalAlignment="Stretch"/>
-
-                                <!-- Moxfield import -->
-                                <TextBlock Text="Import Deck" FontWeight="SemiBold" Foreground="#CCC" Margin="0,16,0,6" FontSize="12"/>
-                                <TextBlock Text="Paste a URL from Moxfield or Archidekt" Foreground="#666" FontSize="10" Margin="0,0,0,4"/>
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding ImportDeckUrl, UpdateSourceTrigger=PropertyChanged}"
-                                             Padding="6,5" FontSize="11"
-                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
-                                             CaretBrush="White" x:Name="DeckImportUrlBox"/>
-                                    <Button Grid.Column="1" Style="{StaticResource AccentBtn}"
-                                            Command="{Binding ImportDeckCommand}" Content="Import" Margin="4,0,0,0" Padding="10,5"/>
-                                </Grid>
-                                <CheckBox IsChecked="{Binding IgnoreDuplicates}" Content="Skip cards already in project (merge basics)"
-                                          Foreground="#999" FontSize="10" Margin="0,2,0,0"
-                                          ToolTip="Cards already in the project are skipped. Basic lands are only added if the deck needs more copies than you already have."/>
-
-                                <TextBlock Text="Import MPCFill Project" FontWeight="SemiBold" Foreground="#CCC" Margin="0,16,0,6" FontSize="12"/>
-                                <Button Style="{StaticResource AccentBtn}" Command="{Binding ImportMpcFillXmlCommand}"
-                                        Content="Import cards.xml..." HorizontalAlignment="Stretch" Padding="8,6"/>
-                                <TextBlock Text="Import a cards.xml file exported from MPCFill" Foreground="#666" FontSize="10" Margin="0,4,0,0"/>
-                            </StackPanel>
-                        </ScrollViewer>
-                        </avalonDock:LayoutAnchorable>
-
-                        <!-- ===== CARD PANEL ===== -->
-                        <avalonDock:LayoutAnchorable Title="Card" ContentId="CardPanel" CanClose="False" CanHide="True" AutoHideWidth="300">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#2D2D30">
-                                <StackPanel Margin="10,8" DataContext="{Binding SelectedCard}">
-                                <TextBlock Text="(Click a card on the page)" Foreground="#666" FontStyle="Italic" FontSize="12" Margin="0,0,0,8">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding}" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Visible"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-
-                                <StackPanel>
-                                    <StackPanel.Style>
-                                        <Style TargetType="StackPanel">
-                                            <Setter Property="Visibility" Value="Visible"/>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding}" Value="{x:Null}">
-                                                    <Setter Property="Visibility" Value="Collapsed"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </StackPanel.Style>
-
-                                    <!-- Name -->
-                                    <TextBlock Text="Name" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <TextBlock Text="{Binding Name}" Foreground="White" FontSize="12" Padding="6,4" Margin="0,0,0,8"/>
-
-                                    <!-- Scryfall Lookup (visible when ScryfallId is empty) -->
-                                    <Border Margin="0,0,0,8" Background="#252526" CornerRadius="4" Padding="8,6">
+                                    <!-- Advanced search panel (Scryfall only) -->
+                                    <Border Background="#252526" CornerRadius="4" Padding="8" Margin="0,0,0,6">
                                         <Border.Style>
                                             <Style TargetType="Border">
                                                 <Setter Property="Visibility" Value="Collapsed"/>
                                                 <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding ScryfallId}" Value="{x:Null}">
-                                                        <Setter Property="Visibility" Value="Visible"/>
-                                                    </DataTrigger>
-                                                    <DataTrigger Binding="{Binding ScryfallId}" Value="">
+                                                    <DataTrigger Binding="{Binding ShowAdvancedSearch}" Value="True">
                                                         <Setter Property="Visibility" Value="Visible"/>
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
                                         <StackPanel>
-                                            <TextBlock Text="Fetch Card Data from Scryfall" Foreground="#CCC" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <TextBlock Text="Name" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                            <TextBox Text="{Binding AdvName, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+
+                                            <TextBlock Text="Type (e.g. creature, instant, legendary)" Foreground="#999" FontSize="9.5" Margin="0,4,0,1"/>
+                                            <TextBox Text="{Binding AdvType, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+
+                                            <TextBlock Text="Rules text contains" Foreground="#999" FontSize="9.5" Margin="0,4,0,1"/>
+                                            <TextBox Text="{Binding AdvOracle, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Colors (WUBRG)" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <TextBox Text="{Binding AdvColors, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Identity (WUBRG)" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <TextBox Text="{Binding AdvIdentity, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="50"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Grid.ColumnSpan="2">
+                                                    <TextBlock Text="Mana Value" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <ComboBox ItemsSource="{Binding ComparisonOps}" SelectedItem="{Binding AdvCmcOp}" Padding="2" FontSize="10"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding AdvCmcValue, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="4,0,0,0"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="3" Grid.ColumnSpan="2">
+                                                    <TextBlock Text="Rarity" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <ComboBox ItemsSource="{Binding RarityAdvOptions}" SelectedItem="{Binding AdvRarity}" Padding="2" FontSize="10"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Power" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <ComboBox ItemsSource="{Binding ComparisonOps}" SelectedItem="{Binding AdvPowOp}" Padding="2" FontSize="10"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding AdvPowValue, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="4,0,0,0"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Toughness" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <Grid>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="50"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <ComboBox ItemsSource="{Binding ComparisonOps}" SelectedItem="{Binding AdvTouOp}" Padding="2" FontSize="10"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding AdvTouValue, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="4,0,0,0"/>
+                                                    </Grid>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Set code" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <TextBox Text="{Binding AdvSet, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Format" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <ComboBox ItemsSource="{Binding FormatOptions}" SelectedItem="{Binding AdvFormat}" Padding="2" FontSize="10"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <Grid Margin="0,4,0,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="6"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="Artist" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <TextBox Text="{Binding AdvArtist, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <TextBlock Text="Keyword" Foreground="#999" FontSize="9.5" Margin="0,0,0,1"/>
+                                                    <TextBox Text="{Binding AdvKeyword, UpdateSourceTrigger=PropertyChanged}" Padding="4,3" FontSize="11"
+                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <TextBlock Text="Card is..." Foreground="#999" FontSize="9.5" Margin="0,4,0,1"/>
+                                            <ComboBox ItemsSource="{Binding IsOptions}" SelectedItem="{Binding AdvIs}" Padding="2" FontSize="10" Margin="0,0,0,6"/>
+
                                             <Grid>
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="4"/>
+                                                    <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
-                                                <TextBox Grid.Column="0" Padding="6,4" FontSize="11"
-                                                         Text="{Binding DataContext.ActiveProject.Inner.ScryfallLookupText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,6,0"/>
-                                                <Button Grid.Column="1" Content="Fetch" Padding="10,4"
-                                                        Style="{StaticResource AccentBtn}"
-                                                        Command="{Binding DataContext.ActiveProject.Inner.FetchScryfallDataCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                                <Button Grid.Column="0" Style="{StaticResource AccentBtn}"
+                                                        Command="{Binding BuildAdvancedQueryCommand}" Content="Build &amp; Search" Padding="6,5"/>
+                                                <Button Grid.Column="2" Style="{StaticResource ToolBtn}"
+                                                        Command="{Binding ClearAdvancedSearchCommand}" Content="Clear" Padding="6,5"/>
                                             </Grid>
-                                            <TextBlock Text="{Binding DataContext.ActiveProject.Inner.ScryfallLookupStatus, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                       Foreground="#888" FontSize="9" Margin="0,4,0,0" TextWrapping="Wrap"/>
+
+                                            <TextBlock Text="Query:" Foreground="#666" FontSize="9" Margin="0,6,0,1"/>
+                                            <TextBlock Text="{Binding ScryfallSearchQuery}" Foreground="#0078D4" FontSize="10"
+                                                       TextWrapping="Wrap" MaxHeight="40"/>
                                         </StackPanel>
                                     </Border>
 
-                                    <!-- Quantity / Mana Cost -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                            <TextBlock Text="Quantity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Padding="6,4"
-                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                            <TextBlock Text="Mana Cost" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding ManaCost}" Foreground="#CCC" FontSize="12" Padding="6,5"/>
-                                        </StackPanel>
-                                    </Grid>
+                                    <!-- Scryfall results (with thumbnails) -->
+                                    <ListBox ItemsSource="{Binding ScryfallResults}" SelectedItem="{Binding SelectedScryfallCard}"
+                                             Height="180" BorderThickness="1" BorderBrush="#444"
+                                             Background="#252526" FontSize="11"
+                                             MouseDoubleClick="OnScryfallDoubleClick">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Margin="2">
+                                                    <Border Width="36" Height="50" Background="#111" CornerRadius="3" Margin="0,0,6,0">
+                                                        <Image Source="{Binding ImageUris[small]}" Stretch="UniformToFill"/>
+                                                    </Border>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontSize="10.5" Foreground="#DDD" TextTrimming="CharacterEllipsis" MaxWidth="180"/>
+                                                        <TextBlock FontSize="9" Foreground="#888">
+                                                            <Run Text="{Binding SetName, Mode=OneWay}"/>
+                                                            <Run Text=" #"/><Run Text="{Binding CollectorNumber, Mode=OneWay}"/>
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
 
-                                    <!-- CMC -->
-                                    <TextBlock Text="Mana Value" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <TextBlock Text="{Binding CMC}" Foreground="#CCC" FontSize="11" Margin="0,0,0,8"/>
+                                    <!-- Preview panel (shown when a result is selected) -->
+                                    <Border Height="200" Background="#111" CornerRadius="4" Margin="0,6,0,0"
+                                            Visibility="{Binding SearchPreviewUrl, Converter={StaticResource NullToCollapsed}, FallbackValue=Collapsed}">
+                                        <Image Source="{Binding SearchPreviewUrl}" Stretch="Uniform" Margin="4"/>
+                                    </Border>
 
-                                    <!-- Type Line -->
-                                    <TextBlock Text="Type" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <TextBlock Text="{Binding TypeLine}" Foreground="#AAA" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                    <!-- Add button -->
+                                    <Button Style="{StaticResource AccentBtn}" Command="{Binding AddScryfallCardCommand}"
+                                            Content="Add Selected Card" Margin="0,6,0,0" HorizontalAlignment="Stretch"/>
 
-                                    <!-- Oracle Text -->
-                                    <TextBlock Text="Oracle Text" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <TextBlock Text="{Binding OracleText}" Foreground="#888" FontSize="10" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                    <Button Style="{StaticResource ToolBtn}" Command="{Binding UpdateAllArtFromMpcFillCommand}"
+                                            Content="Update All Art from MPCFill" Margin="0,6,0,0" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                        </controls:SidebarSection>
 
-                                    <!-- Power / Toughness (creatures only) -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.Style>
-                                            <Style TargetType="Grid">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Power}" Value="">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Grid.Style>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                            <TextBlock Text="Power" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding Power}" Foreground="#CCC" FontSize="11"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                            <TextBlock Text="Toughness" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding Toughness}" Foreground="#CCC" FontSize="11"/>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Loyalty (planeswalkers only) -->
-                                    <StackPanel Margin="0,0,0,8">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Loyalty}" Value="">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="Loyalty" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <TextBlock Text="{Binding Loyalty}" Foreground="#CCC" FontSize="11"/>
-                                    </StackPanel>
-
-                                    <!-- Colors / Color Identity -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                            <TextBlock Text="Colors" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding Colors}" Foreground="#CCC" FontSize="11"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                            <TextBlock Text="Color Identity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding ColorIdentity}" Foreground="#CCC" FontSize="11"/>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Keywords (only when present) -->
-                                    <StackPanel Margin="0,0,0,8">
-                                        <StackPanel.Style>
-                                            <Style TargetType="StackPanel">
-                                                <Setter Property="Visibility" Value="Visible"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding Keywords}" Value="">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </StackPanel.Style>
-                                        <TextBlock Text="Keywords" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <TextBlock Text="{Binding Keywords}" Foreground="#CCC" FontSize="10" TextWrapping="Wrap"/>
-                                    </StackPanel>
-
-                                    <!-- Set / Collector # -->
+                        <!-- ===== IMPORT SECTION ===== -->
+                        <controls:SidebarSection x:Name="ImportSection" Header="Import">
+                                <StackPanel Margin="10,8">
+                                    <!-- Moxfield import -->
+                                    <TextBlock Text="Import Deck" FontWeight="SemiBold" Foreground="#CCC" Margin="0,0,0,6" FontSize="12"/>
+                                    <TextBlock Text="Paste a URL from Moxfield or Archidekt" Foreground="#666" FontSize="10" Margin="0,0,0,4"/>
                                     <Grid Margin="0,0,0,4">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                            <TextBlock Text="Set" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Foreground="#CCC" FontSize="10" TextWrapping="Wrap">
-                                                <Run Text="{Binding SetName, Mode=OneWay}"/>
-                                                <Run Text="{Binding SetCode, Mode=OneWay, StringFormat='({0})'}" Foreground="#888"/>
-                                            </TextBlock>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                            <TextBlock Text="#" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding CollectorNumber}" Foreground="#CCC" FontSize="10"/>
-                                        </StackPanel>
+                                        <TextBox Text="{Binding ImportDeckUrl, UpdateSourceTrigger=PropertyChanged}"
+                                                 Padding="6,5" FontSize="11"
+                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" BorderThickness="1"
+                                                 CaretBrush="White">
+                                            <TextBox.InputBindings>
+                                                <KeyBinding Key="Enter" Command="{Binding ImportDeckCommand}"/>
+                                            </TextBox.InputBindings>
+                                        </TextBox>
+                                        <Button Grid.Column="1" Style="{StaticResource AccentBtn}"
+                                                Command="{Binding ImportDeckCommand}" Content="Import" Margin="4,0,0,0" Padding="10,5"/>
                                     </Grid>
+                                    <CheckBox IsChecked="{Binding IgnoreDuplicates}" Content="Skip cards already in project (merge basics)"
+                                              Foreground="#999" FontSize="10" Margin="0,2,0,0"
+                                              ToolTip="Cards already in the project are skipped. Basic lands are only added if the deck needs more copies than you already have."/>
 
-                                    <!-- Rarity / Artist -->
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                            <TextBlock Text="Rarity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding Rarity}" Foreground="#CCC" FontSize="10"/>
+                                    <!-- Refresh deck (visible when a deck URL is stored) -->
+                                    <Border Margin="0,8,0,0" Background="#252526" CornerRadius="4" Padding="8,6"
+                                            Visibility="{Binding HasDeckImportUrl, Converter={StaticResource BoolToVisibility}}">
+                                        <StackPanel>
+                                            <TextBlock Text="Imported Deck" Foreground="#999" FontSize="9" Margin="0,0,0,2"/>
+                                            <TextBlock Text="{Binding DeckImportUrlDisplay}" Foreground="#888" FontSize="10"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding DeckImportUrlDisplay}" Margin="0,0,0,4"/>
+                                            <Button Style="{StaticResource AccentBtn}" Command="{Binding RefreshDeckCommand}"
+                                                    Content="Refresh Deck" HorizontalAlignment="Stretch" Padding="8,4"/>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                            <TextBlock Text="Artist" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding Artist}" Foreground="#CCC" FontSize="10" TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Select Art -->
-                                    <Button Style="{StaticResource AccentBtn}"
-                                            Command="{Binding DataContext.ActiveProject.Inner.BrowseFrontArtworkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            Content="Select Art..." Margin="0,0,0,6" HorizontalAlignment="Stretch" Padding="8,6"/>
-
-                                    <TextBlock Text="Front Artwork" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <Border Height="150" Background="#111" CornerRadius="4" Margin="0,0,0,4">
-                                        <Image Source="{Binding ArtworkPath, Converter={StaticResource FilePathToImage}}" Stretch="Uniform" Margin="4"/>
                                     </Border>
-                                    <TextBlock Text="{Binding ArtworkPath}" Foreground="#555" FontSize="9"
-                                               TextTrimming="CharacterEllipsis" Margin="0,0,0,10"/>
 
-                                    <!-- Overlay Text -->
-                                    <TextBlock Text="Overlay Text" Foreground="#999" FontSize="10" Margin="0,4,0,2"/>
-                                    <TextBox Text="{Binding OverlayText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" FontSize="12"
-                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,0,8"/>
-
-                                    <CheckBox Content="Double-Faced Card" IsChecked="{Binding IsDoubleFaced}" Foreground="#CCC" Margin="0,0,0,4"/>
-                                    <CheckBox Content="Include Back Artwork" IsChecked="{Binding IncludeBack}" Foreground="#CCC" Margin="0,0,0,6"/>
-                                    <TextBlock Text="Back Artwork" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <Border Height="150" Background="#111" CornerRadius="4" Margin="0,0,0,4">
-                                        <Image Source="{Binding BackArtworkPath, Converter={StaticResource FilePathToImage}}" Stretch="Uniform" Margin="4"/>
-                                    </Border>
-                                    <TextBlock Text="{Binding BackArtworkPath}" Foreground="#555" FontSize="9"
-                                               TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Import MPCFill Project" FontWeight="SemiBold" Foreground="#CCC" Margin="0,16,0,6" FontSize="12"/>
+                                    <Button Style="{StaticResource AccentBtn}" Command="{Binding ImportMpcFillXmlCommand}"
+                                            Content="Import cards.xml..." HorizontalAlignment="Stretch" Padding="8,6"/>
+                                    <TextBlock Text="Import a cards.xml file exported from MPCFill" Foreground="#666" FontSize="10" Margin="0,4,0,0"/>
                                 </StackPanel>
-                            </StackPanel>
-                        </ScrollViewer>
-                        </avalonDock:LayoutAnchorable>
+                        </controls:SidebarSection>
 
-                        <!-- ===== LAYOUT PANEL ===== -->
-                        <avalonDock:LayoutAnchorable Title="Layout" ContentId="LayoutPanel" CanClose="False" CanHide="True" AutoHideWidth="300">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#2D2D30">
-                                <StackPanel Margin="10,8">
-                                <!-- Page -->
-                                <TextBlock Text="PAGE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
-                                <TextBlock Text="Page Size" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                <ComboBox ItemsSource="{Binding PagePresets}" SelectedItem="{Binding SelectedPagePreset}"
-                                          Padding="4" Margin="0,0,0,6" FontSize="11"/>
-                                <CheckBox Content="Landscape" IsChecked="{Binding CurrentProject.PageSettings.IsLandscape}" Foreground="#CCC" Margin="0,0,0,10"/>
+                        <!-- ===== CARD DETAILS SECTION ===== -->
+                        <controls:SidebarSection x:Name="CardDetailsSection" Header="Card Details">
+                                <StackPanel Margin="10,8" DataContext="{Binding SelectedCard}">
+                                    <TextBlock Text="(Click a card on the page)" Foreground="#666" FontStyle="Italic" FontSize="12" Margin="0,0,0,8">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
 
-                                <!-- Print -->
-                                <TextBlock Text="PRINT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                <TextBlock Text="Print Mode" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                <ComboBox ItemsSource="{Binding PrintModeValues}" SelectedItem="{Binding SelectedPrintMode}"
-                                          Padding="4" Margin="0,0,0,6" FontSize="11"/>
-                                <CheckBox Content="Cutting guides (edge-to-edge)" IsChecked="{Binding CurrentProject.PrintSettings.ShowCutGuides}" Foreground="#CCC" Margin="0,0,0,6"/>
+                                    <StackPanel>
+                                        <StackPanel.Style>
+                                            <Style TargetType="StackPanel">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </StackPanel.Style>
 
-                                <!-- Card Outline Guides -->
-                                <TextBlock Text="CARD OUTLINE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                <CheckBox Content="Show card outline guides" IsChecked="{Binding CurrentProject.PrintSettings.ShowCardOutline}" Foreground="#CCC" Margin="0,0,0,6"/>
+                                        <!-- Name -->
+                                        <TextBlock Text="Name" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding Name}" Foreground="White" FontSize="12" Padding="6,4" Margin="0,0,0,8"/>
 
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="6"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Color" Foreground="#999" FontSize="9"/>
-                                        <Grid>
+                                        <!-- Scryfall Lookup (visible when ScryfallId is empty) -->
+                                        <Border Margin="0,0,0,8" Background="#252526" CornerRadius="4" Padding="8,6">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding ScryfallId}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding ScryfallId}" Value="">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <StackPanel>
+                                                <TextBlock Text="Fetch Card Data from Scryfall" Foreground="#CCC" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBox Grid.Column="0" Padding="6,4" FontSize="11"
+                                                             Text="{Binding DataContext.ActiveProject.Inner.ScryfallLookupText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}"
+                                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,6,0"/>
+                                                    <Button Grid.Column="1" Content="Fetch" Padding="10,4"
+                                                            Style="{StaticResource AccentBtn}"
+                                                            Command="{Binding DataContext.ActiveProject.Inner.FetchScryfallDataCommand, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                                </Grid>
+                                                <TextBlock Text="{Binding DataContext.ActiveProject.Inner.ScryfallLookupStatus, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           Foreground="#888" FontSize="9" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <!-- Quantity / Mana Cost -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Text="Quantity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Padding="6,4"
+                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                <TextBlock Text="Mana Cost" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <controls:ManaTextBlock ManaText="{Binding ManaCost}" Foreground="#CCC" FontSize="12" SymbolSize="14" Padding="6,5"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- CMC -->
+                                        <TextBlock Text="Mana Value" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding CMC}" Foreground="#CCC" FontSize="11" Margin="0,0,0,8"/>
+
+                                        <!-- Type Line -->
+                                        <TextBlock Text="Type" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <TextBlock Text="{Binding TypeLine}" Foreground="#AAA" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
+
+                                        <!-- Oracle Text -->
+                                        <TextBlock Text="Oracle Text" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <controls:ManaTextBlock ManaText="{Binding OracleText}" Foreground="#888" FontSize="10" SymbolSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+
+                                        <!-- Power / Toughness (creatures only) -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Power}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Text="Power" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding Power}" Foreground="#CCC" FontSize="11"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                <TextBlock Text="Toughness" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding Toughness}" Foreground="#CCC" FontSize="11"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Loyalty (planeswalkers only) -->
+                                        <StackPanel Margin="0,0,0,8">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Loyalty}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="Loyalty" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                            <TextBlock Text="{Binding Loyalty}" Foreground="#CCC" FontSize="11"/>
+                                        </StackPanel>
+
+                                        <!-- Colors / Color Identity -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Text="Colors" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding Colors}" Foreground="#CCC" FontSize="11"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                <TextBlock Text="Color Identity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding ColorIdentity}" Foreground="#CCC" FontSize="11"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Keywords (only when present) -->
+                                        <StackPanel Margin="0,0,0,8">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Keywords}" Value="">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="Keywords" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                            <TextBlock Text="{Binding Keywords}" Foreground="#CCC" FontSize="10" TextWrapping="Wrap"/>
+                                        </StackPanel>
+
+                                        <!-- Set / Collector # with set symbol -->
+                                        <Grid Margin="0,0,0,4">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto"/>
                                                 <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
                                             </Grid.ColumnDefinitions>
-                                            <Border Grid.Column="0" Width="24" Height="24" CornerRadius="3" Margin="0,0,4,0"
-                                                    BorderBrush="#555" BorderThickness="1" Cursor="Hand"
-                                                    Background="{Binding CurrentProject.PrintSettings.OutlineColor}"
-                                                    MouseLeftButtonUp="OnOutlineColorClick"/>
-                                            <TextBox Grid.Column="1" Text="{Binding CurrentProject.PrintSettings.OutlineColor, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                            <!-- Set symbol icon -->
+                                            <controls:SetSymbolImage Grid.Column="0"
+                                                SetCode="{Binding SetCode}" Rarity="{Binding Rarity}"
+                                                SymbolSize="20" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                ToolTip="{Binding Rarity}"/>
+                                            <StackPanel Grid.Column="1" Margin="0,0,4,0">
+                                                <TextBlock Text="Set" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Foreground="#CCC" FontSize="10" TextWrapping="Wrap">
+                                                    <Run Text="{Binding SetName, Mode=OneWay}"/>
+                                                    <Run Text="{Binding SetCode, Mode=OneWay, StringFormat='({0})'}" Foreground="#888"/>
+                                                </TextBlock>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                                                <TextBlock Text="#" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding CollectorNumber}" Foreground="#CCC" FontSize="10"/>
+                                            </StackPanel>
                                         </Grid>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Line Weight (pt)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.LineWeight, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                </Grid>
 
-                                <Grid Margin="0,4,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="6"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Alignment" Foreground="#999" FontSize="9"/>
-                                        <ComboBox ItemsSource="{Binding OutlineAlignmentOptions}" SelectedItem="{Binding SelectedOutlineAlignment}" Padding="3" FontSize="10"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Outline Type" Foreground="#999" FontSize="9"/>
-                                        <ComboBox ItemsSource="{Binding OutlineTypeOptions}" SelectedItem="{Binding SelectedOutlineType}" Padding="3" FontSize="10"/>
-                                    </StackPanel>
-                                </Grid>
+                                        <!-- Rarity / Artist -->
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                                <TextBlock Text="Rarity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding Rarity}" Foreground="#CCC" FontSize="10"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                                <TextBlock Text="Artist" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding Artist}" Foreground="#CCC" FontSize="10" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                        </Grid>
 
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="6"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="6"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Corner Radius (mm)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.CornerRadiusMm, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Line Type" Foreground="#999" FontSize="9"/>
-                                        <ComboBox ItemsSource="{Binding LineTypeOptions}" SelectedItem="{Binding SelectedLineType}" Padding="3" FontSize="10"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Text="Corner Length (mm)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.CornerLengthMm, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                </Grid>
+                                        <!-- Select Art -->
+                                        <Button Style="{StaticResource AccentBtn}"
+                                                Command="{Binding DataContext.ActiveProject.Inner.BrowseFrontArtworkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                Content="Select Art..." Margin="0,0,0,6" HorizontalAlignment="Stretch" Padding="8,6"/>
 
-                                <Separator Margin="0,4"/>
+                                        <TextBlock Text="Front Artwork" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <Border Height="150" Background="#111" CornerRadius="4" Margin="0,0,0,4">
+                                            <Image Source="{Binding ArtworkPath, Converter={StaticResource FilePathToImage}}" Stretch="Uniform" Margin="4"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding ArtworkPath}" Foreground="#555" FontSize="9"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,0,0,10"/>
 
-                                <!-- Silhouette Cameo -->
-                                <TextBlock Text="SILHOUETTE CAMEO" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                <CheckBox Content="Add registration marks to PDF" IsChecked="{Binding CurrentProject.PrintSettings.ShowRegistrationMarks}"
-                                          Foreground="#CCC" Margin="0,0,0,4"/>
-                                <CheckBox Content="Export SVG cut lines with PDF" IsChecked="{Binding CurrentProject.PrintSettings.ExportSvgCutLines}"
-                                          Foreground="#CCC" Margin="0,0,0,4"/>
-                                <Button Content="Export SVG Only" Command="{Binding ExportSvgCommand}"
-                                        Background="#3E3E42" Foreground="#CCC" BorderThickness="0"
-                                        Padding="8,4" FontSize="11" Cursor="Hand" HorizontalAlignment="Left"
-                                        Margin="0,0,0,6"/>
-                                <Grid Margin="0,0,0,4"
-                                      Visibility="{Binding CurrentProject.PrintSettings.ShowRegistrationMarks, Converter={StaticResource BoolToVisibility}}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Square (in)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkSquareSizeIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Arm Length (in)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkLengthIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Text="Thickness (in)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkThicknessIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="6">
-                                        <TextBlock Text="Inset (in)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkInsetIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
-                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    </StackPanel>
-                                </Grid>
+                                        <!-- Overlay Text -->
+                                        <TextBlock Text="Overlay Text" Foreground="#999" FontSize="10" Margin="0,4,0,2"/>
+                                        <TextBox Text="{Binding OverlayText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" FontSize="12"
+                                                 Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,0,8"/>
 
-                                <Separator Margin="0,4"/>
-
-                                <!-- Card Size -->
-                                <TextBlock Text="CARD SIZE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                <ComboBox ItemsSource="{Binding CardSizePresets}" SelectedItem="{Binding SelectedCardSize}"
-                                          Padding="4" Margin="0,0,0,6" FontSize="11"/>
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Width (mm)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PageSettings.CardWidthMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                        <CheckBox Content="Double-Faced Card" IsChecked="{Binding IsDoubleFaced}" Foreground="#CCC" Margin="0,0,0,4"/>
+                                        <CheckBox Content="Include Back Artwork" IsChecked="{Binding IncludeBack}" Foreground="#CCC" Margin="0,0,0,6"/>
+                                        <TextBlock Text="Back Artwork" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <Border Height="150" Background="#111" CornerRadius="4" Margin="0,0,0,4">
+                                            <Image Source="{Binding BackArtworkPath, Converter={StaticResource FilePathToImage}}" Stretch="Uniform" Margin="4"/>
+                                        </Border>
+                                        <TextBlock Text="{Binding BackArtworkPath}" Foreground="#555" FontSize="9"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Height (mm)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PageSettings.CardHeightMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="4">
-                                        <TextBlock Text="Bleed (mm)" Foreground="#999" FontSize="9"/>
-                                        <TextBox Text="{Binding CurrentProject.PageSettings.BleedWidthMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
-                                    </StackPanel>
-                                </Grid>
 
-                                <!-- Grid -->
-                                <TextBlock Text="GRID" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,12,0,6"/>
-                                <TextBlock Text="Leave blank to auto-fit" Foreground="#666" FontSize="9" Margin="0,0,0,4"/>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Foreground="#999" FontSize="9">
-                                            <Run Text="Columns (auto: "/><Run Text="{Binding CurrentProject.PageSettings.AutoCardsPerRow, Mode=OneWay}"/><Run Text=")"/>
-                                        </TextBlock>
-                                        <TextBox Text="{Binding CurrentProject.PageSettings.ColumnsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Foreground="#999" FontSize="9">
-                                            <Run Text="Rows (auto: "/><Run Text="{Binding CurrentProject.PageSettings.AutoCardsPerColumn, Mode=OneWay}"/><Run Text=")"/>
-                                        </TextBlock>
-                                        <TextBox Text="{Binding CurrentProject.PageSettings.RowsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"/>
-                                    </StackPanel>
-                                </Grid>
+                                    <!-- FILTER & SORT (merged from Filter panel) -->
+                                    <TextBlock Text="FILTER &amp; SORT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,8,0,6"/>
+                                    <TextBlock Text="Search" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                    <TextBox Text="{Binding DataContext.ActiveProject.Inner.FilterText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" FontSize="11"
+                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,0,6"/>
 
-                                <!-- Info -->
-                                <TextBlock Text="INFO" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                <TextBlock Foreground="#AAA" FontSize="11" Margin="0,2">
-                                    <Run Text="Grid: "/><Run Text="{Binding CurrentProject.PageSettings.CardsPerRow, Mode=OneWay}"/>
-                                    <Run Text=" x "/><Run Text="{Binding CurrentProject.PageSettings.CardsPerColumn, Mode=OneWay}"/>
-                                    <Run Text="  |  "/><Run Text="{Binding CurrentProject.PageSettings.CardsPerPage, Mode=OneWay}"/><Run Text="/page"/>
-                                </TextBlock>
-                                <TextBlock Foreground="#AAA" FontSize="11" Margin="0,2">
-                                    <Run Text="Page: "/><Run Text="{Binding CurrentProject.PageSettings.PageWidthMm, Mode=OneWay, StringFormat={}{0:0}}"/>
-                                    <Run Text=" x "/><Run Text="{Binding CurrentProject.PageSettings.PageHeightMm, Mode=OneWay, StringFormat={}{0:0}}"/><Run Text=" mm"/>
-                                </TextBlock>
-                                <TextBlock Foreground="#AAA" FontSize="11" Margin="0,2">
-                                    <Run Text="Cards: "/><Run Text="{Binding Cards.Count, Mode=OneWay}"/>
-                                </TextBlock>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Rarity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                            <ComboBox ItemsSource="{Binding DataContext.ActiveProject.Inner.RarityOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      SelectedItem="{Binding DataContext.ActiveProject.Inner.FilterRarity, RelativeSource={RelativeSource AncestorType=Window}}" Padding="3" FontSize="11"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Color" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                            <ComboBox ItemsSource="{Binding DataContext.ActiveProject.Inner.ColorOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      SelectedItem="{Binding DataContext.ActiveProject.Inner.FilterColor, RelativeSource={RelativeSource AncestorType=Window}}" Padding="3" FontSize="11"/>
+                                        </StackPanel>
+                                    </Grid>
 
-                                <!-- Storage -->
-                                <TextBlock Text="STORAGE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,16,0,6"/>
-                                <Grid Margin="0,0,0,8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding CacheSizeText}" Foreground="#AAA" FontSize="11" VerticalAlignment="Center"/>
-                                    <Button Grid.Column="1" Style="{StaticResource ToolBtn}" Command="{Binding ClearCacheCommand}"
-                                            Content="Clear Cache" Padding="8,3" FontSize="10"/>
-                                </Grid>
+                                    <TextBlock Text="SORT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,8,0,6"/>
+                                    <TextBlock Text="Sort by" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                    <ComboBox ItemsSource="{Binding DataContext.ActiveProject.Inner.SortOptions, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              SelectedItem="{Binding DataContext.ActiveProject.Inner.SortBy, RelativeSource={RelativeSource AncestorType=Window}}" Padding="3" FontSize="11" Margin="0,0,0,6"/>
+                                    <CheckBox Content="Descending" IsChecked="{Binding DataContext.ActiveProject.Inner.SortDescending, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" Margin="0,0,0,8"/>
 
-                                <!-- Back Art -->
-                                <TextBlock Text="BACK ART" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                <Button Style="{StaticResource AccentBtn}" Command="{Binding SelectBackArtForAllCommand}"
-                                        Content="Select Back for All Cards..." HorizontalAlignment="Stretch" Padding="8,6"/>
-                            </StackPanel>
-                        </ScrollViewer>
-                        </avalonDock:LayoutAnchorable>
+                                    <UniformGrid Columns="2" Margin="0,0,0,4">
+                                        <Button Style="{StaticResource AccentBtn}" Command="{Binding DataContext.ActiveProject.Inner.ApplySortToProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" Content="Apply Sort" Margin="0,0,2,0"/>
+                                        <Button Style="{StaticResource ToolBtn}" Command="{Binding DataContext.ActiveProject.Inner.ClearFilterCommand, RelativeSource={RelativeSource AncestorType=Window}}" Content="Clear All" Margin="2,0,0,0"/>
+                                    </UniformGrid>
 
-                        <!-- ===== FILTER PANEL ===== -->
-                        <avalonDock:LayoutAnchorable Title="Filter" ContentId="FilterPanel" CanClose="False" CanHide="True" AutoHideWidth="300">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#2D2D30">
+                                    <TextBlock Foreground="#888" FontSize="11" Margin="0,8,0,0">
+                                        <Run Text="Showing "/>
+                                        <Run Text="{Binding DataContext.ActiveProject.Inner.FilteredCards.Count, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"/>
+                                        <Run Text=" of "/>
+                                        <Run Text="{Binding DataContext.ActiveProject.Inner.Cards.Count, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"/>
+                                        <Run Text=" cards"/>
+                                    </TextBlock>
+                                </StackPanel>
+                        </controls:SidebarSection>
+
+                        <!-- ===== LAYOUT SECTION ===== -->
+                        <controls:SidebarSection x:Name="LayoutSection" Header="Layout">
                                 <StackPanel Margin="10,8">
-                                <TextBlock Text="FILTER" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
-                                <TextBlock Text="Search" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" FontSize="11"
-                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,0,6"/>
+                                    <!-- Page -->
+                                    <TextBlock Text="PAGE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                                    <TextBlock Text="Page Size" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                    <ComboBox ItemsSource="{Binding PagePresets}" SelectedItem="{Binding SelectedPagePreset}"
+                                              Padding="4" Margin="0,0,0,6" FontSize="11"/>
+                                    <!-- Custom dimensions (visible when "Custom" selected) -->
+                                    <Grid Margin="0,0,0,6" Visibility="{Binding IsCustomPageSize, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Width" Foreground="#999" FontSize="9" Margin="0,0,0,2"/>
+                                            <TextBox Text="{Binding CustomPageWidth, UpdateSourceTrigger=LostFocus}"
+                                                     Padding="4,3" FontSize="10"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"
+                                                     ToolTip="e.g. 210 mm, 8.5&quot;, 8.5 in"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Height" Foreground="#999" FontSize="9" Margin="0,0,0,2"/>
+                                            <TextBox Text="{Binding CustomPageHeight, UpdateSourceTrigger=LostFocus}"
+                                                     Padding="4,3" FontSize="10"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"
+                                                     ToolTip="e.g. 297 mm, 11&quot;, 11 in"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <CheckBox Content="Landscape" IsChecked="{Binding CurrentProject.PageSettings.IsLandscape}" Foreground="#CCC" Margin="0,0,0,10"/>
 
-                                <Grid Margin="0,0,0,6">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="8"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0">
-                                        <TextBlock Text="Rarity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <ComboBox ItemsSource="{Binding RarityOptions}" SelectedItem="{Binding FilterRarity}" Padding="3" FontSize="11"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="2">
-                                        <TextBlock Text="Color" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <ComboBox ItemsSource="{Binding ColorOptions}" SelectedItem="{Binding FilterColor}" Padding="3" FontSize="11"/>
-                                    </StackPanel>
-                                </Grid>
+                                    <!-- Print -->
+                                    <TextBlock Text="PRINT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <TextBlock Text="Print Mode" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                    <ComboBox ItemsSource="{Binding PrintModeValues}" SelectedItem="{Binding SelectedPrintMode}"
+                                              Padding="4" Margin="0,0,0,6" FontSize="11"/>
+                                    <CheckBox Content="Cutting guides (edge-to-edge)" IsChecked="{Binding CurrentProject.PrintSettings.ShowCutGuides}" Foreground="#CCC" Margin="0,0,0,6"/>
 
-                                <TextBlock Text="SORT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,8,0,6"/>
-                                <TextBlock Text="Sort by" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                <ComboBox ItemsSource="{Binding SortOptions}" SelectedItem="{Binding SortBy}" Padding="3" FontSize="11" Margin="0,0,0,6"/>
-                                <CheckBox Content="Descending" IsChecked="{Binding SortDescending}" Foreground="#CCC" Margin="0,0,0,8"/>
+                                    <!-- Card Outline Guides -->
+                                    <TextBlock Text="CARD OUTLINE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <CheckBox Content="Show card outline guides" IsChecked="{Binding CurrentProject.PrintSettings.ShowCardOutline}" Foreground="#CCC" Margin="0,0,0,6"/>
 
-                                <UniformGrid Columns="2" Margin="0,0,0,4">
-                                    <Button Style="{StaticResource AccentBtn}" Command="{Binding ApplySortToProjectCommand}" Content="Apply Sort" Margin="0,0,2,0"/>
-                                    <Button Style="{StaticResource ToolBtn}" Command="{Binding ClearFilterCommand}" Content="Clear All" Margin="2,0,0,0"/>
-                                </UniformGrid>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Color" Foreground="#999" FontSize="9"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="24" Height="24" CornerRadius="3" Margin="0,0,4,0"
+                                                        BorderBrush="#555" BorderThickness="1" Cursor="Hand"
+                                                        Background="{Binding CurrentProject.PrintSettings.OutlineColor}"
+                                                        MouseLeftButtonUp="OnOutlineColorClick"/>
+                                                <TextBox Grid.Column="1" Text="{Binding CurrentProject.PrintSettings.OutlineColor, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                            </Grid>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Line Weight (pt)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.LineWeight, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                    </Grid>
 
-                                <TextBlock Foreground="#888" FontSize="11" Margin="0,8,0,0">
-                                    <Run Text="Showing "/>
-                                    <Run Text="{Binding FilteredCards.Count, Mode=OneWay}"/>
-                                    <Run Text=" of "/>
-                                    <Run Text="{Binding Cards.Count, Mode=OneWay}"/>
-                                    <Run Text=" cards"/>
-                                </TextBlock>
-                            </StackPanel>
-                        </ScrollViewer>
-                        </avalonDock:LayoutAnchorable>
+                                    <Grid Margin="0,4,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Alignment" Foreground="#999" FontSize="9"/>
+                                            <ComboBox ItemsSource="{Binding OutlineAlignmentOptions}" SelectedItem="{Binding SelectedOutlineAlignment}" Padding="3" FontSize="10"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Outline Type" Foreground="#999" FontSize="9"/>
+                                            <ComboBox ItemsSource="{Binding OutlineTypeOptions}" SelectedItem="{Binding SelectedOutlineType}" Padding="3" FontSize="10"/>
+                                        </StackPanel>
+                                    </Grid>
 
-                    </avalonDock:LayoutAnchorablePane>
-                </avalonDock:LayoutPanel>
-            </avalonDock:LayoutRoot>
-        </avalonDock:DockingManager>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="6"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Corner Radius (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.CornerRadiusMm, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Line Type" Foreground="#999" FontSize="9"/>
+                                            <ComboBox ItemsSource="{Binding LineTypeOptions}" SelectedItem="{Binding SelectedLineType}" Padding="3" FontSize="10"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Corner Length (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.CornerLengthMm, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Separator Margin="0,4"/>
+
+                                    <!-- Silhouette Cameo -->
+                                    <TextBlock Text="SILHOUETTE CAMEO" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <CheckBox Content="Add registration marks to PDF" IsChecked="{Binding CurrentProject.PrintSettings.ShowRegistrationMarks}"
+                                              Foreground="#CCC" Margin="0,0,0,4"/>
+                                    <CheckBox Content="Export SVG cut lines with PDF" IsChecked="{Binding CurrentProject.PrintSettings.ExportSvgCutLines}"
+                                              Foreground="#CCC" Margin="0,0,0,4"/>
+                                    <Button Content="Export SVG Only" Command="{Binding ExportSvgCommand}"
+                                            Background="#3E3E42" Foreground="#CCC" BorderThickness="0"
+                                            Padding="8,4" FontSize="11" Cursor="Hand" HorizontalAlignment="Left"
+                                            Margin="0,0,0,6"/>
+                                    <Grid Margin="0,0,0,4"
+                                          Visibility="{Binding CurrentProject.PrintSettings.ShowRegistrationMarks, Converter={StaticResource BoolToVisibility}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Square (in)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkSquareSizeIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Arm Length (in)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkLengthIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Thickness (in)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkThicknessIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Inset (in)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PrintSettings.RegMarkInsetIn, UpdateSourceTrigger=LostFocus}" Padding="4,3" FontSize="11"
+                                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Separator Margin="0,4"/>
+
+                                    <!-- Card Size -->
+                                    <TextBlock Text="CARD SIZE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <ComboBox ItemsSource="{Binding CardSizePresets}" SelectedItem="{Binding SelectedCardSize}"
+                                              Padding="4" Margin="0,0,0,6" FontSize="11"/>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Width (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.CardWidthMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Height (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.CardHeightMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Bleed (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.BleedWidthMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Grid -->
+                                    <TextBlock Text="GRID" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,12,0,6"/>
+                                    <TextBlock Text="Leave blank to auto-fit" Foreground="#666" FontSize="9" Margin="0,0,0,4"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Foreground="#999" FontSize="9">
+                                                <Run Text="Columns (auto: "/><Run Text="{Binding CurrentProject.PageSettings.AutoCardsPerRow, Mode=OneWay}"/><Run Text=")"/>
+                                            </TextBlock>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.ColumnsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Foreground="#999" FontSize="9">
+                                                <Run Text="Rows (auto: "/><Run Text="{Binding CurrentProject.PageSettings.AutoCardsPerColumn, Mode=OneWay}"/><Run Text=")"/>
+                                            </TextBlock>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.RowsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Info -->
+                                    <TextBlock Text="INFO" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <TextBlock Foreground="#AAA" FontSize="11" Margin="0,2">
+                                        <Run Text="Grid: "/><Run Text="{Binding CurrentProject.PageSettings.CardsPerRow, Mode=OneWay}"/>
+                                        <Run Text=" x "/><Run Text="{Binding CurrentProject.PageSettings.CardsPerColumn, Mode=OneWay}"/>
+                                        <Run Text="  |  "/><Run Text="{Binding CurrentProject.PageSettings.CardsPerPage, Mode=OneWay}"/><Run Text="/page"/>
+                                    </TextBlock>
+                                    <TextBlock Foreground="#AAA" FontSize="11" Margin="0,2">
+                                        <Run Text="Page: "/><Run Text="{Binding CurrentProject.PageSettings.PageWidthMm, Mode=OneWay, StringFormat={}{0:0}}"/>
+                                        <Run Text=" x "/><Run Text="{Binding CurrentProject.PageSettings.PageHeightMm, Mode=OneWay, StringFormat={}{0:0}}"/><Run Text=" mm"/>
+                                    </TextBlock>
+                                    <TextBlock Foreground="#AAA" FontSize="11" Margin="0,2">
+                                        <Run Text="Cards: "/><Run Text="{Binding Cards.Count, Mode=OneWay}"/>
+                                    </TextBlock>
+
+                                    <!-- Back Art -->
+                                    <TextBlock Text="BACK ART" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <Button Style="{StaticResource AccentBtn}" Command="{Binding SelectBackArtForAllCommand}"
+                                            Content="Select Back for All Cards..." HorizontalAlignment="Stretch" Padding="8,6"/>
+                                </StackPanel>
+                        </controls:SidebarSection>
+
+                        <!-- ===== STORAGE SECTION ===== -->
+                        <controls:SidebarSection x:Name="StorageSection" Header="Storage">
+                                <StackPanel Margin="10,8">
+                                    <TextBlock Text="STORAGE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                                    <Grid Margin="0,0,0,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding CacheSizeText}" Foreground="#AAA" FontSize="11" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Style="{StaticResource ToolBtn}" Command="{Binding ClearCacheCommand}"
+                                                Content="Clear Cache" Padding="8,3" FontSize="10"/>
+                                    </Grid>
+                                </StackPanel>
+                        </controls:SidebarSection>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
         </Grid>
 
-        <!-- ==================== STATUS BAR ==================== -->
-        <Border Grid.Row="4" Background="#007ACC" Padding="8,3"
+        <!-- ==================== STATUS BAR (Row 5) ==================== -->
+        <Border Grid.Row="5" Background="#007ACC" Padding="8,3"
                 DataContext="{Binding ActiveProject.Inner}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -1034,7 +1131,7 @@
         </Border>
 
         <!-- ==================== SHELL LOADING OVERLAY ==================== -->
-        <Border Grid.RowSpan="5" Background="#CC000000"
+        <Border Grid.RowSpan="6" Background="#CC000000"
                 Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
             <Border Background="#2D2D30" CornerRadius="8" Padding="30,24"
                     HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="300"
@@ -1080,7 +1177,7 @@
         </Border>
 
         <!-- ==================== BUSY OVERLAY ==================== -->
-        <Border Grid.RowSpan="5" Background="#CC000000"
+        <Border Grid.RowSpan="6" Background="#CC000000"
                 DataContext="{Binding ActiveProject.Inner}"
                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
             <Border Background="#2D2D30" CornerRadius="8" Padding="30,24"
