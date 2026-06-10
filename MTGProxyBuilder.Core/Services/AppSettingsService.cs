@@ -82,6 +82,9 @@ namespace MTGProxyBuilder.Core.Services
         [JsonProperty("bulkDataRefreshDays")]
         public int BulkDataRefreshDays { get; set; } = 1;
 
+        [JsonProperty("recentFiles")]
+        public List<string> RecentFiles { get; set; } = new();
+
         [JsonProperty("sidebarWidth")]
         public double SidebarWidth { get; set; } = 300;
 

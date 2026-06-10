@@ -1,0 +1,50 @@
+<UserControl x:Class="MTGProxyBuilder.UI.Controls.SortPillBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Border Background="#2D2D30" BorderBrush="#555" BorderThickness="1" CornerRadius="4" Padding="4,2">
+            <Grid>
+                <ScrollViewer VerticalScrollBarVisibility="Disabled" HorizontalScrollBarVisibility="Auto">
+                    <WrapPanel x:Name="PillContainer" Orientation="Horizontal">
+                        <TextBox x:Name="InputBox" MinWidth="80" MaxWidth="200"
+                                 Background="Transparent" Foreground="White" BorderThickness="0"
+                                 FontSize="11" VerticalAlignment="Center" Margin="2,1"
+                                 CaretBrush="White"/>
+                    </WrapPanel>
+                </ScrollViewer>
+                <TextBlock x:Name="PlaceholderText"
+                           Text="Click to see sort options..."
+                           Foreground="#666" FontSize="11"
+                           IsHitTestVisible="False"
+                           VerticalAlignment="Center"
+                           Margin="6,0,0,0"/>
+            </Grid>
+        </Border>
+        <Popup x:Name="AutocompletePopup" PlacementTarget="{Binding ElementName=InputBox}"
+               Placement="Bottom" StaysOpen="True" AllowsTransparency="True"
+               PopupAnimation="Fade">
+            <Border Background="#252526" BorderBrush="#555" BorderThickness="1"
+                    CornerRadius="4" Padding="2" MaxHeight="200">
+                <ListBox x:Name="SuggestionList" Background="Transparent" BorderThickness="0"
+                         Foreground="#CCC" FontSize="11" SelectionMode="Single"
+                         PreviewMouseLeftButtonDown="OnSuggestionMouseDown">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="8,4"/>
+                            <Setter Property="Cursor" Value="Hand"/>
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="#0078D4"/>
+                                    <Setter Property="Foreground" Value="White"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="#3E3E42"/>
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

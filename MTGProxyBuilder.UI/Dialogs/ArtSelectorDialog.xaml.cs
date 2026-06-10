@@ -1275,7 +1275,9 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             ApplyToSameName = ApplySameNameChk.IsChecked == true;
             ApplyToNoBack = ApplyNoBackChk.IsChecked == true;
-            DialogResult = true;
+
+            if (IsLoaded)
+                DialogResult = true;
         }
     }
 }

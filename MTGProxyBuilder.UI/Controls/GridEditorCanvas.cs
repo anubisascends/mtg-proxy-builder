@@ -75,7 +75,63 @@ namespace MTGProxyBuilder.UI.Controls
             {
                 _selectedSlots.Clear();
                 SyncSelectedCard();
-                _ = RedrawAsync();
+                UpdateSelectionOverlays();
+                e.Handled = true;
+                return;
+            }
+
+            // Arrow key navigation
+            if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down && _expandedSlots.Count > 0)
+            {
+                bool shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+                bool ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
+
+                int current = _lastSelectedSlot >= 0 && _lastSelectedSlot < _expandedSlots.Count
+                    ? _lastSelectedSlot : 0;
+                int target;
+
+                if (ctrl)
+                {
+                    int currentPage = _perPage > 0 ? current / _perPage : 0;
+                    target = e.Key switch
+                    {
+                        Key.Right or Key.Down => Math.Min((currentPage + 1) * _perPage, _expandedSlots.Count - 1),
+                        Key.Left or Key.Up => Math.Max((currentPage - 1) * _perPage, 0),
+                        _ => current
+                    };
+                }
+                else
+                {
+                    int delta = e.Key switch
+                    {
+                        Key.Left => -1,
+                        Key.Right => 1,
+                        Key.Up => -_cols,
+                        Key.Down => _cols,
+                        _ => 0
+                    };
+                    target = Math.Clamp(current + delta, 0, _expandedSlots.Count - 1);
+                }
+
+                if (target == current && !shift) { e.Handled = true; return; }
+
+                if (shift)
+                {
+                    int from = Math.Min(current, target);
+                    int to = Math.Max(current, target);
+                    for (int i = from; i <= to; i++)
+                        _selectedSlots.Add(i);
+                }
+                else
+                {
+                    _selectedSlots.Clear();
+                    _selectedSlots.Add(target);
+                }
+
+                _lastSelectedSlot = target;
+                SyncSelectedCard();
+                UpdateSelectionOverlays();
+                ScrollSlotIntoView(target);
                 e.Handled = true;
             }
         }
@@ -89,7 +145,7 @@ namespace MTGProxyBuilder.UI.Controls
             if (_expandedSlots.Count > 0)
                 _lastSelectedSlot = _expandedSlots.Count - 1;
             SyncSelectedCard();
-            _ = RedrawAsync();
+            UpdateSelectionOverlays();
         }
 
         /// <summary>Inverts the current selection — selected become deselected and vice versa.</summary>
@@ -105,7 +161,7 @@ namespace MTGProxyBuilder.UI.Controls
             foreach (var i in newSelection)
                 _selectedSlots.Add(i);
             SyncSelectedCard();
-            _ = RedrawAsync();
+            UpdateSelectionOverlays();
         }
 
         /// <summary>Deselects all card slots.</summary>
@@ -114,7 +170,7 @@ namespace MTGProxyBuilder.UI.Controls
             _selectedSlots.Clear();
             _lastSelectedSlot = -1;
             SyncSelectedCard();
-            _ = RedrawAsync();
+            UpdateSelectionOverlays();
         }
 
         /// <summary>Returns the card indices of all currently selected slots.</summary>
@@ -421,6 +477,9 @@ namespace MTGProxyBuilder.UI.Controls
 
             IsRendering = false;
             RenderProgress = null;
+
+            // Re-apply selection overlays after full render
+            UpdateSelectionOverlays();
         }
 
         private const float InToPx = 96f; // 1 inch = 96 WPF pixels
@@ -513,7 +572,7 @@ namespace MTGProxyBuilder.UI.Controls
                         _selectedSlots.Add(flatSlot);
                     _lastSelectedSlot = flatSlot;
                     SyncSelectedCard();
-                    _ = RedrawAsync();
+                    UpdateSelectionOverlays();
                     e.Handled = true;
                     return;
                 }
@@ -529,7 +588,7 @@ namespace MTGProxyBuilder.UI.Controls
                             _selectedSlots.Add(s);
                     }
                     SyncSelectedCard();
-                    _ = RedrawAsync();
+                    UpdateSelectionOverlays();
                     e.Handled = true;
                     return;
                 }
@@ -549,7 +608,7 @@ namespace MTGProxyBuilder.UI.Controls
                     _selectedSlots.Clear();
                     _lastSelectedSlot = -1;
                     SyncSelectedCard();
-                    _ = RedrawAsync();
+                    UpdateSelectionOverlays();
                 }
             }
             e.Handled = true;
@@ -586,7 +645,7 @@ namespace MTGProxyBuilder.UI.Controls
                 _selectedSlots.Add(_pendingSelectSlot);
                 _lastSelectedSlot = _pendingSelectSlot;
                 SyncSelectedCard();
-                _ = RedrawAsync();
+                UpdateSelectionOverlays();
             }
 
             if (_dragGhost != null) Children.Remove(_dragGhost);
@@ -681,7 +740,7 @@ namespace MTGProxyBuilder.UI.Controls
             {
                 menu.Items.Add(new Separator());
                 var clearSel = new MenuItem { Header = "Clear Selection" };
-                clearSel.Click += (_, _) => { _selectedSlots.Clear(); SyncSelectedCard(); _ = RedrawAsync(); };
+                clearSel.Click += (_, _) => { _selectedSlots.Clear(); SyncSelectedCard(); UpdateSelectionOverlays(); };
                 menu.Items.Add(clearSel);
             }
 
@@ -822,6 +881,69 @@ namespace MTGProxyBuilder.UI.Controls
             int slotOnPage = flatSlot % _perPage;
             float pageTop = page * (_pageH + PageGapPx);
             return (_marginL + (slotOnPage % _cols) * _cellW, pageTop + _marginT + (slotOnPage / _cols) * _cellH);
+        }
+
+        // ================================================================
+        //  SELECTION OVERLAYS (lightweight, no re-render)
+        // ================================================================
+
+        private const string SelectionOverlayTag = "__sel__";
+
+        /// <summary>Updates only the selection highlight rectangles without re-rendering card images.</summary>
+        private void UpdateSelectionOverlays()
+        {
+            // Remove existing selection overlays
+            for (int i = Children.Count - 1; i >= 0; i--)
+            {
+                if (Children[i] is Rectangle r && Equals(r.Tag, SelectionOverlayTag))
+                    Children.RemoveAt(i);
+            }
+
+            if (_cellW <= 0 || _cellH <= 0) return;
+
+            // Add new selection overlays
+            foreach (int slot in _selectedSlots)
+            {
+                if (slot < 0 || slot >= _expandedSlots.Count) continue;
+                var (x, y) = SlotToPosition(slot);
+                var selRect = new Rectangle
+                {
+                    Width = _cellW, Height = _cellH,
+                    Fill = Brushes.Transparent,
+                    Stroke = Brushes.DodgerBlue, StrokeThickness = 3,
+                    RadiusX = 2, RadiusY = 2, IsHitTestVisible = false,
+                    Tag = SelectionOverlayTag
+                };
+                SetLeft(selRect, x); SetTop(selRect, y);
+                Children.Add(selRect);
+            }
+        }
+
+        /// <summary>Scrolls the parent ScrollViewer so that the given slot is visible.</summary>
+        private void ScrollSlotIntoView(int slot)
+        {
+            if (slot < 0 || slot >= _expandedSlots.Count) return;
+            var (x, y) = SlotToPosition(slot);
+
+            if (Parent is FrameworkElement fe)
+            {
+                // Walk up to find the ScrollViewer
+                DependencyObject current = fe;
+                while (current != null)
+                {
+                    if (current is ScrollViewer sv)
+                    {
+                        // Ensure the slot's vertical position is visible
+                        double slotBottom = y + _cellH;
+                        if (y < sv.VerticalOffset)
+                            sv.ScrollToVerticalOffset(y - 20);
+                        else if (slotBottom > sv.VerticalOffset + sv.ViewportHeight)
+                            sv.ScrollToVerticalOffset(slotBottom - sv.ViewportHeight + 20);
+                        break;
+                    }
+                    current = VisualTreeHelper.GetParent(current);
+                }
+            }
         }
 
         // ================================================================

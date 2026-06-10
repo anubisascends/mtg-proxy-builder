@@ -75,11 +75,22 @@ namespace MTGProxyBuilder.Core.Services
         [JsonProperty("released_at")]
         public string? ReleasedAt { get; set; }
 
+        [JsonProperty("layout")]
+        public string Layout { get; set; } = string.Empty;
+
         [JsonProperty("image_uris")]
         public Dictionary<string, string>? ImageUris { get; set; }
 
         [JsonProperty("card_faces")]
         public List<CardFace>? CardFaces { get; set; }
+
+        private static readonly HashSet<string> DfcLayouts = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "transform", "modal_dfc", "double_faced_token", "reversible_card", "art_series"
+        };
+
+        /// <summary>True if the card's layout is a double-faced type (transform, MDFC, etc.).</summary>
+        public bool IsDfcLayout => DfcLayouts.Contains(Layout);
 
         public string? GetImageUrl(string size = "large")
         {
@@ -121,7 +132,7 @@ namespace MTGProxyBuilder.Core.Services
                 BackArtworkPath = backArtworkPath,
                 OriginalBackArtworkPath = backArtworkPath,
                 IncludeBack = hasBack,
-                IsDoubleFaced = hasBack,
+                IsDoubleFaced = IsDfcLayout,
                 ManaCost = manaCost,
                 CMC = CMC,
                 TypeLine = typeLine,
