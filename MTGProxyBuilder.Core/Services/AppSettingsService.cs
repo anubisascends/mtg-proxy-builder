@@ -79,6 +79,9 @@ namespace MTGProxyBuilder.Core.Services
         [JsonProperty("sidebarStorageExpanded")]
         public bool SidebarStorageExpanded { get; set; }
 
+        [JsonProperty("bulkDataRefreshDays")]
+        public int BulkDataRefreshDays { get; set; } = 1;
+
         [JsonProperty("sidebarWidth")]
         public double SidebarWidth { get; set; } = 300;
 

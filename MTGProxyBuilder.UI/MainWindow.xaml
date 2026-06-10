@@ -15,6 +15,7 @@
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
         <converters:FilePathToImageConverter x:Key="FilePathToImage"/>
         <converters:NullToCollapsedConverter x:Key="NullToCollapsed"/>
+        <converters:BoolToFaceTextConverter x:Key="BoolToFaceText"/>
 
         <!-- Toolbar icon button style -->
         <Style x:Key="ToolbarIconBtn" TargetType="Button">
@@ -74,6 +75,7 @@
                 <MenuItem Header="Add from _File" Command="{Binding ActiveProject.Inner.AddCardFromFileCommand}"/>
                 <MenuItem Header="Import _Deck" Command="{Binding ActiveProject.Inner.ImportDeckCommand}"/>
                 <MenuItem Header="Import _MPCFill XML" Command="{Binding ActiveProject.Inner.ImportMpcFillXmlCommand}"/>
+                <MenuItem Header="Import _Text List..." Command="{Binding ActiveProject.Inner.ImportTextListCommand}"/>
                 <Separator/>
                 <MenuItem Header="_Remove Selected" Command="{Binding ActiveProject.Inner.RemoveCardCommand}" InputGestureText="Del"/>
             </MenuItem>
@@ -576,6 +578,11 @@
                                         </StackPanel>
                                     </Border>
 
+                                    <TextBlock Text="Import Text List" FontWeight="SemiBold" Foreground="#CCC" Margin="0,16,0,6" FontSize="12"/>
+                                    <Button Style="{StaticResource AccentBtn}" Command="{Binding ImportTextListCommand}"
+                                            Content="Import Card List..." HorizontalAlignment="Stretch" Padding="8,6"/>
+                                    <TextBlock Text="Paste a list of cards (1 per line)" Foreground="#666" FontSize="10" Margin="0,4,0,0"/>
+
                                     <TextBlock Text="Import MPCFill Project" FontWeight="SemiBold" Foreground="#CCC" Margin="0,16,0,6" FontSize="12"/>
                                     <Button Style="{StaticResource AccentBtn}" Command="{Binding ImportMpcFillXmlCommand}"
                                             Content="Import cards.xml..." HorizontalAlignment="Stretch" Padding="8,6"/>
@@ -611,9 +618,21 @@
                                             </Style>
                                         </StackPanel.Style>
 
+                                        <!-- Face indicator (visible for double-faced cards) -->
+                                        <Border Margin="0,0,0,6" Padding="6,3" Background="#252526" CornerRadius="3"
+                                                Visibility="{Binding IsDoubleFaced, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock FontSize="9" Foreground="#888">
+                                                <Run Text="Showing:"/>
+                                                <Run Text="{Binding DataContext.ActiveProject.Inner.IsShowingBackFace, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay, Converter={StaticResource BoolToFaceText}}"
+                                                     Foreground="#0078D4" FontWeight="SemiBold"/>
+                                                <Run Text=" — flip card on canvas to switch"/>
+                                            </TextBlock>
+                                        </Border>
+
                                         <!-- Name -->
                                         <TextBlock Text="Name" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <TextBlock Text="{Binding Name}" Foreground="White" FontSize="12" Padding="6,4" Margin="0,0,0,8"/>
+                                        <TextBlock Text="{Binding DataContext.ActiveProject.Inner.DisplayName, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                   Foreground="White" FontSize="12" Padding="6,4" Margin="0,0,0,8"/>
 
                                         <!-- Scryfall Lookup (visible when ScryfallId is empty) -->
                                         <Border Margin="0,0,0,8" Background="#252526" CornerRadius="4" Padding="8,6">
@@ -662,7 +681,7 @@
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Margin="4,0,0,0">
                                                 <TextBlock Text="Mana Cost" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                                <controls:ManaTextBlock ManaText="{Binding ManaCost}" Foreground="#CCC" FontSize="12" SymbolSize="14" Padding="6,5"/>
+                                                <controls:ManaTextBlock ManaText="{Binding DataContext.ActiveProject.Inner.DisplayManaCost, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" FontSize="12" SymbolSize="14" Padding="6,5"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -672,11 +691,11 @@
 
                                         <!-- Type Line -->
                                         <TextBlock Text="Type" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <TextBlock Text="{Binding TypeLine}" Foreground="#AAA" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding DataContext.ActiveProject.Inner.DisplayTypeLine, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#AAA" FontSize="11" Margin="0,0,0,8" TextWrapping="Wrap"/>
 
                                         <!-- Oracle Text -->
                                         <TextBlock Text="Oracle Text" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                        <controls:ManaTextBlock ManaText="{Binding OracleText}" Foreground="#888" FontSize="10" SymbolSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                        <controls:ManaTextBlock ManaText="{Binding DataContext.ActiveProject.Inner.DisplayOracleText, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#888" FontSize="10" SymbolSize="12" TextWrapping="Wrap" Margin="0,0,0,8"/>
 
                                         <!-- Power / Toughness (creatures only) -->
                                         <Grid Margin="0,0,0,8">
@@ -684,7 +703,7 @@
                                                 <Style TargetType="Grid">
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Power}" Value="">
+                                                        <DataTrigger Binding="{Binding DataContext.ActiveProject.Inner.DisplayPower, RelativeSource={RelativeSource AncestorType=Window}}" Value="">
                                                             <Setter Property="Visibility" Value="Collapsed"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
@@ -696,11 +715,11 @@
                                             </Grid.ColumnDefinitions>
                                             <StackPanel Grid.Column="0" Margin="0,0,4,0">
                                                 <TextBlock Text="Power" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                                <TextBlock Text="{Binding Power}" Foreground="#CCC" FontSize="11"/>
+                                                <TextBlock Text="{Binding DataContext.ActiveProject.Inner.DisplayPower, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" FontSize="11"/>
                                             </StackPanel>
                                             <StackPanel Grid.Column="1" Margin="4,0,0,0">
                                                 <TextBlock Text="Toughness" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                                <TextBlock Text="{Binding Toughness}" Foreground="#CCC" FontSize="11"/>
+                                                <TextBlock Text="{Binding DataContext.ActiveProject.Inner.DisplayToughness, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" FontSize="11"/>
                                             </StackPanel>
                                         </Grid>
 
@@ -710,14 +729,14 @@
                                                 <Style TargetType="StackPanel">
                                                     <Setter Property="Visibility" Value="Visible"/>
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding Loyalty}" Value="">
+                                                        <DataTrigger Binding="{Binding DataContext.ActiveProject.Inner.DisplayLoyalty, RelativeSource={RelativeSource AncestorType=Window}}" Value="">
                                                             <Setter Property="Visibility" Value="Collapsed"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
                                             </StackPanel.Style>
                                             <TextBlock Text="Loyalty" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <TextBlock Text="{Binding Loyalty}" Foreground="#CCC" FontSize="11"/>
+                                            <TextBlock Text="{Binding DataContext.ActiveProject.Inner.DisplayLoyalty, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" FontSize="11"/>
                                         </StackPanel>
 
                                         <!-- Colors / Color Identity -->

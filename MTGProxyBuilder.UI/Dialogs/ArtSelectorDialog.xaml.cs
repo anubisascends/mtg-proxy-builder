@@ -31,6 +31,7 @@ namespace MTGProxyBuilder.UI.Dialogs
         private readonly FrontArtLibraryService? _frontArtLibrary;
         private readonly ThumbnailService? _frontThumbnails;
         private readonly ThumbnailService? _backThumbnails;
+        private readonly ScryfallBulkDataService? _bulkData;
         private MpcFillSearchOptions _mpcSearchOptions;
 
         public string? ResultPath { get; private set; }
@@ -83,7 +84,8 @@ namespace MTGProxyBuilder.UI.Dialogs
             IList<CardModel>? allCards = null,
             object[][]? mpcSourcesOverride = null,
             MpcFillSearchOptions? mpcSearchOptions = null,
-            FrontArtLibraryService? frontArtLibrary = null)
+            FrontArtLibraryService? frontArtLibrary = null,
+            ScryfallBulkDataService? bulkData = null)
         {
             InitializeComponent();
             _card = card;
@@ -95,6 +97,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             _mpcSourcesOverride = mpcSourcesOverride;
             _mpcSearchOptions = mpcSearchOptions ?? new MpcFillSearchOptions();
             _frontArtLibrary = frontArtLibrary;
+            _bulkData = bulkData;
             _frontThumbnails = frontArtLibrary != null ? new ThumbnailService(frontArtLibrary.LibraryDirectory) : null;
             _backThumbnails = backLibrary != null ? new ThumbnailService(backLibrary.LibraryDirectory) : null;
 
@@ -361,7 +364,30 @@ namespace MTGProxyBuilder.UI.Dialogs
             };
             var scryfallTask = Task.Run(async () =>
             {
-                try { return (await _scryfall.SearchCardAsync($"!\"{_card.Name}\"")).Cards; }
+                try
+                {
+                    // Use bulk data to find all printings by name, then fetch full card data by ID
+                    if (_bulkData?.IsLoaded == true)
+                    {
+                        var bulkEntries = _bulkData.SearchByName(_card.Name, 50)
+                            .Where(e => e.Name.Equals(_card.Name, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                        if (bulkEntries.Count > 0)
+                        {
+                            var cards = new List<ScryfallCard>();
+                            foreach (var entry in bulkEntries)
+                            {
+                                var card = await _scryfall.GetCardByIdAsync(entry.Id);
+                                if (card != null) cards.Add(card);
+                                if (cards.Count >= 50) break;
+                                await Task.Delay(50);
+                            }
+                            if (cards.Count > 0) return cards;
+                        }
+                    }
+                    // Fallback: API search
+                    return (await _scryfall.SearchCardAsync($"!\"{_card.Name}\"")).Cards;
+                }
                 catch (Exception ex) { Log.Warning(ex, "Scryfall search failed in art selector"); return new List<ScryfallCard>(); }
             });
             var mpcTask = Task.Run(async () =>
@@ -602,7 +628,15 @@ namespace MTGProxyBuilder.UI.Dialogs
                 StatusLabel.Text = "Searching Scryfall for back face...";
                 try
                 {
-                    var sc = await _scryfall.GetCardByNameAsync(_card.Name);
+                    // Use bulk data to resolve by ID, fallback to API
+                    ScryfallCard? sc = null;
+                    if (_bulkData?.IsLoaded == true)
+                    {
+                        var bulkEntry = _bulkData.FindCard(_card.Name);
+                        if (bulkEntry != null)
+                            sc = await _scryfall.GetCardByIdAsync(bulkEntry.Id);
+                    }
+                    sc ??= await _scryfall.GetCardByNameAsync(_card.Name);
                     if (sc?.GetBackImageUrl() != null)
                     {
                         string label = sc.CardFaces?.Count > 1

@@ -25,6 +25,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         private readonly MpcFillService _mpcFillService;
         private BackArtLibraryService _backArtLibraryService;
         private FrontArtLibraryService _frontArtLibraryService;
+        private readonly ScryfallBulkDataService _bulkDataService = new();
         private readonly UpdateCheckService _updateService = new();
         private bool _updateAvailable;
         private string _updateMessage = string.Empty;
@@ -100,6 +101,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public string AppVersion => MainViewModel.GetAppVersion();
 
         public AppSettings AppSettings => _appSettings.Settings;
+        public ScryfallBulkDataService BulkDataService => _bulkDataService;
 
         public void SaveSettings() => _appSettings.Save();
 
@@ -137,6 +139,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             Log.Information("Creating new project");
             var vm = new MainViewModel();
             vm.UseSharedLibraries(_frontArtLibraryService, _backArtLibraryService);
+            vm.UseSharedServices(_bulkDataService);
             ApplyDefaults(vm);
             var tab = new ProjectViewModel(vm);
             Projects.Add(tab);
@@ -186,6 +189,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             {
                 var vm = new MainViewModel();
                 vm.UseSharedLibraries(_frontArtLibraryService, _backArtLibraryService);
+            vm.UseSharedServices(_bulkDataService);
                 var serializer = new ProjectSerializationService();
                 var project = await serializer.LoadProjectAsync(dialog.FileName,
                     msg => Application.Current.Dispatcher.Invoke(() => LoadingMessage = msg));

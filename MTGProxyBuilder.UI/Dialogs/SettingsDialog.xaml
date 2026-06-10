@@ -141,6 +141,12 @@
                             <TextBlock Text="Application" Style="{StaticResource SectionHeader}"/>
                             <CheckBox x:Name="UpdateCheckBox" Content="Check for updates on startup"
                                       Foreground="#CCC" FontSize="11"/>
+                            <StackPanel Margin="0,8,0,0">
+                                <TextBlock Text="Scryfall Bulk Data Refresh (days)" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                <TextBox x:Name="BulkRefreshDaysBox" Padding="6,4" FontSize="12" Width="60" HorizontalAlignment="Left"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                <TextBlock Text="Card database is downloaded for fast lookups; set how often to refresh (default: 1 day)" Foreground="#666" FontSize="9" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                            </StackPanel>
                         </StackPanel>
                     </Border>
 

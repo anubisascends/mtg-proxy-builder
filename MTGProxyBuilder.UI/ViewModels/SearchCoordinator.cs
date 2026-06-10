@@ -10,13 +10,14 @@ namespace MTGProxyBuilder.UI.ViewModels
 {
     /// <summary>
     /// Coordinates Scryfall and MPCFill search operations.
-    /// Extracted from MainViewModel to isolate search logic.
+    /// Uses bulk data for name resolution when available, falling back to API.
     /// </summary>
     public class SearchCoordinator
     {
         private readonly ScryfallService _scryfall;
         private readonly MpcFillService _mpcFill;
         private readonly AppSettingsService _appSettings;
+        private ScryfallBulkDataService? _bulkData;
 
         public MpcFillSourceManager SourceManager { get; }
 
@@ -30,6 +31,11 @@ namespace MTGProxyBuilder.UI.ViewModels
             _mpcFill = mpcFill;
             _appSettings = appSettings;
             SourceManager = sourceManager;
+        }
+
+        public void SetBulkDataService(ScryfallBulkDataService bulkData)
+        {
+            _bulkData = bulkData;
         }
 
         public MpcFillSearchOptions BuildSearchOptions(int minDpi, bool fuzzySearch)
@@ -47,9 +53,57 @@ namespace MTGProxyBuilder.UI.ViewModels
                 : null;
         }
 
+        /// <summary>
+        /// Resolves a card by name, optionally with set code and collector number.
+        /// Uses bulk data index first (instant, no API call), falls back to API.
+        /// </summary>
+        public async Task<ScryfallCard?> ResolveCardAsync(string name, string? setCode = null, string? collectorNumber = null)
+        {
+            // Try bulk data first
+            if (_bulkData?.IsLoaded == true)
+            {
+                var bulkEntry = _bulkData.FindCard(name, setCode, collectorNumber);
+                if (bulkEntry != null)
+                {
+                    var card = await _scryfall.GetCardByIdAsync(bulkEntry.Id);
+                    if (card != null) return card;
+                }
+            }
+
+            // Fallback: API name lookup
+            var sc = await _scryfall.GetCardByNameAsync(name);
+            return sc;
+        }
+
         public async Task<(List<ScryfallCard> Results, string? Error)> SearchScryfallAsync(string query)
         {
             Log.Information("SearchCoordinator: Scryfall search for {Query}", query);
+
+            // For exact name searches (!"name"), try bulk data first to get the ID
+            if (_bulkData?.IsLoaded == true && query.StartsWith("!\"") && query.EndsWith("\""))
+            {
+                string name = query[2..^1];
+                var entries = _bulkData.SearchByName(name, 50)
+                    .Where(e => e.Name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (entries.Count > 0)
+                {
+                    // Fetch full card data for each unique entry via ID lookups
+                    var cards = new List<ScryfallCard>();
+                    foreach (var entry in entries)
+                    {
+                        var card = await _scryfall.GetCardByIdAsync(entry.Id);
+                        if (card != null) cards.Add(card);
+                        if (cards.Count >= 50) break;
+                        await Task.Delay(50);
+                    }
+                    if (cards.Count > 0)
+                        return (cards, null);
+                }
+            }
+
+            // Fallback: standard API search
             var (results, error) = await _scryfall.SearchCardAsync(query);
             return (results?.Take(50).ToList() ?? new(), error);
         }
