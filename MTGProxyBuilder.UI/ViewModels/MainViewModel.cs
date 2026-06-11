@@ -188,6 +188,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             BrowseBackArtworkCommand = new RelayCommand(_ => BrowseBackArtwork(), _ => SelectedCard != null);
             FetchScryfallDataCommand = new RelayCommand(async _ => await FetchScryfallData(), _ => SelectedCard != null);
             SelectBackArtForAllCommand = new RelayCommand(_ => SelectBackArtForAll(), _ => Cards.Count > 0);
+            SelectBackArtForMissingCommand = new RelayCommand(_ => SelectBackArtForMissing(), _ => Cards.Count > 0);
 
             ScryfallSearchCommand = new RelayCommand(_ => ScryfallSearch(), _ => !string.IsNullOrWhiteSpace(ScryfallSearchQuery));
             AddScryfallCardCommand = new RelayCommand(_ => AddScryfallCard(), _ => SelectedScryfallCard != null);
@@ -201,6 +202,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             ApplyBackArtToSelectedCommand = new RelayCommand(_ => ApplyBackArtToSelected(), _ => SelectedBackArt != null && SelectedCard != null);
             ApplyBackArtToAllCommand = new RelayCommand(_ => ApplyBackArtToAll(), _ => SelectedBackArt != null && Cards.Count > 0);
             ClearBackArtFromAllCommand = new RelayCommand(_ => ClearBackArtFromAll(), _ => Cards.Count > 0);
+            ClearBackArtFromNonDfcCommand = new RelayCommand(_ => ClearBackArtFromNonDfc(), _ => Cards.Count > 0);
 
             // Page layout commands
             SetPagePresetCommand = new RelayCommand(p => SetPagePreset(p as string));
@@ -231,6 +233,8 @@ namespace MTGProxyBuilder.UI.ViewModels
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
 
             ImportTextListCommand = new RelayCommand(_ => ImportTextList());
+            RefreshSelectedCardDataCommand = new RelayCommand(_ => RefreshSelectedCardData(), _ => SelectedCard != null);
+            RefreshAllCardDataCommand = new RelayCommand(_ => RefreshAllCardData(), _ => Cards.Count > 0);
 
             // MPCFill / art source
             AddMpcFillCardCommand = new RelayCommand(_ => AddMpcFillCard(), _ => SelectedMpcFillCard != null);
@@ -348,6 +352,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 SetProperty(ref _cards, value!);
                 if (_cards != null)
                     _cards.CollectionChanged += OnCardsCollectionChanged;
+                ApplyFilterAndSort();
             }
         }
 
@@ -714,6 +719,8 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ManageMpcSourcesCommand { get; private set; } = null!;
         public ICommand ImportMpcFillXmlCommand { get; private set; } = null!;
         public ICommand ImportTextListCommand { get; private set; } = null!;
+        public ICommand RefreshSelectedCardDataCommand { get; private set; } = null!;
+        public ICommand RefreshAllCardDataCommand { get; private set; } = null!;
         public ICommand ClearCacheCommand { get; private set; } = null!;
         public ICommand ManageBackArtLibraryCommand { get; private set; } = null!;
         public ICommand ManageFrontArtLibraryCommand { get; private set; } = null!;
@@ -906,6 +913,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand BrowseBackArtworkCommand { get; }
         public ICommand FetchScryfallDataCommand { get; }
         public ICommand SelectBackArtForAllCommand { get; }
+        public ICommand SelectBackArtForMissingCommand { get; }
         public ICommand ScryfallSearchCommand { get; }
         public ICommand AddScryfallCardCommand { get; }
         public ICommand ExportPdfCommand { get; }
@@ -915,6 +923,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ApplyBackArtToSelectedCommand { get; }
         public ICommand ApplyBackArtToAllCommand { get; }
         public ICommand ClearBackArtFromAllCommand { get; }
+        public ICommand ClearBackArtFromNonDfcCommand { get; }
         public ICommand SetPagePresetCommand { get; }
         public ICommand ToggleLandscapeCommand { get; }
 
@@ -1041,10 +1050,24 @@ namespace MTGProxyBuilder.UI.ViewModels
             try
             {
                 bool success = await _serializationService.SaveProjectAsync(_currentProject, _currentFilePath);
-                if (success) HasUnsavedChanges = false;
+                if (success)
+                {
+                    HasUnsavedChanges = false;
+                    AddToRecentFiles(_currentFilePath);
+                }
                 StatusText = success ? "Project saved" : "Failed to save project";
             }
             finally { ClearBusy(); }
+        }
+
+        private void AddToRecentFiles(string? path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            var list = _appSettings.Settings.RecentFiles;
+            list.Remove(path);
+            list.Insert(0, path);
+            if (list.Count > 10) list.RemoveRange(10, list.Count - 10);
+            _appSettings.Save();
         }
 
         private async void SaveProjectAs()
@@ -1064,7 +1087,11 @@ namespace MTGProxyBuilder.UI.ViewModels
             try
             {
                 bool success = await _serializationService.SaveProjectAsync(_currentProject, _currentFilePath);
-                if (success) HasUnsavedChanges = false;
+                if (success)
+                {
+                    HasUnsavedChanges = false;
+                    AddToRecentFiles(_currentFilePath);
+                }
                 StatusText = success ? $"Saved: {Path.GetFileName(dialog.FileName)}" : "Failed to save project";
             }
             finally { ClearBusy(); }
@@ -1149,7 +1176,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             card.Toughness = sc.Toughness ?? sc.CardFaces?.FirstOrDefault()?.Toughness ?? string.Empty;
             card.Loyalty = sc.Loyalty ?? sc.CardFaces?.FirstOrDefault()?.Loyalty ?? string.Empty;
             card.Keywords = sc.Keywords != null ? string.Join(",", sc.Keywords) : string.Empty;
-            card.IsDoubleFaced = sc.GetBackImageUrl() != null;
+            card.IsDoubleFaced = sc.IsDfcLayout;
 
             // Back face data
             var backFace = sc.CardFaces?.Count > 1 ? sc.CardFaces[1] : null;
@@ -1163,6 +1190,146 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             ScryfallLookupStatus = $"Found: {sc.Name} ({sc.SetName})";
             StatusText = $"Scryfall data loaded for {sc.Name}";
+        }
+
+        /// <summary>Updates a card's metadata from Scryfall data without changing artwork.</summary>
+        private static void ApplyCardMetadata(CardModel card, ScryfallCard sc)
+        {
+            var frontFace = sc.CardFaces?.Count > 0 ? sc.CardFaces[0] : null;
+            var backFace = sc.CardFaces?.Count > 1 ? sc.CardFaces[1] : null;
+
+            card.ScryfallId = sc.Id;
+            card.ManaCost = sc.ManaCost ?? frontFace?.ManaCost ?? string.Empty;
+            card.CMC = sc.CMC;
+            card.TypeLine = sc.TypeLine ?? frontFace?.TypeLine ?? string.Empty;
+            card.OracleText = sc.OracleText ?? frontFace?.OracleText ?? string.Empty;
+            card.Rarity = sc.Rarity ?? string.Empty;
+            card.Colors = sc.Colors != null ? string.Join(",", sc.Colors) : string.Empty;
+            card.ColorIdentity = sc.ColorIdentity != null ? string.Join(",", sc.ColorIdentity) : string.Empty;
+            card.SetCode = sc.SetCode;
+            card.SetName = sc.SetName;
+            card.CollectorNumber = sc.CollectorNumber;
+            card.Artist = sc.Artist ?? string.Empty;
+            card.Power = sc.Power ?? frontFace?.Power ?? string.Empty;
+            card.Toughness = sc.Toughness ?? frontFace?.Toughness ?? string.Empty;
+            card.Loyalty = sc.Loyalty ?? frontFace?.Loyalty ?? string.Empty;
+            card.Keywords = sc.Keywords != null ? string.Join(",", sc.Keywords) : string.Empty;
+            card.IsDoubleFaced = sc.IsDfcLayout;
+
+            card.BackName = backFace?.Name ?? string.Empty;
+            card.BackManaCost = backFace?.ManaCost ?? string.Empty;
+            card.BackTypeLine = backFace?.TypeLine ?? string.Empty;
+            card.BackOracleText = backFace?.OracleText ?? string.Empty;
+            card.BackPower = backFace?.Power ?? string.Empty;
+            card.BackToughness = backFace?.Toughness ?? string.Empty;
+            card.BackLoyalty = backFace?.Loyalty ?? string.Empty;
+        }
+
+        private async void RefreshSelectedCardData()
+        {
+            if (SelectedCard == null) return;
+            SetBusy($"Refreshing data for {SelectedCard.Name}...");
+            try
+            {
+                var sc = await _searchCoordinator.ResolveCardAsync(SelectedCard.Name,
+                    string.IsNullOrEmpty(SelectedCard.SetCode) ? null : SelectedCard.SetCode,
+                    string.IsNullOrEmpty(SelectedCard.CollectorNumber) ? null : SelectedCard.CollectorNumber);
+                if (sc != null)
+                {
+                    ApplyCardMetadata(SelectedCard, sc);
+                    NotifyDisplayProperties();
+                    StatusText = $"Updated data for {SelectedCard.Name}";
+                }
+                else
+                {
+                    StatusText = $"Could not find \"{SelectedCard.Name}\" on Scryfall";
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Refresh failed: {ex.Message}";
+            }
+            finally { ClearBusy(); }
+        }
+
+        private async void RefreshAllCardData()
+        {
+            if (Cards.Count == 0) return;
+
+            var result = MessageBox.Show(
+                $"Refresh Scryfall data for all {Cards.Count} card(s)?\n\n" +
+                "This will update card names, types, oracle text, and other metadata.\n" +
+                "Artwork will not be changed.",
+                "Refresh All Card Data", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+
+            // Ensure bulk data is loaded
+            if (_bulkDataService != null && !_bulkDataService.IsLoaded)
+            {
+                SetBusy("Loading card database...");
+                await _bulkDataService.EnsureLoadedAsync(
+                    _appSettings.Settings.BulkDataRefreshDays,
+                    msg => BusyMessage = msg);
+            }
+
+            SetBusy("Refreshing card data...");
+            Log.Information("Refreshing data for {Count} cards", Cards.Count);
+
+            int updated = 0, failed = 0;
+            var uniqueNames = Cards.Select(c => c.Name).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+            // Cache lookups by name to avoid repeated API calls for duplicates
+            var cache = new Dictionary<string, ScryfallCard?>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < uniqueNames.Count; i++)
+            {
+                string name = uniqueNames[i];
+                BusyMessage = $"Looking up {i + 1}/{uniqueNames.Count}: {name}...";
+
+                try
+                {
+                    if (!cache.TryGetValue(name, out var sc))
+                    {
+                        sc = await _searchCoordinator.ResolveCardAsync(name);
+                        cache[name] = sc;
+                        await Task.Delay(50);
+                    }
+
+                    if (sc != null)
+                    {
+                        foreach (var card in Cards.Where(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            // Try to find the exact printing if card has set/number
+                            var cardSc = sc;
+                            if (!string.IsNullOrEmpty(card.SetCode) &&
+                                !card.SetCode.Equals(sc.SetCode, StringComparison.OrdinalIgnoreCase))
+                            {
+                                var specific = await _searchCoordinator.ResolveCardAsync(name, card.SetCode, card.CollectorNumber);
+                                if (specific != null) cardSc = specific;
+                            }
+                            ApplyCardMetadata(card, cardSc);
+                            updated++;
+                        }
+                    }
+                    else
+                    {
+                        failed += Cards.Count(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to refresh data for {Name}", name);
+                    failed += Cards.Count(c => c.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+
+            NotifyDisplayProperties();
+            ClearBusy();
+            StatusText = $"Updated {updated} card(s)" + (failed > 0 ? $", {failed} not found" : "");
+
+            if (failed > 0)
+                MessageBox.Show($"Updated {updated} card(s).\n{failed} card(s) could not be found on Scryfall.",
+                    "Refresh Complete", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BrowseFrontArtwork()
@@ -1362,8 +1529,12 @@ namespace MTGProxyBuilder.UI.ViewModels
         /// </summary>
         private string? GetMostCommonBackArt()
         {
+            // Exclude DFC cards whose back art is their original DFC back face —
+            // those are unique per card and shouldn't be treated as a shared card back
             var backPaths = Cards
-                .Where(c => !string.IsNullOrEmpty(c.BackArtworkPath))
+                .Where(c => !string.IsNullOrEmpty(c.BackArtworkPath)
+                    && !(c.IsDoubleFaced && !string.IsNullOrEmpty(c.OriginalBackArtworkPath)
+                        && string.Equals(c.BackArtworkPath, c.OriginalBackArtworkPath, StringComparison.OrdinalIgnoreCase)))
                 .GroupBy(c => c.BackArtworkPath!, StringComparer.OrdinalIgnoreCase)
                 .OrderByDescending(g => g.Sum(c => c.Quantity))
                 .FirstOrDefault();
@@ -1430,6 +1601,19 @@ namespace MTGProxyBuilder.UI.ViewModels
         {
             if (Cards.Count == 0) return;
             ShowBackArtSelector(Cards.ToList());
+        }
+
+        private void SelectBackArtForMissing()
+        {
+            var missing = Cards.Where(c =>
+                string.IsNullOrEmpty(c.BackArtworkPath)
+                && !(c.IsDoubleFaced && !string.IsNullOrEmpty(c.OriginalBackArtworkPath))).ToList();
+            if (missing.Count == 0)
+            {
+                StatusText = "All cards already have back art assigned";
+                return;
+            }
+            ShowBackArtSelector(missing);
         }
 
         private void ShowBackArtSelector(List<CardModel> targetCards)
@@ -1766,6 +1950,25 @@ namespace MTGProxyBuilder.UI.ViewModels
             }
             StatusText = $"Cleared back art from all {Cards.Count} card(s)";
             ClearBusy();
+        }
+
+        private void ClearBackArtFromNonDfc()
+        {
+            var targets = Cards.Where(c => !c.IsDoubleFaced && !string.IsNullOrEmpty(c.BackArtworkPath)).ToList();
+            if (targets.Count == 0)
+            {
+                StatusText = "No non-DFC cards with back art to clear";
+                return;
+            }
+
+            PushUndo();
+            foreach (var card in targets)
+            {
+                card.BackArtworkPath = null;
+                card.IncludeBack = false;
+            }
+            StatusText = $"Cleared back art from {targets.Count} non-DFC card(s)";
+            RefreshCanvas();
         }
 
         // --- MPCFill ---
@@ -2165,70 +2368,33 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         // --- Sort and Filter ---
 
+        private IReadOnlyList<FilterToken>? _lastCardFilters;
+        private IReadOnlyList<SortPill>? _lastCardSortPills;
+
+        /// <summary>Applies pill-based filter and sort from the sidebar sections.</summary>
+        public void ApplyPillFilterAndSort(IReadOnlyList<FilterToken> filters, IReadOnlyList<SortPill> sortPills)
+        {
+            _lastCardFilters = filters;
+            _lastCardSortPills = sortPills;
+            ApplyFilterAndSort();
+        }
+
         private void ApplyFilterAndSort()
         {
             var source = Cards.AsEnumerable();
 
-            // Text filter (searches name, type, oracle text, set)
-            if (!string.IsNullOrWhiteSpace(FilterText))
+            // Pill-based filter (from Filter sidebar section)
+            if (_lastCardFilters != null && _lastCardFilters.Count > 0)
             {
-                string ft = FilterText.Trim();
-                source = source.Where(c =>
-                    c.Name.Contains(ft, StringComparison.OrdinalIgnoreCase) ||
-                    c.TypeLine.Contains(ft, StringComparison.OrdinalIgnoreCase) ||
-                    c.OracleText.Contains(ft, StringComparison.OrdinalIgnoreCase) ||
-                    c.SetName.Contains(ft, StringComparison.OrdinalIgnoreCase) ||
-                    c.Artist.Contains(ft, StringComparison.OrdinalIgnoreCase) ||
-                    c.Keywords.Contains(ft, StringComparison.OrdinalIgnoreCase));
+                var filters = _lastCardFilters;
+                source = source.Where(c => CardFilterEngine.Matches(filters, c));
             }
 
-            // Rarity filter
-            if (FilterRarity != "All")
+            // Pill-based sort (from Sort sidebar section)
+            if (_lastCardSortPills != null && _lastCardSortPills.Count > 0)
             {
-                source = source.Where(c =>
-                    c.Rarity.Equals(FilterRarity, StringComparison.OrdinalIgnoreCase));
+                source = CardFilterEngine.ApplySort(source, _lastCardSortPills);
             }
-
-            // Color filter
-            if (FilterColor != "All")
-            {
-                source = FilterColor switch
-                {
-                    "White" => source.Where(c => c.Colors.Contains("W")),
-                    "Blue" => source.Where(c => c.Colors.Contains("U")),
-                    "Black" => source.Where(c => c.Colors.Contains("B")),
-                    "Red" => source.Where(c => c.Colors.Contains("R")),
-                    "Green" => source.Where(c => c.Colors.Contains("G")),
-                    "Colorless" => source.Where(c => string.IsNullOrEmpty(c.Colors)),
-                    "Multicolor" => source.Where(c => c.Colors.Count(ch => ch == ',') >= 1),
-                    _ => source
-                };
-            }
-
-            // Sort
-            var rarityOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["common"] = 0, ["uncommon"] = 1, ["rare"] = 2, ["mythic"] = 3
-            };
-
-            source = SortBy switch
-            {
-                "Name" => SortDescending ? source.OrderByDescending(c => c.Name) : source.OrderBy(c => c.Name),
-                "CMC" => SortDescending ? source.OrderByDescending(c => c.CMC) : source.OrderBy(c => c.CMC),
-                "Rarity" => SortDescending
-                    ? source.OrderByDescending(c => rarityOrder.GetValueOrDefault(c.Rarity, -1))
-                    : source.OrderBy(c => rarityOrder.GetValueOrDefault(c.Rarity, -1)),
-                "Color" => SortDescending ? source.OrderByDescending(c => c.Colors) : source.OrderBy(c => c.Colors),
-                "Type" => SortDescending ? source.OrderByDescending(c => c.TypeLine) : source.OrderBy(c => c.TypeLine),
-                "Set" => SortDescending
-                    ? source.OrderByDescending(c => c.SetName).ThenByDescending(c => c.CollectorNumber)
-                    : source.OrderBy(c => c.SetName).ThenBy(c => c.CollectorNumber),
-                "Artist" => SortDescending ? source.OrderByDescending(c => c.Artist) : source.OrderBy(c => c.Artist),
-                "Collector #" => SortDescending
-                    ? source.OrderByDescending(c => c.SetCode).ThenByDescending(c => int.TryParse(c.CollectorNumber, out var n) ? n : 9999)
-                    : source.OrderBy(c => c.SetCode).ThenBy(c => int.TryParse(c.CollectorNumber, out var n) ? n : 9999),
-                _ => SortDescending ? source.OrderByDescending(c => c.DateAdded) : source.OrderBy(c => c.DateAdded), // Date Added
-            };
 
             FilteredCards = new ObservableCollection<CardModel>(source);
         }
@@ -2325,6 +2491,9 @@ namespace MTGProxyBuilder.UI.ViewModels
         private void ApplyDefaultBackArt(CardModel card)
         {
             if (!string.IsNullOrEmpty(card.BackArtworkPath)) return;
+
+            // Don't assign a generic back to DFC cards — they should keep their own back face
+            if (card.IsDoubleFaced && !string.IsNullOrEmpty(card.OriginalBackArtworkPath)) return;
 
             // First: use whatever back art the majority of existing cards use
             var mostCommon = GetMostCommonBackArt();

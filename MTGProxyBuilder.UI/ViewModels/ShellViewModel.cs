@@ -54,6 +54,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             ManageBackArtLibraryCommand = new RelayCommand(_ => ManageBackArtLibrary());
 
             _ = CheckForUpdateAsync();
+            RefreshRecentFiles();
             Log.Information("ShellViewModel initialized");
         }
 
@@ -102,6 +103,44 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public AppSettings AppSettings => _appSettings.Settings;
         public ScryfallBulkDataService BulkDataService => _bulkDataService;
+
+        public ObservableCollection<string> RecentFiles { get; } = new();
+
+        public void AddRecentFile(string filePath)
+        {
+            var list = _appSettings.Settings.RecentFiles;
+            list.Remove(filePath); // Remove if already present (to move to top)
+            list.Insert(0, filePath);
+            if (list.Count > 10) list.RemoveRange(10, list.Count - 10);
+            _appSettings.Save();
+            RefreshRecentFiles();
+        }
+
+        private void RefreshRecentFiles()
+        {
+            RecentFiles.Clear();
+            foreach (var f in _appSettings.Settings.RecentFiles)
+            {
+                if (System.IO.File.Exists(f))
+                    RecentFiles.Add(f);
+            }
+            OnPropertyChanged(nameof(HasRecentFiles));
+        }
+
+        public bool HasRecentFiles => RecentFiles.Count > 0;
+
+        public void OpenRecentFile(string filePath)
+        {
+            if (!System.IO.File.Exists(filePath))
+            {
+                _appSettings.Settings.RecentFiles.Remove(filePath);
+                _appSettings.Save();
+                RefreshRecentFiles();
+                MessageBox.Show($"File not found:\n{filePath}", "File Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            OpenProjectFromPath(filePath);
+        }
 
         public void SaveSettings() => _appSettings.Save();
 
@@ -171,12 +210,17 @@ namespace MTGProxyBuilder.UI.ViewModels
                 Title = "Open Project"
             };
             if (dialog.ShowDialog() != true) return;
-            Log.Information("Opening project {Path}", dialog.FileName);
+            await OpenProjectFromPath(dialog.FileName);
+        }
+
+        public async Task OpenProjectFromPath(string filePath)
+        {
+            Log.Information("Opening project {Path}", filePath);
 
             // Check if already open
             foreach (var p in Projects)
             {
-                if (string.Equals(p.FilePath, dialog.FileName, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(p.FilePath, filePath, StringComparison.OrdinalIgnoreCase))
                 {
                     ActiveProject = p;
                     return;
@@ -189,9 +233,9 @@ namespace MTGProxyBuilder.UI.ViewModels
             {
                 var vm = new MainViewModel();
                 vm.UseSharedLibraries(_frontArtLibraryService, _backArtLibraryService);
-            vm.UseSharedServices(_bulkDataService);
+                vm.UseSharedServices(_bulkDataService);
                 var serializer = new ProjectSerializationService();
-                var project = await serializer.LoadProjectAsync(dialog.FileName,
+                var project = await serializer.LoadProjectAsync(filePath,
                     msg => Application.Current.Dispatcher.Invoke(() => LoadingMessage = msg));
                 if (project == null)
                 {
@@ -200,10 +244,11 @@ namespace MTGProxyBuilder.UI.ViewModels
                 }
 
                 LoadingMessage = "Building project view...";
-                vm.LoadFromProject(project, dialog.FileName);
-                var tab = new ProjectViewModel(vm) { FilePath = dialog.FileName };
+                vm.LoadFromProject(project, filePath);
+                var tab = new ProjectViewModel(vm) { FilePath = filePath };
                 Projects.Add(tab);
                 ActiveProject = tab;
+                AddRecentFile(filePath);
             }
             finally
             {

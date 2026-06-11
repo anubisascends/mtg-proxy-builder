@@ -52,17 +52,7 @@ namespace MTGProxyBuilder.UI.Controls
                 DrawPlaceholder(canvas, card, x + bleed, y + bleed, cardW, cardH, flipped);
             }
 
-            if (selected)
-            {
-                var selRect = new Rectangle
-                {
-                    Width = cellW, Height = cellH,
-                    Fill = Brushes.Transparent,
-                    Stroke = Brushes.DodgerBlue, StrokeThickness = 3,
-                    RadiusX = 2, RadiusY = 2, IsHitTestVisible = false
-                };
-                Canvas.SetLeft(selRect, x); Canvas.SetTop(selRect, y); canvas.Children.Add(selRect);
-            }
+            // Selection overlays are managed separately by GridEditorCanvas.UpdateSelectionOverlays()
 
             bool regMarksOn = printSettings?.ShowRegistrationMarks == true;
             if (showCutGuides && !regMarksOn)

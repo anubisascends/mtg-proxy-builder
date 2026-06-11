@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -34,6 +35,24 @@ public partial class MainWindow : Window
             // Restore sidebar width
             if (s.SidebarWidth > 0)
                 SidebarColumn.Width = new GridLength(Math.Clamp(s.SidebarWidth, 200, 600));
+
+            // Wire filter/sort pill bars
+            CardFilterBar.FilterChanged += (_, _) =>
+            {
+                if (Shell?.ActiveProject?.Inner is MainViewModel vm)
+                    vm.ApplyPillFilterAndSort(CardFilterBar.Filters, CardSortBar.Pills);
+            };
+            CardSortBar.SortChanged += (_, _) =>
+            {
+                if (Shell?.ActiveProject?.Inner is MainViewModel vm)
+                    vm.ApplyPillFilterAndSort(CardFilterBar.Filters, CardSortBar.Pills);
+            };
+
+            // Set autocomplete data for card filter bar
+            CardFilterBar.SetAutocompleteData(
+                new[] { "Scryfall", "MPCFill", "Library" },
+                new[] { "common", "uncommon", "rare", "mythic", "White", "Blue", "Black", "Red", "Green", "Colorless", "Multicolor", "dfc", "Creature", "Instant", "Sorcery", "Enchantment", "Artifact", "Planeswalker", "Land" },
+                Enumerable.Empty<int>());
         };
 
         // Wire GridCanvas events once (they route to whichever project is active)
@@ -286,6 +305,30 @@ public partial class MainWindow : Window
         CanvasScale.ScaleX = _zoom;
         CanvasScale.ScaleY = _zoom;
         ZoomLabel.Text = $"{(int)(_zoom * 100)}%";
+    }
+
+    // --- Recent Files ---
+
+    private void OnRecentFileClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.Tag is string filePath)
+            Shell.OpenRecentFile(filePath);
+    }
+
+    private void OnRecentMenuItemClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.DataContext is string filePath)
+            Shell.OpenRecentFile(filePath);
+    }
+
+    // --- Filter/Sort ---
+
+    private void OnClearFilterSort(object sender, RoutedEventArgs e)
+    {
+        CardFilterBar.Clear();
+        CardSortBar.Clear();
+        if (Shell?.ActiveProject?.Inner is MainViewModel vm)
+            vm.ApplyPillFilterAndSort(CardFilterBar.Filters, CardSortBar.Pills);
     }
 
     // --- Unsaved changes prompt ---

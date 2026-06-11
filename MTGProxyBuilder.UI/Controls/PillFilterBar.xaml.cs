@@ -36,6 +36,16 @@ namespace MTGProxyBuilder.UI.Controls
         {
             InitializeComponent();
             UpdatePlaceholder();
+            InputBox.GotFocus += (_, _) => ShowInitialSuggestions();
+            InputBox.LostFocus += (_, _) =>
+            {
+                // Delay so clicking a suggestion item works before the popup closes
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!InputBox.IsFocused && !InputBox.IsKeyboardFocusWithin)
+                        CloseAutocomplete();
+                }), System.Windows.Threading.DispatcherPriority.Background);
+            };
         }
 
         /// <summary>Set the available autocomplete data for sources, tags, and DPI values.</summary>
@@ -284,12 +294,33 @@ namespace MTGProxyBuilder.UI.Controls
         //  AUTOCOMPLETE
         // ================================================================
 
+        private void ShowInitialSuggestions()
+        {
+            if (!string.IsNullOrEmpty(InputBox.Text))
+            {
+                UpdateAutocomplete();
+                return;
+            }
+
+            // Show available field names when input is empty and focused
+            var suggestions = new List<string> { "name:", "source:", "dpi:", "tag:" };
+            if (_filters.Count > 0)
+                suggestions.Add("OR");
+
+            SuggestionList.ItemsSource = suggestions;
+            SuggestionList.SelectedIndex = 0;
+            AutocompletePopup.IsOpen = true;
+        }
+
         private void UpdateAutocomplete()
         {
             string text = InputBox.Text;
             if (string.IsNullOrEmpty(text))
             {
-                CloseAutocomplete();
+                if (InputBox.IsFocused)
+                    ShowInitialSuggestions();
+                else
+                    CloseAutocomplete();
                 return;
             }
 
@@ -464,18 +495,29 @@ namespace MTGProxyBuilder.UI.Controls
             CommitText(commitText);
         }
 
-        private void OnSuggestionClick(object sender, MouseButtonEventArgs e)
+        private void OnSuggestionMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (SuggestionList.SelectedItem is string selected)
+            // Find which item was clicked by hit-testing the visual tree
+            if (e.OriginalSource is DependencyObject source)
             {
-                ApplySuggestion(selected);
-                InputBox.Focus();
+                var item = FindAncestor<ListBoxItem>(source);
+                if (item?.Content is string selected)
+                {
+                    e.Handled = true;
+                    ApplySuggestion(selected);
+                    InputBox.Focus();
+                }
             }
         }
 
-        private void OnSuggestionDoubleClick(object sender, MouseButtonEventArgs e)
+        private static T? FindAncestor<T>(DependencyObject obj) where T : DependencyObject
         {
-            // Handled by single click already
+            while (obj != null)
+            {
+                if (obj is T target) return target;
+                obj = VisualTreeHelper.GetParent(obj);
+            }
+            return null;
         }
 
         private void CloseAutocomplete()

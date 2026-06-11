@@ -16,6 +16,7 @@
         <converters:FilePathToImageConverter x:Key="FilePathToImage"/>
         <converters:NullToCollapsedConverter x:Key="NullToCollapsed"/>
         <converters:BoolToFaceTextConverter x:Key="BoolToFaceText"/>
+        <converters:FileNameConverter x:Key="FileNameConverter"/>
 
         <!-- Toolbar icon button style -->
         <Style x:Key="ToolbarIconBtn" TargetType="Button">
@@ -54,6 +55,17 @@
             <MenuItem Header="_File">
                 <MenuItem Header="_New Project" Command="{Binding NewProjectCommand}" InputGestureText="Ctrl+N"/>
                 <MenuItem Header="_Open Project" Command="{Binding OpenProjectCommand}" InputGestureText="Ctrl+O"/>
+                <MenuItem Header="Open _Recent" x:Name="RecentFilesMenu"
+                          ItemsSource="{Binding RecentFiles}"
+                          Visibility="{Binding HasRecentFiles, Converter={StaticResource BoolToVisibility}}">
+                    <MenuItem.ItemContainerStyle>
+                        <Style TargetType="MenuItem" BasedOn="{StaticResource {x:Type MenuItem}}">
+                            <Setter Property="Header" Value="{Binding Converter={StaticResource FileNameConverter}}"/>
+                            <Setter Property="ToolTip" Value="{Binding}"/>
+                            <EventSetter Event="Click" Handler="OnRecentMenuItemClick"/>
+                        </Style>
+                    </MenuItem.ItemContainerStyle>
+                </MenuItem>
                 <Separator/>
                 <MenuItem Header="_Save" Command="{Binding ActiveProject.Inner.SaveProjectCommand}" InputGestureText="Ctrl+S"/>
                 <MenuItem Header="Save _As" Command="{Binding ActiveProject.Inner.SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S"/>
@@ -74,14 +86,28 @@
             <MenuItem Header="_Cards">
                 <MenuItem Header="Add from _File" Command="{Binding ActiveProject.Inner.AddCardFromFileCommand}"/>
                 <MenuItem Header="Import _Deck" Command="{Binding ActiveProject.Inner.ImportDeckCommand}"/>
+                <MenuItem Header="_Refresh Deck" Command="{Binding ActiveProject.Inner.RefreshDeckCommand}"/>
                 <MenuItem Header="Import _MPCFill XML" Command="{Binding ActiveProject.Inner.ImportMpcFillXmlCommand}"/>
                 <MenuItem Header="Import _Text List..." Command="{Binding ActiveProject.Inner.ImportTextListCommand}"/>
                 <Separator/>
                 <MenuItem Header="_Remove Selected" Command="{Binding ActiveProject.Inner.RemoveCardCommand}" InputGestureText="Del"/>
+                <Separator/>
+                <MenuItem Header="Refresh _Selected Card Data" Command="{Binding ActiveProject.Inner.RefreshSelectedCardDataCommand}"/>
+                <MenuItem Header="Refresh _All Card Data" Command="{Binding ActiveProject.Inner.RefreshAllCardDataCommand}"/>
+                <Separator/>
+                <MenuItem Header="Select _Front Art..." Command="{Binding ActiveProject.Inner.BrowseFrontArtworkCommand}"/>
+                <MenuItem Header="Select _Back Art..." Command="{Binding ActiveProject.Inner.BrowseBackArtworkCommand}"/>
+                <MenuItem Header="Select Back for All Cards..." Command="{Binding ActiveProject.Inner.SelectBackArtForAllCommand}"/>
+                <MenuItem Header="Select Back for Cards Without Back..." Command="{Binding ActiveProject.Inner.SelectBackArtForMissingCommand}"/>
+                <MenuItem Header="Clear Back Art (non-DFC)" Command="{Binding ActiveProject.Inner.ClearBackArtFromNonDfcCommand}"/>
+                <MenuItem Header="Clear All Back Art" Command="{Binding ActiveProject.Inner.ClearBackArtFromAllCommand}"/>
             </MenuItem>
             <!-- Tools -->
             <MenuItem Header="_Tools">
                 <MenuItem Header="_Art Library" Command="{Binding ManageFrontArtLibraryCommand}"/>
+                <MenuItem Header="Back Art _Library" Command="{Binding ManageBackArtLibraryCommand}"/>
+                <MenuItem Header="Clear _Cache" Command="{Binding ActiveProject.Inner.ClearCacheCommand}"/>
+                <Separator/>
                 <MenuItem Header="_Settings" Command="{Binding OpenSettingsCommand}"/>
             </MenuItem>
             <!-- Help -->
@@ -215,15 +241,44 @@
         <!-- ==================== WELCOME SCREEN (Row 4, no project open) ==================== -->
         <Border Grid.Row="4" Background="#1E1E1E"
                 Visibility="{Binding HasActiveProject, Converter={StaticResource InverseBoolToVisibility}}">
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="400">
                 <TextBlock Text="TCG Proxy Builder" Foreground="#555" FontSize="36" FontWeight="Light" HorizontalAlignment="Center"/>
-                <TextBlock Text="Create or open a project to get started" Foreground="#444" FontSize="14" HorizontalAlignment="Center" Margin="0,8,0,24"/>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <Button Style="{StaticResource AccentBtn}" Command="{Binding NewProjectCommand}" Content="New Project" Padding="16,8" FontSize="13" Margin="0,0,10,0"/>
-                    <Button Style="{StaticResource ToolBtn}" Command="{Binding OpenProjectCommand}" Content="Open Project" Padding="16,8" FontSize="13"
-                            Background="#3E3E42"/>
-                </StackPanel>
-                <TextBlock Foreground="#444" FontSize="11" HorizontalAlignment="Center" Margin="0,24,0,0">
+                <TextBlock Text="Use File menu or Ctrl+N / Ctrl+O to get started" Foreground="#444" FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,20"/>
+
+                <!-- Recent files -->
+                <Border Background="#252526" CornerRadius="6" Padding="16,12" Margin="0,0,0,16"
+                        Visibility="{Binding HasRecentFiles, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="Recent Projects" Foreground="#888" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <ItemsControl ItemsSource="{Binding RecentFiles}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Padding="6,4" Margin="0,1" CornerRadius="3" Cursor="Hand"
+                                            Background="Transparent"
+                                            MouseLeftButtonUp="OnRecentFileClick" Tag="{Binding}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="#3E3E42"/>
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Converter={StaticResource FileNameConverter}}"
+                                                       Foreground="#CCC" FontSize="12"/>
+                                            <TextBlock Text="{Binding}" Foreground="#555" FontSize="9"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <TextBlock Foreground="#444" FontSize="11" HorizontalAlignment="Center">
                     <Run Text="v"/><Run Text="{Binding AppVersion, Mode=OneTime}"/>
                 </TextBlock>
             </StackPanel>
@@ -252,7 +307,7 @@
                             <Border Effect="{StaticResource PageShadow}">
                                 <controls:GridEditorCanvas x:Name="GridCanvas"
                                     PageSettings="{Binding CurrentProject.PageSettings}"
-                                    CardsSource="{Binding Cards}"
+                                    CardsSource="{Binding FilteredCards}"
                                     ShowCutGuides="{Binding CurrentProject.PrintSettings.ShowCutGuides}"
                                     PrintSettingsSource="{Binding CurrentProject.PrintSettings}"
                                     SelectedCard="{Binding SelectedCard}"
@@ -812,10 +867,21 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <!-- Select Art -->
-                                        <Button Style="{StaticResource AccentBtn}"
-                                                Command="{Binding DataContext.ActiveProject.Inner.BrowseFrontArtworkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Content="Select Art..." Margin="0,0,0,6" HorizontalAlignment="Stretch" Padding="8,6"/>
+                                        <!-- Select Art / Refresh Data -->
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="4"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Style="{StaticResource AccentBtn}"
+                                                    Command="{Binding DataContext.ActiveProject.Inner.BrowseFrontArtworkCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    Content="Select Art..." HorizontalAlignment="Stretch" Padding="8,6"/>
+                                            <Button Grid.Column="2" Style="{StaticResource ToolBtn}"
+                                                    Command="{Binding DataContext.ActiveProject.Inner.RefreshSelectedCardDataCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    Content="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                                    ToolTip="Refresh card data from Scryfall" Padding="6,6" Width="32" Height="32"/>
+                                        </Grid>
 
                                         <TextBlock Text="Front Artwork" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
                                         <Border Height="150" Background="#111" CornerRadius="4" Margin="0,0,0,4">
@@ -839,48 +905,46 @@
                                                    TextTrimming="CharacterEllipsis" Margin="0,0,0,8"/>
                                     </StackPanel>
 
-                                    <!-- FILTER & SORT (merged from Filter panel) -->
-                                    <TextBlock Text="FILTER &amp; SORT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,8,0,6"/>
-                                    <TextBlock Text="Search" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <TextBox Text="{Binding DataContext.ActiveProject.Inner.FilterText, RelativeSource={RelativeSource AncestorType=Window}, UpdateSourceTrigger=PropertyChanged}" Padding="6,4" FontSize="11"
-                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White" Margin="0,0,0,6"/>
+                                    <!-- Back Art -->
+                                    <TextBlock Text="BACK ART" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,8,0,6"/>
+                                    <Button Style="{StaticResource AccentBtn}"
+                                            Command="{Binding DataContext.ActiveProject.Inner.SelectBackArtForAllCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Content="Select Back for All Cards..." HorizontalAlignment="Stretch" Padding="8,6" Margin="0,0,0,4"/>
+                                    <Button Style="{StaticResource ToolBtn}"
+                                            Command="{Binding DataContext.ActiveProject.Inner.SelectBackArtForMissingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Content="Select Back for Cards Without Back..." HorizontalAlignment="Stretch" Padding="8,6"
+                                            Background="#3E3E42" Margin="0,0,0,4"/>
+                                    <Button Style="{StaticResource DangerButton}"
+                                            Command="{Binding DataContext.ActiveProject.Inner.ClearBackArtFromNonDfcCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            Content="Clear Back Art (non-DFC only)" HorizontalAlignment="Stretch" Padding="8,6"/>
 
-                                    <Grid Margin="0,0,0,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="Rarity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <ComboBox ItemsSource="{Binding DataContext.ActiveProject.Inner.RarityOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      SelectedItem="{Binding DataContext.ActiveProject.Inner.FilterRarity, RelativeSource={RelativeSource AncestorType=Window}}" Padding="3" FontSize="11"/>
-                                        </StackPanel>
-                                        <StackPanel Grid.Column="2">
-                                            <TextBlock Text="Color" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                            <ComboBox ItemsSource="{Binding DataContext.ActiveProject.Inner.ColorOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      SelectedItem="{Binding DataContext.ActiveProject.Inner.FilterColor, RelativeSource={RelativeSource AncestorType=Window}}" Padding="3" FontSize="11"/>
-                                        </StackPanel>
-                                    </Grid>
+                                    </StackPanel>
+                        </controls:SidebarSection>
 
-                                    <TextBlock Text="SORT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,8,0,6"/>
-                                    <TextBlock Text="Sort by" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                    <ComboBox ItemsSource="{Binding DataContext.ActiveProject.Inner.SortOptions, RelativeSource={RelativeSource AncestorType=Window}}"
-                                              SelectedItem="{Binding DataContext.ActiveProject.Inner.SortBy, RelativeSource={RelativeSource AncestorType=Window}}" Padding="3" FontSize="11" Margin="0,0,0,6"/>
-                                    <CheckBox Content="Descending" IsChecked="{Binding DataContext.ActiveProject.Inner.SortDescending, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" Margin="0,0,0,8"/>
-
-                                    <UniformGrid Columns="2" Margin="0,0,0,4">
-                                        <Button Style="{StaticResource AccentBtn}" Command="{Binding DataContext.ActiveProject.Inner.ApplySortToProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" Content="Apply Sort" Margin="0,0,2,0"/>
-                                        <Button Style="{StaticResource ToolBtn}" Command="{Binding DataContext.ActiveProject.Inner.ClearFilterCommand, RelativeSource={RelativeSource AncestorType=Window}}" Content="Clear All" Margin="2,0,0,0"/>
-                                    </UniformGrid>
-
-                                    <TextBlock Foreground="#888" FontSize="11" Margin="0,8,0,0">
+                        <!-- ===== FILTER SECTION ===== -->
+                        <controls:SidebarSection x:Name="FilterSection" Header="Filter">
+                                <StackPanel Margin="10,8">
+                                    <TextBlock Text="Type filter expressions (e.g. name:Bolt, tag:rare, tag:dfc)" Foreground="#666" FontSize="9" Margin="0,0,0,4"/>
+                                    <controls:PillFilterBar x:Name="CardFilterBar" Margin="0,0,0,6"/>
+                                    <TextBlock x:Name="FilterCountLabel" Foreground="#888" FontSize="11">
                                         <Run Text="Showing "/>
                                         <Run Text="{Binding DataContext.ActiveProject.Inner.FilteredCards.Count, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"/>
                                         <Run Text=" of "/>
                                         <Run Text="{Binding DataContext.ActiveProject.Inner.Cards.Count, RelativeSource={RelativeSource AncestorType=Window}, Mode=OneWay}"/>
                                         <Run Text=" cards"/>
                                     </TextBlock>
+                                </StackPanel>
+                        </controls:SidebarSection>
+
+                        <!-- ===== SORT SECTION ===== -->
+                        <controls:SidebarSection x:Name="SortSection" Header="Sort">
+                                <StackPanel Margin="10,8">
+                                    <TextBlock Text="Add sort fields in priority order (e.g. CMC, Name:desc)" Foreground="#666" FontSize="9" Margin="0,0,0,4"/>
+                                    <controls:SortPillBar x:Name="CardSortBar" Margin="0,0,0,6"/>
+                                    <UniformGrid Columns="2" Margin="0,0,0,4">
+                                        <Button Style="{StaticResource AccentBtn}" Command="{Binding DataContext.ActiveProject.Inner.ApplySortToProjectCommand, RelativeSource={RelativeSource AncestorType=Window}}" Content="Apply to Project" Margin="0,0,2,0"/>
+                                        <Button Style="{StaticResource ToolBtn}" Content="Clear All" Margin="2,0,0,0" Click="OnClearFilterSort"/>
+                                    </UniformGrid>
                                 </StackPanel>
                         </controls:SidebarSection>
 
@@ -1106,10 +1170,6 @@
                                         <Run Text="Cards: "/><Run Text="{Binding Cards.Count, Mode=OneWay}"/>
                                     </TextBlock>
 
-                                    <!-- Back Art -->
-                                    <TextBlock Text="BACK ART" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
-                                    <Button Style="{StaticResource AccentBtn}" Command="{Binding SelectBackArtForAllCommand}"
-                                            Content="Select Back for All Cards..." HorizontalAlignment="Stretch" Padding="8,6"/>
                                 </StackPanel>
                         </controls:SidebarSection>
 

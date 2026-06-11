@@ -22,7 +22,7 @@
 
             <!-- Placeholder text shown when no pills and no text -->
             <TextBlock x:Name="PlaceholderText"
-                       Text="Type a filter (e.g. source:Chilli_Axe, dpi:>800, tag:Retro)..."
+                       Text="Click to see available filters..."
                        Foreground="#666" FontSize="12"
                        IsHitTestVisible="False"
                        VerticalAlignment="Center"
@@ -32,7 +32,7 @@
             <Popup x:Name="AutocompletePopup"
                    PlacementTarget="{Binding ElementName=InputBox}"
                    Placement="Bottom"
-                   StaysOpen="False"
+                   StaysOpen="True"
                    AllowsTransparency="True">
                 <Border Background="#2D2D30" BorderBrush="#555" BorderThickness="1"
                         CornerRadius="4" Padding="2">
@@ -42,8 +42,7 @@
                              BorderThickness="0"
                              Foreground="#CCC"
                              FontSize="12"
-                             MouseDoubleClick="OnSuggestionDoubleClick"
-                             PreviewMouseLeftButtonUp="OnSuggestionClick">
+                             PreviewMouseLeftButtonDown="OnSuggestionMouseDown">
                         <ListBox.ItemContainerStyle>
                             <Style TargetType="ListBoxItem">
                                 <Setter Property="Padding" Value="8,4"/>
