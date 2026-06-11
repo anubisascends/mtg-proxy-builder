@@ -242,11 +242,16 @@ namespace MTGProxyBuilder.UI.Dialogs
                 return;
             }
 
+            // For DFC cards, extract front face name for searching
+            string searchName = _card.Name;
+            int dfcSepIdx = searchName.IndexOf(" // ", StringComparison.Ordinal);
+            if (dfcSepIdx > 0) searchName = searchName[..dfcSepIdx];
+
             // 1. Show local library matches first (instant, no network)
             var libraryNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (_frontArtLibrary != null)
             {
-                var libraryMatches = _frontArtLibrary.SearchByCardName(_card.Name);
+                var libraryMatches = _frontArtLibrary.SearchByCardName(searchName);
                 if (libraryMatches.Count > 0)
                 {
                     StatusLabel.Text = $"Found {libraryMatches.Count} in library, searching online...";
@@ -347,8 +352,8 @@ namespace MTGProxyBuilder.UI.Dialogs
             }
 
             // 2. Kick off API searches concurrently
-            StatusLabel.Text = $"Searching for \"{_card.Name}\"...";
-            Log.Information("Loading front art options for {CardName}", _card.Name);
+            StatusLabel.Text = $"Searching for \"{searchName}\"...";
+            Log.Information("Loading front art options for {CardName} (search: {SearchName})", _card.Name, searchName);
             var mpcOpts = new MpcFillSearchOptions
             {
                 CardTypes = _mpcSearchOptions.CardTypes,
@@ -369,8 +374,8 @@ namespace MTGProxyBuilder.UI.Dialogs
                     // Use bulk data to find all printings by name, then fetch full card data by ID
                     if (_bulkData?.IsLoaded == true)
                     {
-                        var bulkEntries = _bulkData.SearchByName(_card.Name, 50)
-                            .Where(e => e.Name.Equals(_card.Name, StringComparison.OrdinalIgnoreCase))
+                        var bulkEntries = _bulkData.SearchByName(searchName, 50)
+                            .Where(e => e.Name.Contains(searchName, StringComparison.OrdinalIgnoreCase))
                             .ToList();
                         if (bulkEntries.Count > 0)
                         {
@@ -386,7 +391,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                         }
                     }
                     // Fallback: API search
-                    return (await _scryfall.SearchCardAsync($"!\"{_card.Name}\"")).Cards;
+                    return (await _scryfall.SearchCardAsync($"!\"{searchName}\"")).Cards;
                 }
                 catch (Exception ex) { Log.Warning(ex, "Scryfall search failed in art selector"); return new List<ScryfallCard>(); }
             });
@@ -395,10 +400,10 @@ namespace MTGProxyBuilder.UI.Dialogs
                 try
                 {
                     var (results, _) = await _mpcFill.SearchAsync(
-                        _card.Name, fuzzySearch: false, sourcesOverride: _mpcSourcesOverride,
+                        searchName, fuzzySearch: false, sourcesOverride: _mpcSourcesOverride,
                         options: mpcOpts);
                     return results
-                        .Where(mc => mc.Name.Contains(_card.Name, StringComparison.OrdinalIgnoreCase))
+                        .Where(mc => mc.Name.Contains(searchName, StringComparison.OrdinalIgnoreCase))
                         .ToList();
                 }
                 catch { return new List<MpcFillCard>(); }
@@ -716,6 +721,120 @@ namespace MTGProxyBuilder.UI.Dialogs
                     }
                 }
                 catch (Exception ex) { Log.Warning(ex, "Scryfall back face lookup failed for {CardName}", _card.Name); }
+            }
+
+            // Search MPCFill for back face art (DFC cards have a separate back face name)
+            // Fall back to extracting from "Front // Back" name format if BackName not populated
+            string? backFaceName = _card.BackName;
+            if (string.IsNullOrEmpty(backFaceName))
+            {
+                int sep = _card.Name.IndexOf(" // ", StringComparison.Ordinal);
+                if (sep > 0 && sep + 4 < _card.Name.Length)
+                    backFaceName = _card.Name[(sep + 4)..];
+            }
+            if (!string.IsNullOrEmpty(backFaceName))
+            {
+                string backSearchName = backFaceName!;
+                StatusLabel.Text = $"Searching MPCFill for \"{backSearchName}\"...";
+                try
+                {
+                    var mpcOpts = new MpcFillSearchOptions
+                    {
+                        CardTypes = _mpcSearchOptions.CardTypes,
+                        SortBy = _mpcSearchOptions.SortBy,
+                        MinimumDpi = _mpcSearchOptions.MinimumDpi,
+                        MaximumDpi = _mpcSearchOptions.MaximumDpi,
+                        MaximumSize = _mpcSearchOptions.MaximumSize,
+                        FuzzySearch = false,
+                        FilterCardbacks = _mpcSearchOptions.FilterCardbacks,
+                        Languages = _mpcSearchOptions.Languages,
+                        IncludesTags = _mpcSearchOptions.IncludesTags,
+                        ExcludesTags = _mpcSearchOptions.ExcludesTags
+                    };
+                    var (mpcResults, _) = await _mpcFill.SearchAsync(
+                        backSearchName, fuzzySearch: false, sourcesOverride: _mpcSourcesOverride,
+                        options: mpcOpts);
+                    var backMpcResults = mpcResults
+                        .Where(mc => mc.Name.Contains(backSearchName, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    if (backMpcResults.Count > 0)
+                    {
+                        StatusLabel.Text = $"Found {backMpcResults.Count} MPCFill result(s) for back face, downloading...";
+                        int completed = 0;
+                        int total = backMpcResults.Count;
+                        var semaphore = new System.Threading.SemaphoreSlim(8);
+
+                        var downloadItems = new List<(Image img, MutablePath pathRef, MpcFillCard mc, string label, string detail)>();
+                        foreach (var mc in backMpcResults)
+                        {
+                            string label = mc.Name;
+                            string detail = $"MPCFill | {mc.Source} | {mc.Dpi} DPI";
+                            var (border, img) = Controls.ArtTileBuilder.CreatePlaceholderTile(
+                                mc.Name, mc.Source, mc.Dpi, mc.Tags,
+                                onSourceClick: s => OnSourceClickFilter(tab, s),
+                                onTagClick: mc.Tags.Count > 0 ? t => OnTagClickFilter(tab, t) : null);
+                            var pathRef = new MutablePath();
+
+                            border.PreviewMouseLeftButtonUp += (_, _) =>
+                            {
+                                if (pathRef.Value != null)
+                                    SelectOption(tab, label, pathRef.Value, detail, border);
+                            };
+                            border.MouseLeftButtonDown += (_, ev) =>
+                            {
+                                if (ev.ClickCount == 2 && pathRef.Value != null)
+                                {
+                                    SelectOption(tab, label, pathRef.Value, detail, border);
+                                    OkClick(null!, null!);
+                                }
+                            };
+
+                            tab.OptionsPanel.Children.Add(border);
+                            tab.AllTiles.Add(new TileInfo(border, label, mc.Source, mc.Dpi, mc.Tags));
+                            downloadItems.Add((img, pathRef, mc, label, detail));
+                        }
+
+                        // Download thumbnails
+                        var downloadTasks = downloadItems.Select(async item =>
+                        {
+                            await semaphore.WaitAsync();
+                            try
+                            {
+                                var cached = await _mpcFill.DownloadAndCacheImageAsync(item.mc, thumbnail: true);
+                                if (cached != null && !shown.Contains(cached))
+                                {
+                                    await Dispatcher.BeginInvoke(() =>
+                                    {
+                                        try
+                                        {
+                                            var bmp = new BitmapImage();
+                                            bmp.BeginInit();
+                                            bmp.UriSource = new Uri(cached, UriKind.Absolute);
+                                            bmp.CacheOption = BitmapCacheOption.OnLoad;
+                                            bmp.DecodePixelWidth = 150;
+                                            bmp.EndInit();
+                                            bmp.Freeze();
+                                            item.img.Source = bmp;
+                                        }
+                                        catch { }
+
+                                        item.pathRef.Value = cached;
+                                        shown.Add(cached);
+                                        tab.MpcFillCardsByPath[cached] = item.mc;
+                                    });
+                                }
+                                var done = System.Threading.Interlocked.Increment(ref completed);
+                                _ = Dispatcher.BeginInvoke(() =>
+                                    StatusLabel.Text = $"Downloading back art {done}/{total}...");
+                            }
+                            finally { semaphore.Release(); }
+                        }).ToList();
+
+                        await Task.WhenAll(downloadTasks);
+                    }
+                }
+                catch (Exception ex) { Log.Warning(ex, "MPCFill back face search failed for {Name}", backFaceName); }
             }
 
             // Library entries — build tiles instantly with deferred image loading
