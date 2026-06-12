@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
@@ -100,6 +101,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         private readonly DeckImportService _deckImportService;
         private readonly MpcFillService _mpcFillService;
         private readonly MpcFillXmlImportService _mpcXmlImportService;
+        private readonly PiltoverArchiveService _piltoverArchiveService;
         private readonly SearchCoordinator _searchCoordinator;
         private readonly ImportCoordinator _importCoordinator;
         private readonly UndoService _undoService = new();
@@ -160,8 +162,9 @@ namespace MTGProxyBuilder.UI.ViewModels
             MpcSourceManager = new MpcFillSourceManager();
             _mpcFillService = new MpcFillService(_imageCacheService, MpcSourceManager);
             _mpcXmlImportService = new MpcFillXmlImportService(_mpcFillService, _imageCacheService);
+            _piltoverArchiveService = new PiltoverArchiveService(_imageCacheService);
             _searchCoordinator = new SearchCoordinator(_scryfallService, _mpcFillService, _appSettings, MpcSourceManager);
-            _importCoordinator = new ImportCoordinator(_searchCoordinator, _deckImportService, _mpcXmlImportService, _frontArtLibraryService);
+            _importCoordinator = new ImportCoordinator(_searchCoordinator, _deckImportService, _mpcXmlImportService, _frontArtLibraryService, _piltoverArchiveService);
             _mpcUseFavoritesOnly = _appSettings.Settings.MpcFillUseFavoritesOnly;
             _mpcAdvMinDpi = _appSettings.Settings.MpcFillDefaultMinDpi;
             _mpcFuzzySearch = _appSettings.Settings.MpcFillDefaultFuzzySearch;
@@ -215,6 +218,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             // Moxfield import
             ImportDeckCommand = new RelayCommand(_ => ImportDeck(), _ => !string.IsNullOrWhiteSpace(ImportDeckUrl));
             RefreshDeckCommand = new RelayCommand(_ => RefreshDeck(), _ => !string.IsNullOrEmpty(_currentProject.DeckImportUrl));
+            ImportRiftboundDeckCommand = new RelayCommand(_ => ImportRiftboundDeck());
 
             // Advanced search
             BuildAdvancedQueryCommand = new RelayCommand(_ => ApplyAdvancedQuery());
@@ -669,6 +673,13 @@ namespace MTGProxyBuilder.UI.ViewModels
             set => SetProperty(ref _ignoreDuplicates, value);
         }
 
+        private string _riftboundImportUrl = string.Empty;
+        public string RiftboundImportUrl
+        {
+            get => _riftboundImportUrl;
+            set { _riftboundImportUrl = value; OnPropertyChanged(); }
+        }
+
         // Art source toggle
         public bool UseMpcFill
         {
@@ -719,6 +730,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ManageMpcSourcesCommand { get; private set; } = null!;
         public ICommand ImportMpcFillXmlCommand { get; private set; } = null!;
         public ICommand ImportTextListCommand { get; private set; } = null!;
+        public ICommand ImportRiftboundDeckCommand { get; private set; } = null!;
         public ICommand RefreshSelectedCardDataCommand { get; private set; } = null!;
         public ICommand RefreshAllCardDataCommand { get; private set; } = null!;
         public ICommand ClearCacheCommand { get; private set; } = null!;
@@ -1131,6 +1143,39 @@ namespace MTGProxyBuilder.UI.ViewModels
             ClearBusy();
         }
 
+        public void PasteImageFromClipboard()
+        {
+            if (!Clipboard.ContainsImage()) return;
+
+            var bitmapSource = Clipboard.GetImage();
+            if (bitmapSource == null) return;
+
+            PushUndo();
+
+            // Save to image cache directory as PNG
+            var fileName = $"pasted_{Guid.NewGuid():N}.png";
+            var filePath = Path.Combine(_imageCacheService.CacheDirectory, fileName);
+
+            using (var fs = new FileStream(filePath, FileMode.Create))
+            {
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bitmapSource));
+                encoder.Save(fs);
+            }
+
+            var card = new CardModel
+            {
+                Name = "Pasted Image",
+                ArtworkPath = filePath,
+                IsPastedImage = true
+            };
+            ApplyDefaultBackArt(card);
+            Cards.Add(card);
+            _currentProject.PageSettings.CenterGrid();
+            ApplyFilterAndSort();
+            StatusText = "Pasted image added as card";
+        }
+
         private void RemoveCard()
         {
             if (SelectedCard == null) return;
@@ -1346,6 +1391,8 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         public void OpenArtSelectorForCard(CardModel card, bool isShowingBack)
         {
+            if (card.IsPastedImage) return;
+            if (card.IsRiftbound && !isShowingBack) return;
             SelectedCard = card;
             ShowArtSelector(card, isShowingBack ? Dialogs.ArtSelectorMode.Back : Dialogs.ArtSelectorMode.Front);
         }
@@ -1355,6 +1402,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             var targets = cardIndices
                 .Where(i => i >= 0 && i < Cards.Count)
                 .Select(i => Cards[i])
+                .Where(c => !c.IsPastedImage && !c.IsRiftbound)
                 .Distinct()
                 .ToList();
             if (targets.Count == 0) return;
@@ -1395,6 +1443,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             var targets = cardIndices
                 .Where(i => i >= 0 && i < Cards.Count)
                 .Select(i => Cards[i])
+                .Where(c => !c.IsPastedImage)
                 .Distinct()
                 .ToList();
             if (targets.Count == 0) return;
@@ -2189,17 +2238,122 @@ namespace MTGProxyBuilder.UI.ViewModels
             }
         }
 
+        // --- Riftbound / Piltover Archive Import ---
+
+        private async void ImportRiftboundDeck(string? urlOverride = null)
+        {
+            string url = urlOverride ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                MessageBox.Show("Paste a Piltover Archive deck URL first.",
+                    "No URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var deckId = PiltoverArchiveService.ParseDeckId(url);
+            if (deckId == null)
+            {
+                MessageBox.Show(
+                    "Unrecognized URL. Paste a deck URL from:\n\n" +
+                    "- Piltover Archive (piltoverarchive.com/decks/view/...)",
+                    "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            SetBusy("Connecting to Piltover Archive...");
+            Log.Information("Importing Riftbound deck from {Url}", url);
+
+            try
+            {
+                BusyMessage = "Fetching deck from Piltover Archive...";
+                await Task.Delay(50);
+
+                var (deck, error) = await _importCoordinator.FetchRiftboundDeckAsync(url);
+                if (deck == null || error != null)
+                {
+                    ClearBusy();
+                    MessageBox.Show($"Failed to fetch deck:\n{error}", "Piltover Archive Error",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                PushUndo();
+                var allCards = deck.AllCards().ToList();
+                int totalQty = allCards.Sum(c => c.Quantity);
+                BusyMessage = $"Found deck: {deck.Name}\n{allCards.Count} unique cards, {totalQty} total";
+                await Task.Delay(800);
+
+                var result = await _importCoordinator.ImportRiftboundCardsAsync(
+                    deck, onProgress: msg => BusyMessage = msg);
+
+                BusyMessage = $"Adding {result.Cards.Count} cards to project...";
+                await Task.Delay(50);
+
+                Cards.CollectionChanged -= OnCardsCollectionChanged;
+                foreach (var c in result.Cards)
+                {
+                    ApplyDefaultBackArt(c);
+                    Cards.Add(c);
+                }
+                Cards.CollectionChanged += OnCardsCollectionChanged;
+
+                _currentProject.PageSettings.CenterGrid();
+                ApplyFilterAndSort();
+
+                _currentProject.DeckImportUrl = url;
+
+                // Auto-switch card size to Riftbound
+                var riftboundPreset = CardSizePresets.FirstOrDefault(p => p.Name == "Riftbound");
+                if (riftboundPreset != null)
+                    SelectedCardSize = riftboundPreset;
+
+                int totalAdded = result.Cards.Sum(c => c.Quantity);
+                string summary = $"Imported {result.Cards.Count} unique card(s) ({totalAdded} total) from \"{deck.Name}\" (Piltover Archive)";
+                if (result.Failed > 0) summary += $"\n{result.Failed} card(s) could not be downloaded";
+                StatusText = summary;
+
+                MessageBox.Show(summary, "Import Complete", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Import failed: {ex.Message}";
+                MessageBox.Show($"Import error:\n{ex.Message}", "Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                ClearBusy();
+            }
+        }
+
+        /// <summary>Called from clipboard paste when a piltoverarchive.com URL is detected.</summary>
+        public void ImportRiftboundFromUrl(string url)
+        {
+            ImportRiftboundDeck(urlOverride: url);
+        }
+
         // --- Deck Import (Moxfield / Archidekt) ---
 
         private async void ImportDeck()
         {
             var source = DeckImportService.DetectSource(ImportDeckUrl);
+
+            // Route Piltover Archive URLs to the dedicated handler
+            if (source == DeckSource.PiltoverArchive)
+            {
+                string riftboundUrl = ImportDeckUrl;
+                ImportDeckUrl = string.Empty;
+                ImportRiftboundDeck(urlOverride: riftboundUrl);
+                return;
+            }
+
             if (source == DeckSource.Unknown)
             {
                 MessageBox.Show(
                     "Unrecognized URL. Paste a deck URL from:\n\n" +
                     "- Moxfield (moxfield.com/decks/...)\n" +
-                    "- Archidekt (archidekt.com/decks/...)",
+                    "- Archidekt (archidekt.com/decks/...)\n" +
+                    "- Piltover Archive (piltoverarchive.com/decks/view/...)",
                     "Invalid URL", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -2277,6 +2431,21 @@ namespace MTGProxyBuilder.UI.ViewModels
             if (string.IsNullOrEmpty(url)) return;
 
             var source = DeckImportService.DetectSource(url);
+
+            // Route Piltover Archive refreshes to dedicated handler
+            if (source == DeckSource.PiltoverArchive)
+            {
+                var confirm = MessageBox.Show(
+                    $"Re-import deck from Piltover Archive?\n\nThis will clear all current cards and re-download from:\n{url}",
+                    "Refresh Deck", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (confirm != MessageBoxResult.Yes) return;
+
+                PushUndo();
+                Cards.Clear();
+                ImportRiftboundDeck(urlOverride: url);
+                return;
+            }
+
             if (source == DeckSource.Unknown)
             {
                 StatusText = "Stored deck URL is not recognized.";

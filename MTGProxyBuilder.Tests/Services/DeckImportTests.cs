@@ -25,6 +25,14 @@ public class DeckImportTests
     }
 
     [Theory]
+    [InlineData("https://piltoverarchive.com/decks/view/0741d662-e31b-4999-b1f8-96d89d085423", DeckSource.PiltoverArchive)]
+    [InlineData("https://www.piltoverarchive.com/decks/view/abc-123", DeckSource.PiltoverArchive)]
+    public void DetectSource_PiltoverArchive(string url, DeckSource expected)
+    {
+        Assert.Equal(expected, DeckImportService.DetectSource(url));
+    }
+
+    [Theory]
     [InlineData("https://google.com")]
     [InlineData("https://scryfall.com/card/m21/1/foo")]
     [InlineData("just some text")]
@@ -102,6 +110,7 @@ public class DeckImportTests
     {
         Assert.Equal(DeckSource.Moxfield, DeckImportService.DetectSource("https://MOXFIELD.COM/decks/abc"));
         Assert.Equal(DeckSource.Archidekt, DeckImportService.DetectSource("https://ARCHIDEKT.COM/decks/123"));
+        Assert.Equal(DeckSource.PiltoverArchive, DeckImportService.DetectSource("https://PILTOVERARCHIVE.COM/decks/view/abc-123"));
     }
 
     // --- URL with extra path segments ---

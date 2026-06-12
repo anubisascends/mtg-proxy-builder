@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
+using MTGProxyBuilder.Core.Services;
 using MTGProxyBuilder.UI.ViewModels;
 using Serilog;
 
@@ -110,6 +111,23 @@ public partial class MainWindow : Window
                 GridCanvas.InvertSelection();
                 e.Handled = true;
             }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.V)
+            {
+                // Check for Piltover Archive URL on clipboard first
+                if (Clipboard.ContainsText())
+                {
+                    string text = Clipboard.GetText().Trim();
+                    if (DeckImportService.DetectSource(text) == DeckSource.PiltoverArchive)
+                    {
+                        vm.ImportRiftboundFromUrl(text);
+                        e.Handled = true;
+                        return;
+                    }
+                }
+                // Fall back to image paste
+                vm.PasteImageFromClipboard();
+                e.Handled = true;
+            }
             else if (Keyboard.Modifiers == ModifierKeys.None && e.Key == Key.Delete)
             {
                 // Delete selected cards — get unique card indices from canvas selection
@@ -134,6 +152,9 @@ public partial class MainWindow : Window
         {
             GridCanvas.CardDoubleClicked += (card, isShowingBack) =>
             {
+                if (card.IsPastedImage) return;
+                // Riftbound cards: allow back art selection only
+                if (card.IsRiftbound && !isShowingBack) return;
                 if (Shell?.ActiveProject?.Inner is MainViewModel vm)
                     vm.OpenArtSelectorForCard(card, isShowingBack);
             };

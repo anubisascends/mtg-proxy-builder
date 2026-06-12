@@ -600,7 +600,7 @@
                                 <StackPanel Margin="10,8">
                                     <!-- Moxfield import -->
                                     <TextBlock Text="Import Deck" FontWeight="SemiBold" Foreground="#CCC" Margin="0,0,0,6" FontSize="12"/>
-                                    <TextBlock Text="Paste a URL from Moxfield or Archidekt" Foreground="#666" FontSize="10" Margin="0,0,0,4"/>
+                                    <TextBlock Text="Paste a URL from Moxfield, Archidekt, or Piltover Archive" Foreground="#666" FontSize="10" Margin="0,0,0,4"/>
                                     <Grid Margin="0,0,0,4">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
@@ -689,7 +689,7 @@
                                         <TextBlock Text="{Binding DataContext.ActiveProject.Inner.DisplayName, RelativeSource={RelativeSource AncestorType=Window}}"
                                                    Foreground="White" FontSize="12" Padding="6,4" Margin="0,0,0,8"/>
 
-                                        <!-- Scryfall Lookup (visible when ScryfallId is empty) -->
+                                        <!-- Scryfall Lookup (visible when ScryfallId is empty, hidden for pasted/Riftbound) -->
                                         <Border Margin="0,0,0,8" Background="#252526" CornerRadius="4" Padding="8,6">
                                             <Border.Style>
                                                 <Style TargetType="Border">
@@ -700,6 +700,12 @@
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding ScryfallId}" Value="">
                                                             <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsPastedImage}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsRiftbound}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -867,8 +873,20 @@
                                             </StackPanel>
                                         </Grid>
 
-                                        <!-- Select Art / Refresh Data -->
+                                        <!-- Select Art / Refresh Data (hidden for pasted/Riftbound) -->
                                         <Grid Margin="0,0,0,6">
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPastedImage}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding IsRiftbound}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
                                                 <ColumnDefinition Width="4"/>

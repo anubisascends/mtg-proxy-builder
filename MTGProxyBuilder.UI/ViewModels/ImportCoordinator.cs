@@ -17,17 +17,20 @@ namespace MTGProxyBuilder.UI.ViewModels
         private readonly DeckImportService _deckImport;
         private readonly MpcFillXmlImportService _xmlImport;
         private readonly FrontArtLibraryService _frontLibrary;
+        private readonly PiltoverArchiveService _piltoverArchive;
 
         public ImportCoordinator(
             SearchCoordinator search,
             DeckImportService deckImport,
             MpcFillXmlImportService xmlImport,
-            FrontArtLibraryService frontLibrary)
+            FrontArtLibraryService frontLibrary,
+            PiltoverArchiveService piltoverArchive)
         {
             _search = search;
             _deckImport = deckImport;
             _xmlImport = xmlImport;
             _frontLibrary = frontLibrary;
+            _piltoverArchive = piltoverArchive;
         }
 
         private static readonly HashSet<string> BasicLands = new(StringComparer.OrdinalIgnoreCase)
@@ -264,6 +267,79 @@ namespace MTGProxyBuilder.UI.ViewModels
                 await Task.Delay(50);
             }
             return (updated, failed);
+        }
+
+        // ================================================================
+        //  RIFTBOUND / PILTOVER ARCHIVE IMPORT
+        // ================================================================
+
+        public record RiftboundImportResult(
+            List<CardModel> Cards,
+            string DeckName,
+            int Downloaded,
+            int Failed);
+
+        public async Task<(RiftboundDeck? Deck, string? Error)> FetchRiftboundDeckAsync(string url)
+        {
+            return await _piltoverArchive.FetchDeckAsync(url);
+        }
+
+        public async Task<RiftboundImportResult> ImportRiftboundCardsAsync(
+            RiftboundDeck deck,
+            Action<string>? onProgress = null)
+        {
+            var importedCards = new List<CardModel>();
+            int downloaded = 0, failed = 0;
+
+            var allCards = deck.AllCards().ToList();
+
+            for (int i = 0; i < allCards.Count; i++)
+            {
+                var entry = allCards[i];
+                string cardName = entry.Card.Name;
+
+                onProgress?.Invoke($"Downloading {i + 1}/{allCards.Count}: {cardName}" +
+                    (entry.Quantity > 1 ? $" (x{entry.Quantity})" : "") + "...");
+
+                string? artPath = await _piltoverArchive.DownloadCardImageAsync(entry);
+                if (artPath == null)
+                {
+                    failed++;
+                    continue;
+                }
+
+                string colors = string.Join(", ",
+                    entry.Card.CardColors?.Select(cc => cc.Color.Name) ?? Enumerable.Empty<string>());
+                string tags = string.Join(", ", entry.Card.Tags ?? new List<string>());
+
+                var variant = entry.Card.CardVariants
+                    .FirstOrDefault(v => v.Id == entry.VariantId)
+                    ?? entry.Card.CardVariants.FirstOrDefault();
+
+                var card = new CardModel
+                {
+                    Name = cardName,
+                    ArtworkPath = artPath,
+                    Quantity = entry.Quantity,
+                    IsRiftbound = true,
+                    TypeLine = entry.Card.Super != null
+                        ? $"{entry.Card.Super} {entry.Card.Type}"
+                        : entry.Card.Type,
+                    OracleText = entry.Card.Description,
+                    Rarity = variant?.Rarity ?? string.Empty,
+                    Artist = variant?.Artist ?? string.Empty,
+                    Colors = colors,
+                    Keywords = tags,
+                    CollectorNumber = variant?.VariantNumber ?? string.Empty,
+                    DateAdded = DateTime.Now
+                };
+
+                importedCards.Add(card);
+                downloaded++;
+                await Task.Delay(50);
+            }
+
+            return new RiftboundImportResult(importedCards, deck.Name, downloaded, failed);
         }
     }
 }
