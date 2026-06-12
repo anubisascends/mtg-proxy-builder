@@ -67,6 +67,10 @@ namespace MTGProxyBuilder.UI.Controls
             MouseRightButtonUp += OnMouseRightButtonUp;
             KeyDown += OnKeyDown;
             Focusable = true;
+
+            // Prevent the parent ScrollViewer from scrolling when Focus() is
+            // called — this caused the canvas to shift on first click.
+            RequestBringIntoView += (_, e) => e.Handled = true;
         }
 
         private void OnKeyDown(object sender, KeyEventArgs e)
