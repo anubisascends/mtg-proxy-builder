@@ -33,6 +33,8 @@ namespace MTGProxyBuilder.Core.Models
         private string _keywords = string.Empty;
         private DateTime _dateAdded = DateTime.Now;
         private string _overlayText = string.Empty;
+        private bool _isPastedImage;
+        private bool _isRiftbound;
 
         // Back face metadata (for double-faced cards)
         private string _backName = string.Empty;
@@ -246,6 +248,20 @@ namespace MTGProxyBuilder.Core.Models
         {
             get => _dateAdded;
             set { _dateAdded = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>True when the card was created by pasting a clipboard image. Art cannot be changed.</summary>
+        public bool IsPastedImage
+        {
+            get => _isPastedImage;
+            set { _isPastedImage = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>True for Riftbound cards imported from Piltover Archive. Front art cannot be changed, back art works normally.</summary>
+        public bool IsRiftbound
+        {
+            get => _isRiftbound;
+            set { _isRiftbound = value; OnPropertyChanged(); }
         }
 
         /// <summary>Text overlay rendered on the card (e.g. "TOKEN"). Empty = no overlay.</summary>

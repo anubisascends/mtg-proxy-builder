@@ -687,6 +687,10 @@ namespace MTGProxyBuilder.UI.Controls
             if (hasHover || hasSelection)
             {
                 var cardIndices = hasSelection ? SelectedCardIndices() : new List<int> { hoverCardIdx };
+                bool allPasted = cardIndices.All(i => i >= 0 && i < CardsSource!.Count && CardsSource![i].IsPastedImage);
+                bool allRiftbound = cardIndices.All(i => i >= 0 && i < CardsSource!.Count && CardsSource![i].IsRiftbound);
+                bool showFrontArt = !allPasted && !allRiftbound;
+                bool showBackArt = !allPasted;
 
                 var dupItem = new MenuItem { Header = hasSelection ? $"Duplicate Selected{target}" : "Duplicate Card" };
                 dupItem.Click += (_, _) => DuplicateCards(cardIndices);
@@ -702,37 +706,45 @@ namespace MTGProxyBuilder.UI.Controls
                 flipItem.Click += (_, _) => FlipCards(cardIndices);
                 menu.Items.Add(flipItem);
 
-                // "Match Back Art" — apply the most common back art to selected/hovered cards
-                var matchBackItem = new MenuItem { Header = hasSelection ? $"Match Back Art{target}" : "Match Back Art" };
-                matchBackItem.Click += (_, _) => ApplyMajorityBackRequested?.Invoke(cardIndices);
-                menu.Items.Add(matchBackItem);
-
-                menu.Items.Add(new Separator());
-
-                // Art selection
-                var selectFrontItem = new MenuItem { Header = hasSelection ? $"Select Front Art{target}" : "Select Front Art..." };
-                selectFrontItem.Click += (_, _) => SelectFrontArtRequested?.Invoke(cardIndices);
-                menu.Items.Add(selectFrontItem);
-
-                var selectBackItem = new MenuItem { Header = hasSelection ? $"Select Card Back{target}" : "Select Card Back..." };
-                selectBackItem.Click += (_, _) => SelectBackArtRequested?.Invoke(cardIndices);
-                menu.Items.Add(selectBackItem);
-
-                // "Create Token" — for cards with unique (non-common) back art
-                menu.Items.Add(new Separator());
-                if (hasSelection)
+                if (showBackArt)
                 {
-                    var tokenItem = new MenuItem { Header = $"Create Token(s) from Selected{target}" };
-                    tokenItem.Click += (_, _) => CreateTokensFromCardsRequested?.Invoke(
-                        cardIndices.Where(i => i >= 0 && i < CardsSource!.Count).Select(i => CardsSource![i]).ToList());
-                    menu.Items.Add(tokenItem);
-                }
-                else if (hasHover)
-                {
-                    var hoverCard = CardsSource![hoverCardIdx];
-                    var tokenItem = new MenuItem { Header = "Create Token Card" };
-                    tokenItem.Click += (_, _) => CreateTokenRequested?.Invoke(hoverCard);
-                    menu.Items.Add(tokenItem);
+                    // "Match Back Art" — apply the most common back art to selected/hovered cards
+                    var matchBackItem = new MenuItem { Header = hasSelection ? $"Match Back Art{target}" : "Match Back Art" };
+                    matchBackItem.Click += (_, _) => ApplyMajorityBackRequested?.Invoke(cardIndices);
+                    menu.Items.Add(matchBackItem);
+
+                    menu.Items.Add(new Separator());
+
+                    if (showFrontArt)
+                    {
+                        var selectFrontItem = new MenuItem { Header = hasSelection ? $"Select Front Art{target}" : "Select Front Art..." };
+                        selectFrontItem.Click += (_, _) => SelectFrontArtRequested?.Invoke(cardIndices);
+                        menu.Items.Add(selectFrontItem);
+                    }
+
+                    var selectBackItem = new MenuItem { Header = hasSelection ? $"Select Card Back{target}" : "Select Card Back..." };
+                    selectBackItem.Click += (_, _) => SelectBackArtRequested?.Invoke(cardIndices);
+                    menu.Items.Add(selectBackItem);
+
+                    if (showFrontArt)
+                    {
+                        // "Create Token" — for cards with unique (non-common) back art
+                        menu.Items.Add(new Separator());
+                        if (hasSelection)
+                        {
+                            var tokenItem = new MenuItem { Header = $"Create Token(s) from Selected{target}" };
+                            tokenItem.Click += (_, _) => CreateTokensFromCardsRequested?.Invoke(
+                                cardIndices.Where(i => i >= 0 && i < CardsSource!.Count).Select(i => CardsSource![i]).ToList());
+                            menu.Items.Add(tokenItem);
+                        }
+                        else if (hasHover)
+                        {
+                            var hoverCard = CardsSource![hoverCardIdx];
+                            var tokenItem = new MenuItem { Header = "Create Token Card" };
+                            tokenItem.Click += (_, _) => CreateTokenRequested?.Invoke(hoverCard);
+                            menu.Items.Add(tokenItem);
+                        }
+                    }
                 }
             }
 
