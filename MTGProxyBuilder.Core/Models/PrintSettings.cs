@@ -35,6 +35,11 @@ namespace MTGProxyBuilder.Core.Models
         private int _dpi = Constants.DefaultDpi;
         private bool _showCutGuides = true;
 
+        // Crop marks (short corner marks at card trim boundary, extending into bleed)
+        private bool _showCropMarks;
+        private float _cropMarkLengthMm = 3f;
+        private float _cropMarkOffsetMm = 0.5f;
+
         // Card outline guides
         private bool _showCardOutline = true;
         private string _outlineColor = "#66FF00";
@@ -69,6 +74,29 @@ namespace MTGProxyBuilder.Core.Models
         {
             get => _showCutGuides;
             set { _showCutGuides = value; OnPropertyChanged(); }
+        }
+
+        // --- Crop Marks (professional trim marks) ---
+
+        /// <summary>Show short crop marks at each card corner, extending from the trim edge into the bleed area.</summary>
+        public bool ShowCropMarks
+        {
+            get => _showCropMarks;
+            set { _showCropMarks = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>Length of each crop mark arm in mm (default 3mm).</summary>
+        public float CropMarkLengthMm
+        {
+            get => _cropMarkLengthMm;
+            set { _cropMarkLengthMm = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>Gap between the card edge and the start of the crop mark in mm (default 0.5mm).</summary>
+        public float CropMarkOffsetMm
+        {
+            get => _cropMarkOffsetMm;
+            set { _cropMarkOffsetMm = value; OnPropertyChanged(); }
         }
 
         // --- Card Outline Guides ---

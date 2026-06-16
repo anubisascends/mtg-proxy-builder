@@ -58,6 +58,9 @@ namespace MTGProxyBuilder.UI.Controls
             if (showCutGuides && !regMarksOn)
                 DrawCutGuides(canvas, x, y, bleed, cardW, cardH, pageTop, pageW, pageH);
 
+            if (printSettings is { ShowCropMarks: true, ShowRegistrationMarks: false })
+                DrawCropMarks(canvas, x, y, bleed, cardW, cardH, printSettings);
+
             if (!flipped && !string.IsNullOrEmpty(card.OverlayText))
                 DrawOverlayText(canvas, card.OverlayText, x + bleed, y + bleed, cardW, cardH);
 
@@ -136,6 +139,35 @@ namespace MTGProxyBuilder.UI.Controls
             Line(cardRight, cardTopY, pageW, cardTopY);
             Line(0, cardBottomY, cardLeft, cardBottomY);
             Line(cardRight, cardBottomY, pageW, cardBottomY);
+        }
+
+        private static void DrawCropMarks(Canvas canvas, float x, float y, float bleed,
+            float cardW, float cardH, PrintSettings ps)
+        {
+            float cardLeft = x + bleed, cardTop = y + bleed;
+            float cardRight = cardLeft + cardW, cardBottom = cardTop + cardH;
+            float markLen = ps.CropMarkLengthMm * MmToPx;
+            float offset = ps.CropMarkOffsetMm * MmToPx;
+
+            var pen = new SolidColorBrush(Color.FromArgb(180, 0, 0, 0));
+            void Mark(float x1, float y1, float x2, float y2)
+            {
+                var l = new Line { X1 = x1, Y1 = y1, X2 = x2, Y2 = y2, Stroke = pen, StrokeThickness = 0.5, IsHitTestVisible = false };
+                canvas.Children.Add(l);
+            }
+
+            // Top-left
+            Mark(cardLeft, cardTop - offset, cardLeft, cardTop - offset - markLen);
+            Mark(cardLeft - offset, cardTop, cardLeft - offset - markLen, cardTop);
+            // Top-right
+            Mark(cardRight, cardTop - offset, cardRight, cardTop - offset - markLen);
+            Mark(cardRight + offset, cardTop, cardRight + offset + markLen, cardTop);
+            // Bottom-left
+            Mark(cardLeft, cardBottom + offset, cardLeft, cardBottom + offset + markLen);
+            Mark(cardLeft - offset, cardBottom, cardLeft - offset - markLen, cardBottom);
+            // Bottom-right
+            Mark(cardRight, cardBottom + offset, cardRight, cardBottom + offset + markLen);
+            Mark(cardRight + offset, cardBottom, cardRight + offset + markLen, cardBottom);
         }
 
         private static void DrawOverlayText(Canvas canvas, string text, float x, float y, float cardW, float cardH)
