@@ -1005,6 +1005,13 @@
                                               Padding="4" Margin="0,0,0,6" FontSize="11"/>
                                     <CheckBox Content="Cutting guides (edge-to-edge)" IsChecked="{Binding CurrentProject.PrintSettings.ShowCutGuides}" Foreground="#CCC" Margin="0,0,0,6"/>
 
+                                    <!-- Printer Profile -->
+                                    <TextBlock Text="Printer Profile" Foreground="#999" FontSize="10" Margin="0,6,0,2"/>
+                                    <ComboBox ItemsSource="{Binding PrinterProfileNames}"
+                                              SelectedItem="{Binding SelectedPrinterProfileName}"
+                                              Padding="4" Margin="0,0,0,2" FontSize="11"/>
+                                    <TextBlock Text="{Binding SelectedPrinterOffsetDisplay}" Foreground="#666" FontSize="9" Margin="0,0,0,6"/>
+
                                     <!-- Card Outline Guides -->
                                     <TextBlock Text="CARD OUTLINE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
                                     <CheckBox Content="Show card outline guides" IsChecked="{Binding CurrentProject.PrintSettings.ShowCardOutline}" Foreground="#CCC" Margin="0,0,0,6"/>

@@ -1,3 +1,4 @@
+using MTGProxyBuilder.Core.Models;
 using Newtonsoft.Json;
 
 namespace MTGProxyBuilder.Core.Services
@@ -90,6 +91,12 @@ namespace MTGProxyBuilder.Core.Services
 
         [JsonProperty("sidebarFontSize")]
         public double SidebarFontSize { get; set; } = 12;
+
+        [JsonProperty("printerProfiles")]
+        public List<PrinterProfile> PrinterProfiles { get; set; } = new();
+
+        [JsonProperty("defaultPrinterProfileName")]
+        public string? DefaultPrinterProfileName { get; set; }
     }
 
     public class AppSettingsService

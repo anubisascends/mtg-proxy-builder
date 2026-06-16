@@ -56,12 +56,20 @@ namespace MTGProxyBuilder.Core.Models
         }
 
         private string? _deckImportUrl;
+        private string? _printerProfileName;
 
         /// <summary>The URL the deck was imported from (Moxfield/Archidekt). Null if not imported from a deck.</summary>
         public string? DeckImportUrl
         {
             get => _deckImportUrl;
             set { _deckImportUrl = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>The printer calibration profile selected for this project. Null means no offset.</summary>
+        public string? PrinterProfileName
+        {
+            get => _printerProfileName;
+            set { _printerProfileName = value; OnPropertyChanged(); }
         }
 
         public int TotalCards => Cards.Sum(c => c.Quantity);
