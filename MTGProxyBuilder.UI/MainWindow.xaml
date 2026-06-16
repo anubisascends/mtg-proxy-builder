@@ -1003,7 +1003,8 @@
                                     <TextBlock Text="Print Mode" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
                                     <ComboBox ItemsSource="{Binding PrintModeValues}" SelectedItem="{Binding SelectedPrintMode}"
                                               Padding="4" Margin="0,0,0,6" FontSize="11"/>
-                                    <CheckBox Content="Cutting guides (edge-to-edge)" IsChecked="{Binding CurrentProject.PrintSettings.ShowCutGuides}" Foreground="#CCC" Margin="0,0,0,6"/>
+                                    <CheckBox Content="Cutting guides (edge-to-edge)" IsChecked="{Binding CurrentProject.PrintSettings.ShowCutGuides}" Foreground="#CCC" Margin="0,0,0,4"/>
+                                    <CheckBox Content="Crop marks (corner trim marks)" IsChecked="{Binding CurrentProject.PrintSettings.ShowCropMarks}" Foreground="#CCC" Margin="0,0,0,6"/>
 
                                     <!-- Printer Profile -->
                                     <TextBlock Text="Printer Profile" Foreground="#999" FontSize="10" Margin="0,6,0,2"/>

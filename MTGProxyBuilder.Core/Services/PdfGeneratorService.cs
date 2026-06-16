@@ -240,7 +240,7 @@ namespace MTGProxyBuilder.Core.Services
             // When registration marks are active, suppress bleed, cut guides, and outlines
             bool useBleed = bleedCache.Count > 0 && !printSettings.ShowRegistrationMarks;
 
-            // Pass 1: Draw cut guides BEHIND card art (disabled with registration marks)
+            // Pass 1a: Draw cut guides BEHIND card art (disabled with registration marks)
             if (printSettings.ShowCutGuides && !printSettings.ShowRegistrationMarks)
             {
                 for (int i = 0; i < perPage && (startIdx + i) < cards.Count; i++)
@@ -251,6 +251,22 @@ namespace MTGProxyBuilder.Core.Services
                     float cellY = startY + row * cellH;
 
                     DrawCutGuides(gfx, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
+                }
+            }
+
+            // Pass 1b: Draw crop marks BEHIND card art (disabled with registration marks)
+            if (printSettings.ShowCropMarks && !printSettings.ShowRegistrationMarks)
+            {
+                float cropLen = printSettings.CropMarkLengthMm * MmToPt;
+                float cropOffset = printSettings.CropMarkOffsetMm * MmToPt;
+                for (int i = 0; i < perPage && (startIdx + i) < cards.Count; i++)
+                {
+                    int row = i / cols;
+                    int col = front ? (i % cols) : (cols - 1 - (i % cols));
+                    float cellX = startX + col * cellW;
+                    float cellY = startY + row * cellH;
+
+                    DrawCropMarks(gfx, cellX, cellY, bleedPt, cardWPt, cardHPt, cropLen, cropOffset);
                 }
             }
 
@@ -476,6 +492,38 @@ namespace MTGProxyBuilder.Core.Services
             gfx.DrawLine(pen, cardRight, cardTop, pageW, cardTop);      // top-right horizontal right
             gfx.DrawLine(pen, 0, cardBottom, cardLeft, cardBottom);     // bottom-left horizontal left
             gfx.DrawLine(pen, cardRight, cardBottom, pageW, cardBottom); // bottom-right horizontal right
+        }
+
+        /// <summary>
+        /// Draw professional crop marks at each corner of a card.
+        /// Marks are short lines at the trim boundary (card edge), extending outward
+        /// into the bleed area with a small gap from the card edge.
+        /// </summary>
+        private void DrawCropMarks(XGraphics gfx, float cellX, float cellY,
+            float bleed, float cardW, float cardH, float markLen, float offset)
+        {
+            float cardLeft = cellX + bleed;
+            float cardTop = cellY + bleed;
+            float cardRight = cellX + bleed + cardW;
+            float cardBottom = cellY + bleed + cardH;
+
+            var pen = new XPen(XColors.Black, 0.25);
+
+            // Top-left corner
+            gfx.DrawLine(pen, cardLeft, cardTop - offset, cardLeft, cardTop - offset - markLen);         // vertical up
+            gfx.DrawLine(pen, cardLeft - offset, cardTop, cardLeft - offset - markLen, cardTop);         // horizontal left
+
+            // Top-right corner
+            gfx.DrawLine(pen, cardRight, cardTop - offset, cardRight, cardTop - offset - markLen);       // vertical up
+            gfx.DrawLine(pen, cardRight + offset, cardTop, cardRight + offset + markLen, cardTop);       // horizontal right
+
+            // Bottom-left corner
+            gfx.DrawLine(pen, cardLeft, cardBottom + offset, cardLeft, cardBottom + offset + markLen);   // vertical down
+            gfx.DrawLine(pen, cardLeft - offset, cardBottom, cardLeft - offset - markLen, cardBottom);   // horizontal left
+
+            // Bottom-right corner
+            gfx.DrawLine(pen, cardRight, cardBottom + offset, cardRight, cardBottom + offset + markLen); // vertical down
+            gfx.DrawLine(pen, cardRight + offset, cardBottom, cardRight + offset + markLen, cardBottom); // horizontal right
         }
 
         private const float InToPt = 72f;
