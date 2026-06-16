@@ -69,4 +69,19 @@ public class ProjectModelTests
         int expected = (int)Math.Ceiling(10.0 / cardsPerPage);
         Assert.Equal(expected, project.TotalPages);
     }
+
+    [Fact]
+    public void PrinterProfileName_DefaultsToNull()
+    {
+        var project = new ProjectModel();
+        Assert.Null(project.PrinterProfileName);
+    }
+
+    [Fact]
+    public void PrinterProfileName_CanBeSet()
+    {
+        var project = new ProjectModel();
+        project.PrinterProfileName = "Canon PIXMA";
+        Assert.Equal("Canon PIXMA", project.PrinterProfileName);
+    }
 }

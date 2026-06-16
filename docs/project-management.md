@@ -5,6 +5,7 @@
 - **Multi-project tabs** — open multiple projects simultaneously, each with independent state, undo stack, and file
 - **Portable project files** — `.mtgproj` files are self-contained ZIP archives bundling all artwork
 - **Undo / Redo** — 50-level undo stack per project (Ctrl+Z / Ctrl+Y); covers all card operations
+- **Printer profile per project** — each project remembers its selected printer calibration profile independently
 - **Unsaved changes prompt** — each project prompts individually on close
 - **Save:** Ctrl+S creates a `.mtgproj` ZIP file containing all artwork
 - **Open:** extracts and loads the project with all images intact
@@ -30,6 +31,7 @@ Accessible from the toolbar, persists to `app_settings.json`:
 - **Update check toggle** — enable/disable automatic version checking
 - **Art library paths** — browse for an existing `catalog.json` to point libraries at a custom directory
 - **Sidebar font scaling** — adjustable 9-18pt slider
+- **Printer calibration** — create named printer profiles with X/Y duplex offsets; set a default for new projects (see [Printer Calibration](print-pdf-export.md#printer-calibration-duplex-alignment))
 
 ### MPCFill Settings
 
