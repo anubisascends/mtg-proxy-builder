@@ -57,6 +57,7 @@ dotnet test
 | Ctrl+O | Open project |
 | Ctrl+W | Close active project tab |
 | Ctrl+S | Save active project |
+| Ctrl+P | Print preview |
 | Ctrl+E | Export PDF |
 | Ctrl+Z | Undo |
 | Ctrl+Y | Redo |

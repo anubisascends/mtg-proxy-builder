@@ -29,7 +29,8 @@ A Windows desktop application for creating printable PDFs of trading card game p
 - **Visual page editor** — multi-page canvas with drag-drop, multi-select, flip preview, zoom/pan, and overlay text
 - **Art selector** — browse all printings from Scryfall and community art from MPCFill with progressive loading, pill-based filters, and a zoomable preview
 - **Persistent art libraries** — front and back art libraries with thumbnail grids, search, export/import, and move-to-folder
-- **Professional print output** — bleed extension, cutting guides, card outlines (customizable color/style/alignment), Silhouette Cameo registration marks with SVG cut lines, and printer duplex calibration
+- **Print preview** — full page-by-page preview with zoom, page navigation, direct printing at printer DPI, and PDF export
+- **Professional print output** — bleed extension, cutting guides, crop marks, card outlines, CMYK color bars, Silhouette Cameo registration marks with SVG cut lines, and printer duplex calibration
 - **25+ TCG presets** — built-in card sizes from MTG to Yu-Gi-Oh! to Riftbound
 - **Portable projects** — `.mtgproj` ZIP archives bundle all artwork for sharing
 - **Clipboard paste** — Ctrl+V to paste images directly or auto-detect Piltover Archive deck URLs
