@@ -95,6 +95,9 @@ namespace MTGProxyBuilder.Core.Services
         [JsonProperty("sidebarFontSize")]
         public double SidebarFontSize { get; set; } = 12;
 
+        [JsonProperty("customCardSizePresets")]
+        public List<CardSizePreset> CustomCardSizePresets { get; set; } = new();
+
         [JsonProperty("printerProfiles")]
         public List<PrinterProfile> PrinterProfiles { get; set; } = new();
 

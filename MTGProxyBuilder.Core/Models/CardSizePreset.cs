@@ -1,19 +1,34 @@
+using Newtonsoft.Json;
+
 namespace MTGProxyBuilder.Core.Models
 {
     public class CardSizePreset
     {
-        public string Name { get; }
-        public float WidthMm { get; }
-        public float HeightMm { get; }
+        [JsonProperty("name")]
+        public string Name { get; set; }
 
-        public CardSizePreset(string name, float widthMm, float heightMm)
+        [JsonProperty("widthMm")]
+        public float WidthMm { get; set; }
+
+        [JsonProperty("heightMm")]
+        public float HeightMm { get; set; }
+
+        [JsonIgnore]
+        public bool IsCustom { get; set; }
+
+        public CardSizePreset() { Name = ""; }
+
+        public CardSizePreset(string name, float widthMm, float heightMm, bool isCustom = false)
         {
             Name = name;
             WidthMm = widthMm;
             HeightMm = heightMm;
+            IsCustom = isCustom;
         }
 
-        public override string ToString() => $"{Name}  ({WidthMm} x {HeightMm} mm)";
+        public override string ToString() => IsCustom
+            ? $"\u2605 {Name}  ({WidthMm} x {HeightMm} mm)"
+            : $"{Name}  ({WidthMm} x {HeightMm} mm)";
 
         /// <summary>
         /// Built-in presets for popular trading card games and formats.

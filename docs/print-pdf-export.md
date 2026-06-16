@@ -9,9 +9,10 @@
 ## Page Layout
 
 - **Page size presets** — A4, A3, Letter, Legal, Tabloid with landscape toggle; custom dimensions in mm or inches
-- **Card size presets** — built-in sizes for 25+ TCGs (see [Supported Card Games](#supported-card-games)) plus custom dimensions
+- **Card size presets** — built-in sizes for 25+ TCGs (see [Supported Card Games](#supported-card-games)) plus custom dimensions; use "Save as Preset" to save custom sizes for reuse, "Delete Preset" to remove custom presets
 - **Grid** — leave blank for auto-fit, or enter specific column/row counts
 - **Auto-centering** — margins automatically adjust to center the card grid when dimensions change
+- **Output DPI** — configurable resolution for bleed processing and print output (default 300); set per-project in the Layout sidebar or set the default in Settings
 
 ## Print Modes
 
