@@ -217,7 +217,7 @@ namespace MTGProxyBuilder.UI.Services
                 DrawRegistrationMarks(canvas, pageWPt, pageHPt, printSettings);
             }
 
-            // Pass 5: Draw CMYK color bars in the margin
+            // Pass 5: Draw CMYK color bars in the bottom margin
             if (printSettings.ShowColorBars)
             {
                 int rows = cols > 0 ? perPage / cols : 0;
@@ -567,7 +567,10 @@ namespace MTGProxyBuilder.UI.Services
             return bitmapImage;
         }
 
-        /// <summary>Each card in the list is one slot on the page — no quantity expansion.</summary>
+        /// <summary>
+        /// Draw CMYK density bars in available margin space.
+        /// Tries bottom margin first (horizontal), then right margin (vertical).
+        /// </summary>
         private void DrawColorBars(SKCanvas canvas, float startX, float startY,
             int cols, int rows, float cellW, float cellH, float pageW, float pageH)
         {
@@ -616,12 +619,14 @@ namespace MTGProxyBuilder.UI.Services
                     byte g = (byte)(255 + (cg - 255) * d);
                     byte b = (byte)(255 + (cb - 255) * d);
                     using var paint = new SKPaint { Color = new SKColor(r, g, b) };
+
                     if (vertical)
                         canvas.DrawRect(originX, originY + pos, stripThickness, patchSize, paint);
                     else
                         canvas.DrawRect(originX + pos, originY, patchSize, stripThickness, paint);
                     pos += patchSize;
                 }
+
                 float labelPos = pos - patchSize * 2;
                 if (vertical)
                     canvas.DrawText(label, originX + stripThickness + 2,

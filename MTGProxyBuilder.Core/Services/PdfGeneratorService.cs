@@ -157,41 +157,29 @@ namespace MTGProxyBuilder.Core.Services
                     SetPageSize(frontPage, settings);
                     using (var gfx = XGraphics.FromPdfPage(frontPage))
                     {
-                        // Title bar
-                        float titleY = Math.Min(startY - 24, 10);
-                        gfx.DrawString("PRINTER CALIBRATION TEST \u2014 FRONT", titleFont, XBrushes.Black,
-                            startX, titleY, leftFormat);
-                        string settingsInfo = $"{settings.PageWidthMm}x{settings.PageHeightMm}mm page | " +
-                            $"{settings.CardWidthMm}x{settings.CardHeightMm}mm card | " +
-                            $"{cols}x{rows} grid | {DateTime.Now:yyyy-MM-dd}";
-                        gfx.DrawString(settingsInfo, infoFont, XBrushes.Black,
-                            startX, titleY + 12, leftFormat);
+                        // Grid boundary rectangle
+                        gfx.DrawRectangle(solidPen, startX, startY,
+                            cols * cellW, rows * cellH);
 
-                        // Grid boundary rectangle (solid)
-                        var gridPen = new XPen(XColors.Black, 0.5);
-                        gfx.DrawRectangle(gridPen, startX, startY, gridW, gridH);
+                        // Crosshairs
+                        foreach (var (cx, cy, label) in crosshairs)
+                        {
+                            gfx.DrawLine(solidPen, cx - armLen, cy, cx + armLen, cy);
+                            gfx.DrawLine(solidPen, cx, cy - armLen, cx, cy + armLen);
+                            gfx.DrawString(label, font, XBrushes.Black,
+                                cx + 3, cy + 3, labelFormat);
+                        }
 
-                        // Alignment targets at each corner + center
-                        foreach (var (tx, ty, label) in targets)
-                            DrawAlignmentTarget(gfx, tx, ty, label, false);
-
-                        // Measurement rulers along top and left grid edges
-                        float rulerOffset = 3 * MmToPt; // 3mm outside the grid
-                        DrawRuler(gfx, startX, startY - rulerOffset, gridW, true, false);
-                        DrawRuler(gfx, startX - rulerOffset, startY, gridH, false, false);
-
-                        // CMYK color bars (full graduated density + grayscale)
+                        // Color bars (always on alignment page for color verification)
+                        float pageWPt = settings.PageWidthMm * MmToPt;
+                        float pageHPt = settings.PageHeightMm * MmToPt;
                         DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
 
-                        // Current offset values
-                        gfx.DrawString($"Current offset: X={offsetXMm:F2}mm, Y={offsetYMm:F2}mm",
-                            infoFont, XBrushes.Black, startX, pageHPt - 28, leftFormat);
-
-                        // Instructions at very bottom
-                        gfx.DrawString(
-                            "Print this page duplex (flip on long edge). Hold up to light. Measure offset between " +
-                            "solid (front) and dashed (back) targets. Enter offset in Settings > Printer Calibration.",
-                            instructionFont, XBrushes.DarkGray, startX, pageHPt - 16, leftFormat);
+                        // Info text at bottom
+                        gfx.DrawString("Printer Alignment Test \u2014 Front", font, XBrushes.Black,
+                            startX, pageHPt - 20, labelFormat);
+                        gfx.DrawString($"Offset X: {offsetXMm:F2}mm, Y: {offsetYMm:F2}mm",
+                            font, XBrushes.Black, startX, pageHPt - 10, labelFormat);
                     }
 
                     // ===== Page 2: Back (Offset) =====
@@ -490,7 +478,7 @@ namespace MTGProxyBuilder.Core.Services
                 DrawRegistrationMarks(gfx, pageWPt, pageHPt, printSettings);
             }
 
-            // Pass 5: Draw CMYK color bars in the margin
+            // Pass 5: Draw CMYK color bars in the bottom margin
             if (printSettings.ShowColorBars)
             {
                 int rows = cols > 0 ? perPage / cols : 0;
@@ -701,7 +689,7 @@ namespace MTGProxyBuilder.Core.Services
 
         /// <summary>
         /// Draw CMYK density bars in available margin space.
-        /// Tries bottom margin first (horizontal), then right margin (vertical).
+        /// Tries bottom margin first (horizontal), then right margin (vertical/rotated).
         /// </summary>
         private void DrawColorBars(XGraphics gfx, float startX, float startY,
             int cols, int rows, float cellW, float cellH, float pageW, float pageH)
@@ -720,9 +708,15 @@ namespace MTGProxyBuilder.Core.Services
             if (!fitsBottom && !fitsRight) return;
 
             if (fitsBottom)
+            {
+                // Horizontal bar below the grid
                 DrawColorBarStrip(gfx, startX, gridBottom + gap, gridWidth, barThickness, false);
+            }
             else
+            {
+                // Vertical bar to the right of the grid (rotated 90°)
                 DrawColorBarStrip(gfx, gridRight + gap, startY, gridHeight, barThickness, true);
+            }
         }
 
         private void DrawColorBarStrip(XGraphics gfx, float originX, float originY,
@@ -762,6 +756,7 @@ namespace MTGProxyBuilder.Core.Services
                     pos += patchSize;
                 }
 
+                // Label at center of the 4-patch group
                 float labelPos = pos - patchSize * 2;
                 if (vertical)
                     gfx.DrawString(label, labelFont, XBrushes.Black,
@@ -771,6 +766,7 @@ namespace MTGProxyBuilder.Core.Services
                         originX + labelPos, originY - 1, labelFormat);
             }
 
+            // Grayscale ramp
             for (int i = 0; i < 8; i++)
             {
                 int v = 255 - (int)(255 * i / 7.0);
@@ -782,6 +778,7 @@ namespace MTGProxyBuilder.Core.Services
                 pos += patchSize;
             }
 
+            // Border
             if (vertical)
                 gfx.DrawRectangle(new XPen(XColors.Black, 0.25),
                     originX, originY, stripThickness, stripLength);
