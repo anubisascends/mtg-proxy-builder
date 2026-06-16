@@ -72,7 +72,7 @@ namespace MTGProxyBuilder.Core.Models
             set { _printerProfileName = value; OnPropertyChanged(); }
         }
 
-        public int TotalCards => Cards.Sum(c => c.Quantity);
+        public int TotalCards => Cards.Count;
 
         public int TotalPages
         {

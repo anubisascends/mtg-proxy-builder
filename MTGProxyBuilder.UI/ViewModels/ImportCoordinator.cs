@@ -137,8 +137,12 @@ namespace MTGProxyBuilder.UI.ViewModels
                     backPath = await _search.DownloadScryfallArtAsync(scryfallCard, back: true);
 
                 var card = scryfallCard.ToCardModel(frontPath ?? string.Empty, backPath);
-                card.Quantity = entry.Quantity;
-                importedCards.Add(card);
+                card.Quantity = 1;
+                for (int q = 0; q < entry.Quantity; q++)
+                {
+                    var copy = q == 0 ? card : CloneCard(card);
+                    importedCards.Add(copy);
+                }
 
                 if (ignoreDuplicates)
                 {
@@ -201,17 +205,19 @@ namespace MTGProxyBuilder.UI.ViewModels
                 if (backPath == null && !string.IsNullOrEmpty(project.CommonCardbackId))
                     backPath = await _xmlImport.DownloadImageByIdAsync(project.CommonCardbackId);
 
-                var card = new CardModel
+                for (int q = 0; q < quantity; q++)
                 {
-                    Name = cardName,
-                    ArtworkPath = frontPath,
-                    BackArtworkPath = backPath,
-                    IncludeBack = backPath != null,
-                    Quantity = quantity,
-                    DateAdded = DateTime.Now
-                };
-
-                importedCards.Add(card);
+                    var card = new CardModel
+                    {
+                        Name = cardName,
+                        ArtworkPath = frontPath,
+                        BackArtworkPath = backPath,
+                        IncludeBack = backPath != null,
+                        Quantity = 1,
+                        DateAdded = DateTime.Now
+                    };
+                    importedCards.Add(card);
+                }
                 downloaded++;
                 await Task.Delay(50);
             }
@@ -316,11 +322,11 @@ namespace MTGProxyBuilder.UI.ViewModels
                     .FirstOrDefault(v => v.Id == entry.VariantId)
                     ?? entry.Card.CardVariants.FirstOrDefault();
 
-                var card = new CardModel
+                var template = new CardModel
                 {
                     Name = cardName,
                     ArtworkPath = artPath,
-                    Quantity = entry.Quantity,
+                    Quantity = 1,
                     IsRiftbound = true,
                     TypeLine = entry.Card.Super != null
                         ? $"{entry.Card.Super} {entry.Card.Type}"
@@ -334,12 +340,55 @@ namespace MTGProxyBuilder.UI.ViewModels
                     DateAdded = DateTime.Now
                 };
 
-                importedCards.Add(card);
+                for (int q = 0; q < entry.Quantity; q++)
+                {
+                    var copy = q == 0 ? template : CloneCard(template);
+                    importedCards.Add(copy);
+                }
                 downloaded++;
                 await Task.Delay(50);
             }
 
             return new RiftboundImportResult(importedCards, deck.Name, downloaded, failed);
         }
+
+        /// <summary>Creates an independent copy of a CardModel with a new CardId.</summary>
+        private static CardModel CloneCard(CardModel source) => new()
+        {
+            Name = source.Name,
+            ArtworkPath = source.ArtworkPath,
+            BackArtworkPath = source.BackArtworkPath,
+            OriginalBackArtworkPath = source.OriginalBackArtworkPath,
+            OverlayText = source.OverlayText,
+            ScryfallId = source.ScryfallId,
+            Quantity = 1,
+            IncludeBack = source.IncludeBack,
+            IsDoubleFaced = source.IsDoubleFaced,
+            IsPastedImage = source.IsPastedImage,
+            IsRiftbound = source.IsRiftbound,
+            ManaCost = source.ManaCost,
+            CMC = source.CMC,
+            TypeLine = source.TypeLine,
+            OracleText = source.OracleText,
+            Rarity = source.Rarity,
+            Colors = source.Colors,
+            ColorIdentity = source.ColorIdentity,
+            SetCode = source.SetCode,
+            SetName = source.SetName,
+            CollectorNumber = source.CollectorNumber,
+            Artist = source.Artist,
+            Power = source.Power,
+            Toughness = source.Toughness,
+            Loyalty = source.Loyalty,
+            Keywords = source.Keywords,
+            BackName = source.BackName,
+            BackManaCost = source.BackManaCost,
+            BackTypeLine = source.BackTypeLine,
+            BackOracleText = source.BackOracleText,
+            BackPower = source.BackPower,
+            BackToughness = source.BackToughness,
+            BackLoyalty = source.BackLoyalty,
+            DateAdded = DateTime.Now
+        };
     }
 }

@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
+using MTGProxyBuilder.UI.Services;
 using Serilog;
 
 namespace MTGProxyBuilder.UI.ViewModels
@@ -198,6 +199,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             AddScryfallCardCommand = new RelayCommand(_ => AddScryfallCard(), _ => SelectedScryfallCard != null);
 
             ExportPdfCommand = new RelayCommand(_ => ExportPdf());
+            PreviewPdfCommand = new RelayCommand(_ => PreviewPdf());
             ExportSvgCommand = new RelayCommand(_ => ExportSvgOnly());
 
             // Back art library commands
@@ -982,6 +984,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ScryfallSearchCommand { get; }
         public ICommand AddScryfallCardCommand { get; }
         public ICommand ExportPdfCommand { get; }
+        public ICommand PreviewPdfCommand { get; }
         public ICommand ExportSvgCommand { get; }
         public ICommand AddBackArtToLibraryCommand { get; }
         public ICommand RemoveBackArtFromLibraryCommand { get; }
@@ -1047,7 +1050,20 @@ namespace MTGProxyBuilder.UI.ViewModels
             _currentProject = project;
             _currentProject.PageSettings.PropertyChanged += OnPageSettingsChanged;
             _currentFilePath = filePath;
-            Cards = new ObservableCollection<CardModel>(project.Cards);
+
+            // Expand legacy cards that have Quantity > 1 into individual singletons
+            var expanded = new List<CardModel>();
+            foreach (var card in project.Cards)
+            {
+                int qty = Math.Max(1, card.Quantity);
+                card.Quantity = 1;
+                expanded.Add(card);
+                for (int i = 1; i < qty; i++)
+                    expanded.Add(CloneCard(card));
+            }
+            project.Cards = expanded;
+
+            Cards = new ObservableCollection<CardModel>(expanded);
             SelectedCard = null;
             _selectedPagePreset = DetectPagePreset(project.PageSettings);
             HasUnsavedChanges = false;
@@ -1861,6 +1877,60 @@ namespace MTGProxyBuilder.UI.ViewModels
             catch (Exception ex)
             {
                 StatusText = $"Download failed: {ex.Message}";
+            }
+            finally
+            {
+                ClearBusy();
+            }
+        }
+
+        private async void PreviewPdf()
+        {
+            if (Cards.Count == 0)
+            {
+                StatusText = "No cards to preview";
+                return;
+            }
+
+            SyncCardsToProject();
+            SetBusy("Rendering preview...");
+
+            try
+            {
+                float offsetX = 0, offsetY = 0;
+                var printerName = _currentProject.PrinterProfileName;
+                if (!string.IsNullOrEmpty(printerName))
+                {
+                    var profile = _appSettings.Settings.PrinterProfiles
+                        .FirstOrDefault(p => p.Name == printerName);
+                    if (profile != null)
+                    {
+                        offsetX = profile.OffsetXMm;
+                        offsetY = profile.OffsetYMm;
+                    }
+                }
+
+                var renderer = new PreviewRenderer();
+                var pages = await renderer.RenderAllPagesAsync(_currentProject, offsetX, offsetY);
+
+                ClearBusy();
+
+                if (pages.Count == 0)
+                {
+                    StatusText = "No pages to preview";
+                    return;
+                }
+
+                var dialog = new Dialogs.PrintPreviewDialog(pages, _currentProject, _pdfGeneratorService, _appSettings);
+                dialog.Owner = Application.Current.MainWindow;
+                dialog.ShowDialog();
+
+                StatusText = "Preview closed";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Preview failed: {ex.Message}";
+                Log.Error(ex, "Preview rendering failed");
             }
             finally
             {
@@ -2711,6 +2781,25 @@ namespace MTGProxyBuilder.UI.ViewModels
             _currentProject.Cards = Cards.ToList();
             _currentProject.LastModified = DateTime.Now;
         }
+
+        /// <summary>Creates an independent copy of a CardModel with a new CardId.</summary>
+        private static CardModel CloneCard(CardModel s) => new()
+        {
+            Name = s.Name, ArtworkPath = s.ArtworkPath,
+            BackArtworkPath = s.BackArtworkPath, OriginalBackArtworkPath = s.OriginalBackArtworkPath,
+            OverlayText = s.OverlayText, ScryfallId = s.ScryfallId, Quantity = 1,
+            IncludeBack = s.IncludeBack, IsDoubleFaced = s.IsDoubleFaced,
+            IsPastedImage = s.IsPastedImage, IsRiftbound = s.IsRiftbound,
+            ManaCost = s.ManaCost, CMC = s.CMC, TypeLine = s.TypeLine,
+            OracleText = s.OracleText, Rarity = s.Rarity, Colors = s.Colors,
+            ColorIdentity = s.ColorIdentity, SetCode = s.SetCode, SetName = s.SetName,
+            CollectorNumber = s.CollectorNumber, Artist = s.Artist,
+            Power = s.Power, Toughness = s.Toughness, Loyalty = s.Loyalty, Keywords = s.Keywords,
+            BackName = s.BackName, BackManaCost = s.BackManaCost, BackTypeLine = s.BackTypeLine,
+            BackOracleText = s.BackOracleText, BackPower = s.BackPower,
+            BackToughness = s.BackToughness, BackLoyalty = s.BackLoyalty,
+            DateAdded = DateTime.Now
+        };
 
         /// <summary>
         /// Applies the default back art from the library to a card,
