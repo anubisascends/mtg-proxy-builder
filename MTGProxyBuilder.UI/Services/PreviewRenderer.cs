@@ -217,6 +217,13 @@ namespace MTGProxyBuilder.UI.Services
                 DrawRegistrationMarks(canvas, pageWPt, pageHPt, printSettings);
             }
 
+            // Pass 5: Draw CMYK color bars in the margin
+            if (printSettings.ShowColorBars)
+            {
+                int rows = cols > 0 ? perPage / cols : 0;
+                DrawColorBars(canvas, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
+            }
+
             return ConvertToBitmapSource(bitmap);
         }
 
@@ -561,6 +568,91 @@ namespace MTGProxyBuilder.UI.Services
         }
 
         /// <summary>Each card in the list is one slot on the page — no quantity expansion.</summary>
+        private void DrawColorBars(SKCanvas canvas, float startX, float startY,
+            int cols, int rows, float cellW, float cellH, float pageW, float pageH)
+        {
+            float gridRight = startX + cols * cellW;
+            float gridBottom = startY + rows * cellH;
+            float gridWidth = cols * cellW;
+            float gridHeight = rows * cellH;
+            float barThickness = 4 * MmToPt;
+            float gap = 2 * MmToPt;
+            float minClearance = 3 * MmToPt;
+
+            bool fitsBottom = gridBottom + gap + barThickness <= pageH - minClearance;
+            bool fitsRight = gridRight + gap + barThickness <= pageW - minClearance;
+
+            if (!fitsBottom && !fitsRight) return;
+
+            if (fitsBottom)
+                DrawColorBarStrip(canvas, startX, gridBottom + gap, gridWidth, barThickness, false);
+            else
+                DrawColorBarStrip(canvas, gridRight + gap, startY, gridHeight, barThickness, true);
+        }
+
+        private void DrawColorBarStrip(SKCanvas canvas, float originX, float originY,
+            float stripLength, float stripThickness, bool vertical)
+        {
+            var colorDefs = new (string Label, byte R, byte G, byte B)[]
+            {
+                ("C", 0, 174, 239), ("M", 236, 0, 140), ("Y", 255, 242, 0),
+                ("K", 0, 0, 0), ("R", 237, 28, 36), ("G", 0, 166, 81), ("B", 46, 49, 146),
+            };
+
+            int totalPatches = colorDefs.Length * 4 + 8;
+            float patchSize = stripLength / totalPatches;
+            float pos = 0;
+
+            using var labelTypeface = SKTypeface.FromFamilyName("Arial");
+            using var labelFont = new SKFont(labelTypeface, 5);
+            using var labelPaint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+
+            foreach (var (label, cr, cg, cb) in colorDefs)
+            {
+                float[] densities = { 0.25f, 0.50f, 0.75f, 1.0f };
+                foreach (float d in densities)
+                {
+                    byte r = (byte)(255 + (cr - 255) * d);
+                    byte g = (byte)(255 + (cg - 255) * d);
+                    byte b = (byte)(255 + (cb - 255) * d);
+                    using var paint = new SKPaint { Color = new SKColor(r, g, b) };
+                    if (vertical)
+                        canvas.DrawRect(originX, originY + pos, stripThickness, patchSize, paint);
+                    else
+                        canvas.DrawRect(originX + pos, originY, patchSize, stripThickness, paint);
+                    pos += patchSize;
+                }
+                float labelPos = pos - patchSize * 2;
+                if (vertical)
+                    canvas.DrawText(label, originX + stripThickness + 2,
+                        originY + labelPos + patchSize / 2 + 2, labelFont, labelPaint);
+                else
+                    canvas.DrawText(label, originX + labelPos,
+                        originY - 1, labelFont, labelPaint);
+            }
+
+            for (int i = 0; i < 8; i++)
+            {
+                byte v = (byte)(255 - (int)(255 * i / 7.0));
+                using var paint = new SKPaint { Color = new SKColor(v, v, v) };
+                if (vertical)
+                    canvas.DrawRect(originX, originY + pos, stripThickness, patchSize, paint);
+                else
+                    canvas.DrawRect(originX + pos, originY, patchSize, stripThickness, paint);
+                pos += patchSize;
+            }
+
+            using var borderPaint = new SKPaint
+            {
+                Color = SKColors.Black, StrokeWidth = 0.25f,
+                Style = SKPaintStyle.Stroke, IsAntialias = true
+            };
+            if (vertical)
+                canvas.DrawRect(originX, originY, stripThickness, stripLength, borderPaint);
+            else
+                canvas.DrawRect(originX, originY, stripLength, stripThickness, borderPaint);
+        }
+
         private static List<CardModel> ExpandCards(List<CardModel> cards) => cards;
 
         private static int CalcPageCount(int cardCount, PageLayout settings)

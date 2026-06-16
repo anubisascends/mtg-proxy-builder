@@ -439,13 +439,13 @@
                     <!-- Calibration -->
                     <Border Style="{StaticResource SectionCard}">
                         <StackPanel>
-                            <TextBlock Text="Alignment Calibration" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="Printer Calibration" Style="{StaticResource SectionHeader}"/>
                             <TextBlock Foreground="#999" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12">
-                                Export a test PDF, print it duplex, then hold the page up to a light.
-                                Measure the misalignment and enter the offset values above. Repeat until
-                                front and back are aligned.
+                                Export a calibration test PDF, print it duplex, then hold the page up to a light.
+                                Use the target patterns and mm rulers to measure the misalignment, then enter the
+                                offset values above. The test also includes CMYK color bars for verifying color accuracy.
                             </TextBlock>
-                            <Button x:Name="ExportAlignmentBtn" Content="Export Alignment Test PDF..." Padding="12,6"
+                            <Button x:Name="ExportAlignmentBtn" Content="Export Calibration Test PDF..." Padding="12,6"
                                     Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand" FontSize="11"
                                     HorizontalAlignment="Left" Click="OnExportAlignmentPdf"/>
                         </StackPanel>
