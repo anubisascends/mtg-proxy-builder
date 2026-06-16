@@ -60,6 +60,8 @@ public class AppSettingsServiceTests
         Assert.False(settings.MpcFillUseFavoritesOnly);
         Assert.Empty(settings.PrinterProfiles);
         Assert.Null(settings.DefaultPrinterProfileName);
+        Assert.Equal(300, settings.DefaultDpi);
+        Assert.Empty(settings.CustomCardSizePresets);
     }
 
     [Fact]

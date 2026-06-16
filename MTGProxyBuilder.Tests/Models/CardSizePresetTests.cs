@@ -65,4 +65,46 @@ public class CardSizePresetTests
         Assert.Contains("50", str);
         Assert.Contains("70", str);
     }
+
+    [Fact]
+    public void CustomPreset_IsCustomFlag()
+    {
+        var preset = new CardSizePreset("My Custom", 70f, 100f, isCustom: true);
+        Assert.True(preset.IsCustom);
+        Assert.Equal("My Custom", preset.Name);
+        Assert.Equal(70f, preset.WidthMm);
+        Assert.Equal(100f, preset.HeightMm);
+    }
+
+    [Fact]
+    public void CustomPreset_ToString_ShowsStar()
+    {
+        var custom = new CardSizePreset("My Size", 50f, 70f, isCustom: true);
+        Assert.StartsWith("\u2605", custom.ToString());
+
+        var builtin = new CardSizePreset("MTG", 63f, 88f);
+        Assert.DoesNotContain("\u2605", builtin.ToString());
+    }
+
+    [Fact]
+    public void BuiltInPresets_AreNotCustom()
+    {
+        foreach (var preset in CardSizePreset.BuiltInPresets)
+            Assert.False(preset.IsCustom, $"{preset.Name} should not be custom");
+    }
+
+    [Fact]
+    public void JsonRoundTrip_PreservesCustomPreset()
+    {
+        var preset = new CardSizePreset("Custom Game", 55f, 85f, isCustom: true);
+        var json = Newtonsoft.Json.JsonConvert.SerializeObject(preset);
+        var deserialized = Newtonsoft.Json.JsonConvert.DeserializeObject<CardSizePreset>(json);
+
+        Assert.NotNull(deserialized);
+        Assert.Equal("Custom Game", deserialized!.Name);
+        Assert.Equal(55f, deserialized.WidthMm);
+        Assert.Equal(85f, deserialized.HeightMm);
+        // IsCustom is [JsonIgnore] — set by app on load, not persisted
+        Assert.False(deserialized.IsCustom);
+    }
 }

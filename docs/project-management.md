@@ -27,6 +27,7 @@ Accessible from the toolbar, persists to `app_settings.json`:
 - **Default token text** — customizable text for token card overlays
 - **Default page size** — A4, A3, Letter, Legal, Tabloid
 - **Default bleed** — default bleed width for new projects
+- **Default DPI** — output resolution for bleed processing and print (default 300)
 - **Default card size preset** — applied to new projects automatically
 - **Update check toggle** — enable/disable automatic version checking
 - **Art library paths** — browse for an existing `catalog.json` to point libraries at a custom directory

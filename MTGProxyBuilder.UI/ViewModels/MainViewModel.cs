@@ -202,6 +202,8 @@ namespace MTGProxyBuilder.UI.ViewModels
             ExportPdfCommand = new RelayCommand(_ => ExportPdf());
             PreviewPdfCommand = new RelayCommand(_ => PreviewPdf());
             ExportSvgCommand = new RelayCommand(_ => ExportSvgOnly());
+            SaveCardSizePresetCommand = new RelayCommand(_ => SaveCustomCardSizePreset());
+            DeleteCardSizePresetCommand = new RelayCommand(_ => DeleteCustomCardSizePreset(), _ => _selectedCardSize?.IsCustom == true);
 
             // Back art library commands
             AddBackArtToLibraryCommand = new RelayCommand(_ => AddBackArtToLibrary());
@@ -255,6 +257,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             PagePresets = new ObservableCollection<string> { "A1", "A2", "A3", "A4", "Letter", "Legal", "Tabloid", "Custom" };
             _selectedPagePreset = "A4";
+            RefreshCardSizePresets();
             _selectedCardSize = CardSizePresets.First(p => p.Name == "Magic: The Gathering");
 
             // Load persisted back art library
@@ -881,8 +884,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         }
 
         // Card size presets
-        public ObservableCollection<CardSizePreset> CardSizePresets { get; } =
-            new(CardSizePreset.BuiltInPresets);
+        public ObservableCollection<CardSizePreset> CardSizePresets { get; } = new();
 
         public CardSizePreset? SelectedCardSize
         {
@@ -896,6 +898,53 @@ namespace MTGProxyBuilder.UI.ViewModels
                     StatusText = $"Card size: {value.Name} ({value.WidthMm} x {value.HeightMm} mm)";
                 }
             }
+        }
+
+        private void RefreshCardSizePresets()
+        {
+            CardSizePresets.Clear();
+            foreach (var p in CardSizePreset.BuiltInPresets)
+                CardSizePresets.Add(p);
+            foreach (var p in _appSettings.Settings.CustomCardSizePresets)
+            {
+                p.IsCustom = true;
+                CardSizePresets.Add(p);
+            }
+        }
+
+        private void SaveCustomCardSizePreset()
+        {
+            var w = _currentProject.PageSettings.CardWidthMm;
+            var h = _currentProject.PageSettings.CardHeightMm;
+
+            // Check if this exact size already exists
+            if (CardSizePresets.Any(p => Math.Abs(p.WidthMm - w) < 0.01f && Math.Abs(p.HeightMm - h) < 0.01f && p.IsCustom))
+            {
+                StatusText = "A custom preset with these dimensions already exists";
+                return;
+            }
+
+            string name = $"Custom ({w} x {h} mm)";
+            var preset = new CardSizePreset(name, w, h, isCustom: true);
+            _appSettings.Settings.CustomCardSizePresets.Add(preset);
+            _appSettings.Save();
+
+            CardSizePresets.Add(preset);
+            SelectedCardSize = preset;
+            StatusText = $"Saved custom preset: {name}";
+        }
+
+        private void DeleteCustomCardSizePreset()
+        {
+            if (_selectedCardSize == null || !_selectedCardSize.IsCustom) return;
+
+            var toRemove = _selectedCardSize;
+            _appSettings.Settings.CustomCardSizePresets.RemoveAll(p => p.Name == toRemove.Name);
+            _appSettings.Save();
+
+            CardSizePresets.Remove(toRemove);
+            SelectedCardSize = CardSizePresets.FirstOrDefault();
+            StatusText = $"Deleted preset: {toRemove.Name}";
         }
 
         // Page layout
@@ -1005,6 +1054,8 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ExportPdfCommand { get; }
         public ICommand PreviewPdfCommand { get; }
         public ICommand ExportSvgCommand { get; }
+        public ICommand SaveCardSizePresetCommand { get; }
+        public ICommand DeleteCardSizePresetCommand { get; }
         public ICommand AddBackArtToLibraryCommand { get; }
         public ICommand RemoveBackArtFromLibraryCommand { get; }
         public ICommand ApplyBackArtToSelectedCommand { get; }
