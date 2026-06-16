@@ -522,11 +522,29 @@ namespace MTGProxyBuilder.UI.ViewModels
         {
             get
             {
-                var profile = _appSettings.Settings.PrinterProfiles
-                    .FirstOrDefault(p => p.Name == _selectedPrinterProfileName);
-                if (profile == null) return "No offset applied";
-                return $"Offset: X {profile.OffsetXMm:+0.0;-0.0;0}mm, Y {profile.OffsetYMm:+0.0;-0.0;0}mm";
+                var cal = GetCurrentCalibration();
+                if (cal == null || !cal.HasCorrection) return "No offset applied";
+                float xMm = cal.TranslateXPt / (72f / 25.4f);
+                float yMm = cal.TranslateYPt / (72f / 25.4f);
+                if (Math.Abs(cal.RotationDegrees) > 0.001f)
+                    return $"Offset: X {xMm:+0.0;-0.0;0}mm, Y {yMm:+0.0;-0.0;0}mm, rot {cal.RotationDegrees:+0.00;-0.00;0}deg";
+                return $"Offset: X {xMm:+0.0;-0.0;0}mm, Y {yMm:+0.0;-0.0;0}mm";
             }
+        }
+
+        private CalibrationTransform? GetCurrentCalibration()
+        {
+            var printerName = _currentProject.PrinterProfileName;
+            if (string.IsNullOrEmpty(printerName)) return null;
+            var profile = _appSettings.Settings.PrinterProfiles.FirstOrDefault(p => p.Name == printerName);
+            if (profile == null) return null;
+            var s = _currentProject.PageSettings;
+            float cellWMm = s.CardWidthMm + 2 * s.BleedWidthMm;
+            float cellHMm = s.CardHeightMm + 2 * s.BleedWidthMm;
+            float gridWMm = s.CardsPerRow * cellWMm;
+            int rows = s.CardsPerRow > 0 ? s.CardsPerPage / s.CardsPerRow : 0;
+            float gridHMm = rows * cellHMm;
+            return CalibrationTransform.Compute(profile, gridWMm, gridHMm);
         }
 
         // Card outline enum bindings
@@ -1897,21 +1915,10 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             try
             {
-                float offsetX = 0, offsetY = 0;
-                var printerName = _currentProject.PrinterProfileName;
-                if (!string.IsNullOrEmpty(printerName))
-                {
-                    var profile = _appSettings.Settings.PrinterProfiles
-                        .FirstOrDefault(p => p.Name == printerName);
-                    if (profile != null)
-                    {
-                        offsetX = profile.OffsetXMm;
-                        offsetY = profile.OffsetYMm;
-                    }
-                }
+                var calibration = GetCurrentCalibration();
 
                 var renderer = new PreviewRenderer();
-                var pages = await renderer.RenderAllPagesAsync(_currentProject, offsetX, offsetY);
+                var pages = await renderer.RenderAllPagesAsync(_currentProject, calibration);
 
                 ClearBusy();
 
@@ -1955,20 +1962,9 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             try
             {
-                float offsetX = 0, offsetY = 0;
-                var printerName = _currentProject.PrinterProfileName;
-                if (!string.IsNullOrEmpty(printerName))
-                {
-                    var profile = _appSettings.Settings.PrinterProfiles
-                        .FirstOrDefault(p => p.Name == printerName);
-                    if (profile != null)
-                    {
-                        offsetX = profile.OffsetXMm;
-                        offsetY = profile.OffsetYMm;
-                    }
-                }
+                var calibration = GetCurrentCalibration();
                 bool success = await _pdfGeneratorService.GeneratePdfAsync(
-                    _currentProject, dialog.FileName, offsetX, offsetY);
+                    _currentProject, dialog.FileName, calibration);
 
                 if (success)
                 {

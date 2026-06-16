@@ -1,3 +1,4 @@
+using System;
 using System.Globalization;
 using System.IO;
 using System.Windows;
@@ -191,7 +192,10 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             PrinterProfileBox.Items.Clear();
             foreach (var profile in _settingsService.Settings.PrinterProfiles)
+            {
+                profile.MigrateLegacyOffsets();
                 PrinterProfileBox.Items.Add(profile);
+            }
 
             // Select the profile matching the saved name
             var selected = _settingsService.Settings.PrinterProfiles
@@ -208,8 +212,15 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             bool hasSelection = PrinterProfileBox.SelectedItem is PrinterProfile;
             ProfileNameBox.IsEnabled = hasSelection;
-            OffsetXBox.IsEnabled = hasSelection;
-            OffsetYBox.IsEnabled = hasSelection;
+            OffsetTLXBox.IsEnabled = hasSelection;
+            OffsetTLYBox.IsEnabled = hasSelection;
+            OffsetTRXBox.IsEnabled = hasSelection;
+            OffsetTRYBox.IsEnabled = hasSelection;
+            OffsetBLXBox.IsEnabled = hasSelection;
+            OffsetBLYBox.IsEnabled = hasSelection;
+            OffsetBRXBox.IsEnabled = hasSelection;
+            OffsetBRYBox.IsEnabled = hasSelection;
+            CalibrationSummaryLabel.Visibility = hasSelection ? Visibility.Visible : Visibility.Collapsed;
             ExportAlignmentBtn.IsEnabled = hasSelection;
             DefaultProfileCheck.IsEnabled = hasSelection;
 
@@ -233,15 +244,29 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (PrinterProfileBox.SelectedItem is PrinterProfile profile)
             {
                 ProfileNameBox.Text = profile.Name;
-                OffsetXBox.Text = profile.OffsetXMm.ToString(CultureInfo.InvariantCulture);
-                OffsetYBox.Text = profile.OffsetYMm.ToString(CultureInfo.InvariantCulture);
+                OffsetTLXBox.Text = profile.OffsetTLXMm.ToString(CultureInfo.InvariantCulture);
+                OffsetTLYBox.Text = profile.OffsetTLYMm.ToString(CultureInfo.InvariantCulture);
+                OffsetTRXBox.Text = profile.OffsetTRXMm.ToString(CultureInfo.InvariantCulture);
+                OffsetTRYBox.Text = profile.OffsetTRYMm.ToString(CultureInfo.InvariantCulture);
+                OffsetBLXBox.Text = profile.OffsetBLXMm.ToString(CultureInfo.InvariantCulture);
+                OffsetBLYBox.Text = profile.OffsetBLYMm.ToString(CultureInfo.InvariantCulture);
+                OffsetBRXBox.Text = profile.OffsetBRXMm.ToString(CultureInfo.InvariantCulture);
+                OffsetBRYBox.Text = profile.OffsetBRYMm.ToString(CultureInfo.InvariantCulture);
                 DefaultProfileCheck.IsChecked = profile.Name == _settingsService.Settings.DefaultPrinterProfileName;
+                UpdateCalibrationSummary();
             }
             else
             {
                 ProfileNameBox.Text = "";
-                OffsetXBox.Text = "";
-                OffsetYBox.Text = "";
+                OffsetTLXBox.Text = "";
+                OffsetTLYBox.Text = "";
+                OffsetTRXBox.Text = "";
+                OffsetTRYBox.Text = "";
+                OffsetBLXBox.Text = "";
+                OffsetBLYBox.Text = "";
+                OffsetBRXBox.Text = "";
+                OffsetBRYBox.Text = "";
+                CalibrationSummaryLabel.Text = "";
             }
             UpdatePrinterUI();
         }
@@ -314,10 +339,68 @@ namespace MTGProxyBuilder.UI.Dialogs
         {
             if (PrinterProfileBox.SelectedItem is not PrinterProfile profile) return;
 
-            if (float.TryParse(OffsetXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var x))
-                profile.OffsetXMm = x;
-            if (float.TryParse(OffsetYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
-                profile.OffsetYMm = y;
+            if (float.TryParse(OffsetTLXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var tlx))
+                profile.OffsetTLXMm = tlx;
+            if (float.TryParse(OffsetTLYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var tly))
+                profile.OffsetTLYMm = tly;
+            if (float.TryParse(OffsetTRXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var trx))
+                profile.OffsetTRXMm = trx;
+            if (float.TryParse(OffsetTRYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var try_))
+                profile.OffsetTRYMm = try_;
+            if (float.TryParse(OffsetBLXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var blx))
+                profile.OffsetBLXMm = blx;
+            if (float.TryParse(OffsetBLYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var bly))
+                profile.OffsetBLYMm = bly;
+            if (float.TryParse(OffsetBRXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var brx))
+                profile.OffsetBRXMm = brx;
+            if (float.TryParse(OffsetBRYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var bry))
+                profile.OffsetBRYMm = bry;
+
+            // Clear legacy fields
+            profile.OffsetXMm = 0;
+            profile.OffsetYMm = 0;
+        }
+
+        private void UpdateCalibrationSummary()
+        {
+            if (PrinterProfileBox.SelectedItem is not PrinterProfile profile)
+            {
+                CalibrationSummaryLabel.Text = "";
+                return;
+            }
+
+            SaveCurrentProfileOffsets();
+
+            float gridW = 200, gridH = 280; // defaults
+            if (_activeProject != null)
+            {
+                var s = _activeProject.PageSettings;
+                float cellW = s.CardWidthMm + 2 * s.BleedWidthMm;
+                float cellH = s.CardHeightMm + 2 * s.BleedWidthMm;
+                int cols = s.CardsPerRow;
+                int rows = cols > 0 && s.CardsPerPage > 0 ? s.CardsPerPage / cols : 0;
+                if (cols > 0 && rows > 0)
+                {
+                    gridW = cols * cellW;
+                    gridH = rows * cellH;
+                }
+            }
+
+            var cal = CalibrationTransform.Compute(profile, gridW, gridH);
+            float xMm = cal.TranslateXPt / (72f / 25.4f);
+            float yMm = cal.TranslateYPt / (72f / 25.4f);
+
+            if (cal.HasCorrection)
+            {
+                string rot = Math.Abs(cal.RotationDegrees) > 0.001f
+                    ? $", rotation {cal.RotationDegrees:+0.000;-0.000;0}deg" : "";
+                CalibrationSummaryLabel.Text =
+                    $"Computed: translation X {xMm:+0.00;-0.00;0}mm, Y {yMm:+0.00;-0.00;0}mm{rot}";
+            }
+            else
+            {
+                CalibrationSummaryLabel.Text = "No correction (all offsets zero)";
+            }
         }
 
         private async void OnExportAlignmentPdf(object sender, RoutedEventArgs e)
@@ -338,7 +421,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             var project = _activeProject ?? new ProjectModel();
             var pdfService = new PdfGeneratorService();
             bool ok = await pdfService.GenerateAlignmentPdfAsync(
-                project, dlg.FileName, profile.OffsetXMm, profile.OffsetYMm);
+                project, dlg.FileName, profile);
 
             if (ok)
                 MessageBox.Show("Alignment test PDF exported successfully.", "Export Complete",

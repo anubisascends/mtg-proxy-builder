@@ -407,32 +407,89 @@
                         </StackPanel>
                     </Border>
 
-                    <!-- Offset -->
+                    <!-- 4-Corner Offset -->
                     <Border Style="{StaticResource SectionCard}">
                         <StackPanel>
-                            <TextBlock Text="Back-Page Offset" Style="{StaticResource SectionHeader}"/>
-                            <TextBlock Text="Offsets are applied to back pages to align with front pages during duplex printing."
+                            <TextBlock Text="Back-Page Offset (4-Corner)" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="Measure misalignment at each corner of your calibration test page. Offsets are applied to back pages to align with front pages during duplex printing. + X shifts right, + Y shifts down."
                                        Foreground="#999" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
 
+                            <!-- Header row -->
                             <Grid Margin="0,0,0,4">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="8"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Text="X Offset (mm)" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="OffsetXBox" Padding="6,4" FontSize="12" Width="80" HorizontalAlignment="Left"
-                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    <TextBlock Text="+ shifts back page right" Style="{StaticResource HintLabel}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Text="Y Offset (mm)" Style="{StaticResource FieldLabel}"/>
-                                    <TextBox x:Name="OffsetYBox" Padding="6,4" FontSize="12" Width="80" HorizontalAlignment="Left"
-                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                    <TextBlock Text="+ shifts back page down" Style="{StaticResource HintLabel}"/>
-                                </StackPanel>
+                                <TextBlock Grid.Column="0" Text="" Foreground="#AAA" FontSize="10"/>
+                                <TextBlock Grid.Column="1" Text="X (mm)" Foreground="#AAA" FontSize="10" HorizontalAlignment="Center"/>
+                                <TextBlock Grid.Column="3" Text="Y (mm)" Foreground="#AAA" FontSize="10" HorizontalAlignment="Center"/>
                             </Grid>
+
+                            <!-- TL -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="TL" Foreground="#AAA" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="OffsetTLXBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                <TextBox Grid.Column="3" x:Name="OffsetTLYBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                            </Grid>
+
+                            <!-- TR -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="TR" Foreground="#AAA" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="OffsetTRXBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                <TextBox Grid.Column="3" x:Name="OffsetTRYBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                            </Grid>
+
+                            <!-- BL -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="BL" Foreground="#AAA" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="OffsetBLXBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                <TextBox Grid.Column="3" x:Name="OffsetBLYBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                            </Grid>
+
+                            <!-- BR -->
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="40"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="BR" Foreground="#AAA" FontSize="11" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="OffsetBRXBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                <TextBox Grid.Column="3" x:Name="OffsetBRYBox" Padding="6,4" FontSize="12"
+                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                            </Grid>
+
+                            <!-- Calibration summary -->
+                            <TextBlock x:Name="CalibrationSummaryLabel" Foreground="#888" FontSize="10"
+                                       TextWrapping="Wrap" Margin="0,8,0,0"/>
                         </StackPanel>
                     </Border>
 

@@ -16,7 +16,7 @@ namespace MTGProxyBuilder.UI.Services
         private readonly BleedProcessor _bleedProcessor = new();
 
         public Task<List<BitmapSource>> RenderAllPagesAsync(ProjectModel project,
-            float backOffsetXMm = 0, float backOffsetYMm = 0, float dpi = DefaultDpi)
+            CalibrationTransform? backCalibration = null, float dpi = DefaultDpi)
         {
             return Task.Run(() =>
             {
@@ -25,9 +25,6 @@ namespace MTGProxyBuilder.UI.Services
 
                 var settings = project.PageSettings;
                 var printSettings = project.PrintSettings;
-
-                float backOffsetXPt = backOffsetXMm * MmToPt;
-                float backOffsetYPt = backOffsetYMm * MmToPt;
 
                 // Pre-process bleed cache (same logic as PdfGeneratorService)
                 int bleedPx = settings.BleedWidthMm > 0
@@ -60,21 +57,21 @@ namespace MTGProxyBuilder.UI.Services
 
                     for (int i = 0; i < totalPages; i++)
                     {
-                        pages.Add(RenderPage(settings, printSettings, expandedFronts, i, true, bleedCache, 0, 0));
-                        pages.Add(RenderPage(settings, printSettings, expandedBacks, i, false, bleedCache, backOffsetXPt, backOffsetYPt));
+                        pages.Add(RenderPage(settings, printSettings, expandedFronts, i, true, bleedCache));
+                        pages.Add(RenderPage(settings, printSettings, expandedBacks, i, false, bleedCache, backCalibration));
                     }
                 }
                 else if (printSettings.PrintMode == PrintMode.FrontsOnly)
                 {
                     int pageCount = CalcPageCount(expandedFronts.Count, settings);
                     for (int i = 0; i < pageCount; i++)
-                        pages.Add(RenderPage(settings, printSettings, expandedFronts, i, true, bleedCache, 0, 0));
+                        pages.Add(RenderPage(settings, printSettings, expandedFronts, i, true, bleedCache));
                 }
                 else // BacksOnly
                 {
                     int pageCount = CalcPageCount(expandedBacks.Count, settings);
                     for (int i = 0; i < pageCount; i++)
-                        pages.Add(RenderPage(settings, printSettings, expandedBacks, i, false, bleedCache, backOffsetXPt, backOffsetYPt));
+                        pages.Add(RenderPage(settings, printSettings, expandedBacks, i, false, bleedCache, backCalibration));
                 }
 
                 // If no pages were generated, produce a blank page
@@ -95,7 +92,7 @@ namespace MTGProxyBuilder.UI.Services
         private BitmapSource RenderPage(PageLayout settings, PrintSettings printSettings,
             List<CardModel> cards, int pageIndex, bool front,
             Dictionary<string, string> bleedCache,
-            float backOffsetXPt, float backOffsetYPt)
+            CalibrationTransform? calibration = null)
         {
             float pageWPt = settings.PageWidthMm * MmToPt;
             float pageHPt = settings.PageHeightMm * MmToPt;
@@ -109,8 +106,15 @@ namespace MTGProxyBuilder.UI.Services
             canvas.Clear(SKColors.White);
             canvas.Scale(Scale, Scale);
 
-            if (!front && (backOffsetXPt != 0 || backOffsetYPt != 0))
-                canvas.Translate(backOffsetXPt, backOffsetYPt);
+            if (!front && calibration != null && calibration.HasCorrection)
+            {
+                float pageCenterX = pageWPt / 2;
+                float pageCenterY = pageHPt / 2;
+                canvas.Translate(pageCenterX, pageCenterY);
+                canvas.RotateDegrees(calibration.RotationDegrees);
+                canvas.Translate(-pageCenterX, -pageCenterY);
+                canvas.Translate(calibration.TranslateXPt, calibration.TranslateYPt);
+            }
 
             int perPage = settings.CardsPerPage;
             if (perPage <= 0)

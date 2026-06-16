@@ -10,7 +10,7 @@ namespace MTGProxyBuilder.Core.Services
         private readonly BleedProcessor _bleedProcessor = new();
 
         public Task<bool> GeneratePdfAsync(ProjectModel project, string outputPath,
-            float backOffsetXMm = 0, float backOffsetYMm = 0)
+            CalibrationTransform? backCalibration = null)
         {
             return Task.Run(() =>
             {
@@ -21,9 +21,6 @@ namespace MTGProxyBuilder.Core.Services
 
                     var settings = project.PageSettings;
                     var printSettings = project.PrintSettings;
-
-                    float backOffsetXPt = backOffsetXMm * MmToPt;
-                    float backOffsetYPt = backOffsetYMm * MmToPt;
 
                     // Pre-process all unique images for bleed (avoids re-processing duplicates)
                     int bleedPx = settings.BleedWidthMm > 0
@@ -56,21 +53,21 @@ namespace MTGProxyBuilder.Core.Services
 
                         for (int i = 0; i < totalPages; i++)
                         {
-                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache, 0, 0);
-                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache, backOffsetXPt, backOffsetYPt);
+                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache);
+                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache, backCalibration);
                         }
                     }
                     else if (printSettings.PrintMode == PrintMode.FrontsOnly)
                     {
                         int pageCount = CalcPageCount(expandedFronts.Count, settings);
                         for (int i = 0; i < pageCount; i++)
-                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache, 0, 0);
+                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache);
                     }
                     else
                     {
                         int pageCount = CalcPageCount(expandedBacks.Count, settings);
                         for (int i = 0; i < pageCount; i++)
-                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache, backOffsetXPt, backOffsetYPt);
+                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache, backCalibration);
                     }
 
                     if (document.PageCount == 0)
@@ -91,7 +88,7 @@ namespace MTGProxyBuilder.Core.Services
         }
 
         public Task<bool> GenerateAlignmentPdfAsync(ProjectModel project, string outputPath,
-            float offsetXMm, float offsetYMm)
+            PrinterProfile profile)
         {
             return Task.Run(() =>
             {
@@ -125,6 +122,11 @@ namespace MTGProxyBuilder.Core.Services
 
                     float pageWPt = settings.PageWidthMm * MmToPt;
                     float pageHPt = settings.PageHeightMm * MmToPt;
+
+                    // Compute calibration transform from profile + grid dimensions
+                    float gridWidthMm = cols * (settings.CardWidthMm + 2 * settings.BleedWidthMm);
+                    float gridHeightMm = rows * (settings.CardHeightMm + 2 * settings.BleedWidthMm);
+                    var calibration = CalibrationTransform.Compute(profile, gridWidthMm, gridHeightMm);
 
                     // Fonts
                     var titleFont = new XFont("Arial", 10, XFontStyleEx.Bold);
@@ -183,14 +185,17 @@ namespace MTGProxyBuilder.Core.Services
                         // CMYK color bars (full graduated density + grayscale)
                         DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
 
-                        // Current offset values
-                        gfx.DrawString($"Current offset: X={offsetXMm:F2}mm, Y={offsetYMm:F2}mm",
+                        // Current calibration info
+                        float txMm = calibration.TranslateXPt / MmToPt;
+                        float tyMm = calibration.TranslateYPt / MmToPt;
+                        gfx.DrawString(
+                            $"Applied: translation X={txMm:F2}mm, Y={tyMm:F2}mm, rotation={calibration.RotationDegrees:F3}deg",
                             infoFont, XBrushes.Black, startX, pageHPt - 28, leftFormat);
 
                         // Instructions at very bottom
                         gfx.DrawString(
                             "Print this page duplex (flip on long edge). Hold up to light. Measure offset between " +
-                            "solid (front) and dashed (back) targets. Enter offset in Settings > Printer Calibration.",
+                            "solid (front) and dashed (back) targets at each corner. Enter offsets in Settings > Printer Calibration.",
                             instructionFont, XBrushes.DarkGray, startX, pageHPt - 16, leftFormat);
                     }
 
@@ -199,14 +204,25 @@ namespace MTGProxyBuilder.Core.Services
                     SetPageSize(backPage, settings);
                     using (var gfx = XGraphics.FromPdfPage(backPage))
                     {
-                        // Apply calibration offset
-                        gfx.TranslateTransform(offsetXMm * MmToPt, offsetYMm * MmToPt);
+                        // Apply calibration transform (rotation about page center + translation)
+                        if (calibration.HasCorrection)
+                        {
+                            float pageCenterX = pageWPt / 2;
+                            float pageCenterY = pageHPt / 2;
+                            gfx.TranslateTransform(pageCenterX, pageCenterY);
+                            gfx.RotateTransform(calibration.RotationDegrees);
+                            gfx.TranslateTransform(-pageCenterX, -pageCenterY);
+                            gfx.TranslateTransform(calibration.TranslateXPt, calibration.TranslateYPt);
+                        }
 
                         // Title bar
                         float titleY = Math.Min(startY - 24, 10);
                         gfx.DrawString("PRINTER CALIBRATION TEST \u2014 BACK", titleFont, XBrushes.Black,
                             startX, titleY, leftFormat);
-                        gfx.DrawString($"Applied offset: X={offsetXMm:F2}mm, Y={offsetYMm:F2}mm",
+                        float txMm = calibration.TranslateXPt / MmToPt;
+                        float tyMm = calibration.TranslateYPt / MmToPt;
+                        gfx.DrawString(
+                            $"Applied: translation X={txMm:F2}mm, Y={tyMm:F2}mm, rotation={calibration.RotationDegrees:F3}deg",
                             infoFont, XBrushes.Black, startX, titleY + 12, leftFormat);
 
                         // Grid boundary rectangle (dashed)
@@ -375,7 +391,7 @@ namespace MTGProxyBuilder.Core.Services
         private void AddPage(PdfDocument doc, PageLayout settings, PrintSettings printSettings,
             List<CardModel> cards, int pageIndex, bool front,
             Dictionary<string, string> bleedCache,
-            float backOffsetXPt = 0, float backOffsetYPt = 0)
+            CalibrationTransform? calibration = null)
         {
             var page = doc.AddPage();
             SetPageSize(page, settings);
@@ -388,9 +404,6 @@ namespace MTGProxyBuilder.Core.Services
 
             using var gfx = XGraphics.FromPdfPage(page);
 
-            if (!front && (backOffsetXPt != 0 || backOffsetYPt != 0))
-                gfx.TranslateTransform(backOffsetXPt, backOffsetYPt);
-
             float startX = settings.MarginLeftMm * MmToPt;
             float startY = settings.MarginTopMm * MmToPt;
             float bleedPt = settings.BleedWidthMm * MmToPt;
@@ -402,6 +415,16 @@ namespace MTGProxyBuilder.Core.Services
             int cols = settings.CardsPerRow;
             float pageWPt = settings.PageWidthMm * MmToPt;
             float pageHPt = settings.PageHeightMm * MmToPt;
+
+            if (!front && calibration != null && calibration.HasCorrection)
+            {
+                float pageCenterX = pageWPt / 2;
+                float pageCenterY = pageHPt / 2;
+                gfx.TranslateTransform(pageCenterX, pageCenterY);
+                gfx.RotateTransform(calibration.RotationDegrees);
+                gfx.TranslateTransform(-pageCenterX, -pageCenterY);
+                gfx.TranslateTransform(calibration.TranslateXPt, calibration.TranslateYPt);
+            }
 
             // When registration marks are active, suppress bleed, cut guides, and outlines
             bool useBleed = bleedCache.Count > 0 && !printSettings.ShowRegistrationMarks;
