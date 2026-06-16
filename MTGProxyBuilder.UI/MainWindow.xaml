@@ -70,6 +70,7 @@
                 <MenuItem Header="_Save" Command="{Binding ActiveProject.Inner.SaveProjectCommand}" InputGestureText="Ctrl+S"/>
                 <MenuItem Header="Save _As" Command="{Binding ActiveProject.Inner.SaveProjectAsCommand}" InputGestureText="Ctrl+Shift+S"/>
                 <Separator/>
+                <MenuItem Header="_Preview PDF" Command="{Binding ActiveProject.Inner.PreviewPdfCommand}" InputGestureText="Ctrl+P"/>
                 <MenuItem Header="_Export PDF" Command="{Binding ActiveProject.Inner.ExportPdfCommand}" InputGestureText="Ctrl+E"/>
                 <MenuItem Header="Export SVG Cut Lines" Command="{Binding ActiveProject.Inner.ExportSvgCommand}"/>
                 <Separator/>
@@ -154,6 +155,9 @@
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE710;"
                             AutomationProperties.Name="Add Card from File"
                             Command="{Binding ActiveProject.Inner.AddCardFromFileCommand}" ToolTip="Add Card from File"/>
+                    <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8FF;"
+                            AutomationProperties.Name="Preview PDF"
+                            Command="{Binding ActiveProject.Inner.PreviewPdfCommand}" ToolTip="Preview PDF (Ctrl+P)"/>
                     <Button Style="{StaticResource ToolbarIconBtn}" Content="&#xE8A5;"
                             AutomationProperties.Name="Export PDF"
                             Command="{Binding ActiveProject.Inner.ExportPdfCommand}" ToolTip="Export PDF (Ctrl+E)"/>
@@ -729,22 +733,9 @@
                                             </StackPanel>
                                         </Border>
 
-                                        <!-- Quantity / Mana Cost -->
-                                        <Grid Margin="0,0,0,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="*"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Margin="0,0,4,0">
-                                                <TextBlock Text="Quantity" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                                <TextBox Text="{Binding Quantity, UpdateSourceTrigger=PropertyChanged}" Padding="6,4"
-                                                         Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Margin="4,0,0,0">
-                                                <TextBlock Text="Mana Cost" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
-                                                <controls:ManaTextBlock ManaText="{Binding DataContext.ActiveProject.Inner.DisplayManaCost, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" FontSize="12" SymbolSize="14" Padding="6,5"/>
-                                            </StackPanel>
-                                        </Grid>
+                                        <!-- Mana Cost -->
+                                        <TextBlock Text="Mana Cost" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>
+                                        <controls:ManaTextBlock ManaText="{Binding DataContext.ActiveProject.Inner.DisplayManaCost, RelativeSource={RelativeSource AncestorType=Window}}" Foreground="#CCC" FontSize="12" SymbolSize="14" Padding="6,5" Margin="0,0,0,8"/>
 
                                         <!-- CMC -->
                                         <TextBlock Text="Mana Value" Foreground="#999" FontSize="10" Margin="0,0,0,2"/>

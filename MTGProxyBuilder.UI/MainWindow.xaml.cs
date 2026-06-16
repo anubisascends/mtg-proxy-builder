@@ -96,6 +96,11 @@ public partial class MainWindow : Window
                 if (vm.ExportPdfCommand.CanExecute(null)) vm.ExportPdfCommand.Execute(null);
                 e.Handled = true;
             }
+            else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.P)
+            {
+                if (vm.PreviewPdfCommand.CanExecute(null)) vm.PreviewPdfCommand.Execute(null);
+                e.Handled = true;
+            }
             else if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.A)
             {
                 GridCanvas.SelectAll();

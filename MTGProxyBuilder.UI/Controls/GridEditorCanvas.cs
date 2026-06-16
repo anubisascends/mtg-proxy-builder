@@ -366,8 +366,7 @@ namespace MTGProxyBuilder.UI.Controls
             var cards = CardsSource;
             if (cards != null)
                 for (int i = 0; i < cards.Count; i++)
-                    for (int q = 0; q < cards[i].Quantity; q++)
-                        slots.Add(new ExpandedSlot(cards[i], i));
+                    slots.Add(new ExpandedSlot(cards[i], i));
 
             // Collect image paths to preload (include back images for flipped cards)
             var pathsToLoad = new HashSet<string>();

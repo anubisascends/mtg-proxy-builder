@@ -114,8 +114,36 @@ namespace MTGProxyBuilder.UI.Dialogs
                             backPath = await _searchCoordinator.DownloadScryfallArtAsync(sc, back: true);
 
                         var card = sc.ToCardModel(frontPath ?? string.Empty, backPath);
-                        card.Quantity = entry.Quantity;
-                        _importedCards.Add(card);
+                        card.Quantity = 1;
+                        for (int q = 0; q < entry.Quantity; q++)
+                        {
+                            if (q == 0)
+                                _importedCards.Add(card);
+                            else
+                            {
+                                var copy = new CardModel
+                                {
+                                    Name = card.Name, ArtworkPath = card.ArtworkPath,
+                                    BackArtworkPath = card.BackArtworkPath,
+                                    OriginalBackArtworkPath = card.OriginalBackArtworkPath,
+                                    ScryfallId = card.ScryfallId, Quantity = 1,
+                                    IncludeBack = card.IncludeBack, IsDoubleFaced = card.IsDoubleFaced,
+                                    ManaCost = card.ManaCost, CMC = card.CMC,
+                                    TypeLine = card.TypeLine, OracleText = card.OracleText,
+                                    Rarity = card.Rarity, Colors = card.Colors,
+                                    ColorIdentity = card.ColorIdentity,
+                                    SetCode = card.SetCode, SetName = card.SetName,
+                                    CollectorNumber = card.CollectorNumber, Artist = card.Artist,
+                                    Power = card.Power, Toughness = card.Toughness,
+                                    Loyalty = card.Loyalty, Keywords = card.Keywords,
+                                    BackName = card.BackName, BackManaCost = card.BackManaCost,
+                                    BackTypeLine = card.BackTypeLine, BackOracleText = card.BackOracleText,
+                                    BackPower = card.BackPower, BackToughness = card.BackToughness,
+                                    BackLoyalty = card.BackLoyalty, DateAdded = DateTime.Now
+                                };
+                                _importedCards.Add(copy);
+                            }
+                        }
                         found++;
                     }
                     else

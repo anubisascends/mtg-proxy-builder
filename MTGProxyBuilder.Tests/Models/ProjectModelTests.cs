@@ -16,18 +16,18 @@ public class ProjectModelTests
     }
 
     [Fact]
-    public void TotalCards_SumsQuantities()
+    public void TotalCards_CountsIndividualCards()
     {
         var project = new ProjectModel
         {
             Cards = new List<CardModel>
             {
-                new() { Quantity = 4 },
-                new() { Quantity = 2 },
-                new() { Quantity = 1 }
+                new() { Name = "A" },
+                new() { Name = "B" },
+                new() { Name = "C" }
             }
         };
-        Assert.Equal(7, project.TotalCards);
+        Assert.Equal(3, project.TotalCards);
     }
 
     [Fact]
@@ -60,10 +60,11 @@ public class ProjectModelTests
     }
 
     [Fact]
-    public void TotalPages_WithQuantities()
+    public void TotalPages_WithMultipleCards()
     {
         var project = new ProjectModel();
-        project.Cards.Add(new CardModel { Quantity = 10 });
+        for (int i = 0; i < 10; i++)
+            project.Cards.Add(new CardModel { Name = $"Card {i}" });
 
         int cardsPerPage = project.PageSettings.CardsPerPage;
         int expected = (int)Math.Ceiling(10.0 / cardsPerPage);

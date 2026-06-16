@@ -600,14 +600,8 @@ namespace MTGProxyBuilder.Core.Services
             page.Height = new XUnit(settings.PageHeightMm * MmToPt, XGraphicsUnit.Point);
         }
 
-        private List<CardModel> ExpandCards(List<CardModel> cards)
-        {
-            var result = new List<CardModel>();
-            foreach (var card in cards)
-                for (int i = 0; i < card.Quantity; i++)
-                    result.Add(card);
-            return result;
-        }
+        /// <summary>Each card in the list is one slot on the page — no quantity expansion.</summary>
+        private List<CardModel> ExpandCards(List<CardModel> cards) => cards;
 
         private int CalcPageCount(int cardCount, PageLayout settings)
         {
