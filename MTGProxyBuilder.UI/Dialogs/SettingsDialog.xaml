@@ -131,6 +131,11 @@
                                 </StackPanel>
                             </Grid>
 
+                            <TextBlock Text="Output DPI" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="DefaultDpiBox" Padding="6,4" FontSize="12" Width="80" HorizontalAlignment="Left"
+                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                            <TextBlock Text="Resolution for bleed processing and print output (default: 300)" Style="{StaticResource HintLabel}"/>
+
                             <TextBlock Text="Token Overlay Text" Style="{StaticResource FieldLabel}"/>
                             <TextBox x:Name="TokenTextBox" Padding="6,4" FontSize="12" Width="200" HorizontalAlignment="Left"
                                      Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>

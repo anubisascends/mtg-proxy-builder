@@ -22,9 +22,9 @@ namespace MTGProxyBuilder.Core.Services
                     var settings = project.PageSettings;
                     var printSettings = project.PrintSettings;
 
-                    // Pre-process all unique images for bleed (avoids re-processing duplicates)
+                    // Pre-process all unique images for bleed using the configured DPI
                     int bleedPx = settings.BleedWidthMm > 0
-                        ? Math.Max(1, (int)(settings.BleedWidthMm / settings.CardWidthMm * 600))
+                        ? Math.Max(1, (int)(settings.BleedWidthMm / settings.CardWidthMm * printSettings.DPI))
                         : 0;
                     var bleedCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     if (bleedPx > 0)

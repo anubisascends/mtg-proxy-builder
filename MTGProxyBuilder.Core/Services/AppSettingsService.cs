@@ -11,6 +11,9 @@ namespace MTGProxyBuilder.Core.Services
         [JsonProperty("defaultBleedMm")]
         public float DefaultBleedMm { get; set; } = 1.5f;
 
+        [JsonProperty("defaultDpi")]
+        public int DefaultDpi { get; set; } = 300;
+
         [JsonProperty("defaultCardSizePreset")]
         public string DefaultCardSizePreset { get; set; } = "Magic: The Gathering";
 
