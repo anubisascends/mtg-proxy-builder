@@ -28,6 +28,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             var s = settingsService.Settings;
             TokenTextBox.Text = s.DefaultTokenText;
             BleedBox.Text = s.DefaultBleedMm.ToString();
+            DefaultDpiBox.Text = s.DefaultDpi.ToString();
             UpdateCheckBox.IsChecked = s.CheckForUpdates;
             UseFavoritesCheckBox.IsChecked = s.MpcFillUseFavoritesOnly;
 
@@ -441,6 +442,8 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             if (float.TryParse(BleedBox.Text, out var bleed))
                 s.DefaultBleedMm = bleed;
+            if (int.TryParse(DefaultDpiBox.Text, out var dpi) && dpi > 0)
+                s.DefaultDpi = dpi;
 
             // MPCFill search defaults
             s.MpcFillDefaultSortBy = (SortByBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "nameAscending";

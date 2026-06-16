@@ -175,6 +175,7 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             _currentProject = new ProjectModel();
             _currentProject.PrinterProfileName = _appSettings.Settings.DefaultPrinterProfileName;
+            _currentProject.PrintSettings.DPI = _appSettings.Settings.DefaultDpi;
             _currentProject.PageSettings.PropertyChanged += OnPageSettingsChanged;
             _cards = new ObservableCollection<CardModel>();
             _cards.CollectionChanged += OnCardsCollectionChanged;
@@ -1050,6 +1051,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             _undoService.Clear();
             _currentProject = new ProjectModel();
             _currentProject.PrinterProfileName = _appSettings.Settings.DefaultPrinterProfileName;
+            _currentProject.PrintSettings.DPI = _appSettings.Settings.DefaultDpi;
             _currentProject.PageSettings.PropertyChanged += OnPageSettingsChanged;
             Cards.Clear();
             _currentFilePath = null;
