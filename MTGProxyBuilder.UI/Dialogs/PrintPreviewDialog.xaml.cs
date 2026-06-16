@@ -339,7 +339,7 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             try
             {
-                float offsetX = 0, offsetY = 0;
+                CalibrationTransform? calibration = null;
                 var printerName = _project.PrinterProfileName;
                 if (!string.IsNullOrEmpty(printerName))
                 {
@@ -347,13 +347,18 @@ namespace MTGProxyBuilder.UI.Dialogs
                         .FirstOrDefault(p => p.Name == printerName);
                     if (profile != null)
                     {
-                        offsetX = profile.OffsetXMm;
-                        offsetY = profile.OffsetYMm;
+                        var s = _project.PageSettings;
+                        float cellW = s.CardWidthMm + 2 * s.BleedWidthMm;
+                        float cellH = s.CardHeightMm + 2 * s.BleedWidthMm;
+                        float gridW = s.CardsPerRow * cellW;
+                        int rows = s.CardsPerRow > 0 ? s.CardsPerPage / s.CardsPerRow : 0;
+                        float gridH = rows * cellH;
+                        calibration = CalibrationTransform.Compute(profile, gridW, gridH);
                     }
                 }
 
                 bool success = await _pdfService.GeneratePdfAsync(
-                    _project, dialog.FileName, offsetX, offsetY);
+                    _project, dialog.FileName, calibration);
 
                 if (success)
                 {
@@ -426,7 +431,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     $"Re-rendering {_pages.Count} page(s) at {printerDpi} DPI for print");
 
                 // Re-render all pages at the printer's DPI
-                float offsetX = 0, offsetY = 0;
+                CalibrationTransform? calibration = null;
                 var printerName = _project.PrinterProfileName;
                 if (!string.IsNullOrEmpty(printerName))
                 {
@@ -434,14 +439,19 @@ namespace MTGProxyBuilder.UI.Dialogs
                         .FirstOrDefault(p => p.Name == printerName);
                     if (profile != null)
                     {
-                        offsetX = profile.OffsetXMm;
-                        offsetY = profile.OffsetYMm;
+                        var s = _project.PageSettings;
+                        float cellW = s.CardWidthMm + 2 * s.BleedWidthMm;
+                        float cellH = s.CardHeightMm + 2 * s.BleedWidthMm;
+                        float gridW = s.CardsPerRow * cellW;
+                        int rows = s.CardsPerRow > 0 ? s.CardsPerPage / s.CardsPerRow : 0;
+                        float gridH = rows * cellH;
+                        calibration = CalibrationTransform.Compute(profile, gridW, gridH);
                     }
                 }
 
                 var renderer = new PreviewRenderer();
                 var hiResPages = await renderer.RenderAllPagesAsync(
-                    _project, offsetX, offsetY, printerDpi);
+                    _project, calibration, printerDpi);
 
                 if (hiResPages.Count == 0)
                 {

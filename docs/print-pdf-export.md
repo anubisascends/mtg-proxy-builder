@@ -66,26 +66,36 @@ When printing duplex (double-sided), most printers introduce a small offset betw
 1. Click **"Export Alignment Test PDF..."** — this generates a 2-page PDF with crosshair marks at the grid corners and center
 2. Print the test PDF using duplex on your actual printer
 3. Hold the printed sheet up to a light — the front page has solid crosshairs, the back has dashed crosshairs
-4. If the dashed crosshairs don't align with the solid ones, measure the gap:
+4. If the dashed targets don't align with the solid ones, measure the X/Y displacement at **each corner target** (TL, TR, BL, BR) using the mm rulers on the crosshair arms:
    - **X offset**: positive shifts back page content to the right
    - **Y offset**: positive shifts back page content down
-5. Enter the offset values in the Settings dialog
-6. Re-export and reprint the alignment test until the crosshairs overlap
-7. Click **Save**
+5. Enter all 4 corner offsets in the Settings dialog (8 values total: X and Y for each corner)
+6. The app computes the best-fit translation and rotation correction and shows a summary below the inputs
+7. Re-export and reprint the calibration test until the targets overlap
+8. Click **Save**
 
 ### Using a Profile
 
 - In the **Layout sidebar > PRINT section**, select your printer profile from the dropdown
-- All PDF exports will automatically apply the offset to back pages
+- All PDF exports will automatically apply the computed correction to back pages
 - The selected profile is saved with the project, so different projects can use different printers
 - Check **"Use as default for new projects"** in Settings to auto-select the profile for new projects
 
+### 4-Corner Calibration
+
+The app measures offsets at all 4 grid corners independently, then computes:
+- **Translation** — the average of all 4 corner offsets (uniform shift)
+- **Rotation** — the angular tilt derived from systematic differences between left/right and top/bottom corners
+
+This corrects both uniform misalignment and printer roller skew. If all 4 corners have the same offset, only translation is applied (identical to simple X/Y calibration). The sidebar shows the computed correction including rotation angle when non-zero.
+
 ### Notes
 
-- Offsets are applied only to back pages — the front page is the reference
-- The offset shifts all content uniformly (card art, cut guides, outlines)
+- Corrections are applied only to back pages — the front page is the reference
+- Translation shifts all content uniformly; rotation pivots around the page center
 - Profiles are stored globally and shared across all projects
 - Each project remembers which profile it uses independently
+- Legacy profiles with only X/Y offsets are automatically migrated to 4-corner format on load
 
 ## Supported Card Games
 
