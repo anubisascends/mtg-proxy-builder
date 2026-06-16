@@ -9,7 +9,8 @@ namespace MTGProxyBuilder.Core.Services
         private const float MmToPt = 72f / 25.4f;
         private readonly BleedProcessor _bleedProcessor = new();
 
-        public Task<bool> GeneratePdfAsync(ProjectModel project, string outputPath)
+        public Task<bool> GeneratePdfAsync(ProjectModel project, string outputPath,
+            float backOffsetXMm = 0, float backOffsetYMm = 0)
         {
             return Task.Run(() =>
             {
@@ -20,6 +21,9 @@ namespace MTGProxyBuilder.Core.Services
 
                     var settings = project.PageSettings;
                     var printSettings = project.PrintSettings;
+
+                    float backOffsetXPt = backOffsetXMm * MmToPt;
+                    float backOffsetYPt = backOffsetYMm * MmToPt;
 
                     // Pre-process all unique images for bleed (avoids re-processing duplicates)
                     int bleedPx = settings.BleedWidthMm > 0
@@ -52,21 +56,21 @@ namespace MTGProxyBuilder.Core.Services
 
                         for (int i = 0; i < totalPages; i++)
                         {
-                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache);
-                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache);
+                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache, 0, 0);
+                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache, backOffsetXPt, backOffsetYPt);
                         }
                     }
                     else if (printSettings.PrintMode == PrintMode.FrontsOnly)
                     {
                         int pageCount = CalcPageCount(expandedFronts.Count, settings);
                         for (int i = 0; i < pageCount; i++)
-                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache);
+                            AddPage(document, settings, printSettings, expandedFronts, i, true, bleedCache, 0, 0);
                     }
                     else
                     {
                         int pageCount = CalcPageCount(expandedBacks.Count, settings);
                         for (int i = 0; i < pageCount; i++)
-                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache);
+                            AddPage(document, settings, printSettings, expandedBacks, i, false, bleedCache, backOffsetXPt, backOffsetYPt);
                     }
 
                     if (document.PageCount == 0)
@@ -86,9 +90,126 @@ namespace MTGProxyBuilder.Core.Services
             });
         }
 
+        public Task<bool> GenerateAlignmentPdfAsync(ProjectModel project, string outputPath,
+            float offsetXMm, float offsetYMm)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    var document = new PdfDocument();
+                    document.Info.Title = "Printer Alignment Test";
+
+                    var settings = project.PageSettings;
+                    float bleedPt = settings.BleedWidthMm * MmToPt;
+                    float cardWPt = settings.CardWidthMm * MmToPt;
+                    float cardHPt = settings.CardHeightMm * MmToPt;
+                    float cellW = cardWPt + 2 * bleedPt;
+                    float cellH = cardHPt + 2 * bleedPt;
+
+                    float startX = settings.MarginLeftMm * MmToPt;
+                    float startY = settings.MarginTopMm * MmToPt;
+
+                    int cols = settings.CardsPerRow;
+                    int rows = settings.CardsPerPage > 0 && cols > 0
+                        ? settings.CardsPerPage / cols
+                        : 0;
+
+                    float gridRight = startX + cols * cellW;
+                    float gridBottom = startY + rows * cellH;
+
+                    float centerX = (startX + gridRight) / 2;
+                    float centerY = (startY + gridBottom) / 2;
+
+                    float armLen = 8 * MmToPt;
+                    var solidPen = new XPen(XColors.Black, 0.5);
+                    var dashedPen = new XPen(XColors.Black, 0.5) { DashStyle = XDashStyle.Dash };
+                    var font = new XFont("Arial", 8);
+                    var labelFormat = new XStringFormat
+                    {
+                        Alignment = XStringAlignment.Near,
+                        LineAlignment = XLineAlignment.Near
+                    };
+
+                    // Helper: crosshair positions and labels
+                    var crosshairs = new (float X, float Y, string Label)[]
+                    {
+                        (startX, startY, "TL"),
+                        (gridRight, startY, "TR"),
+                        (startX, gridBottom, "BL"),
+                        (gridRight, gridBottom, "BR"),
+                        (centerX, centerY, "CENTER")
+                    };
+
+                    // --- Page 1: Front ---
+                    var frontPage = document.AddPage();
+                    SetPageSize(frontPage, settings);
+                    using (var gfx = XGraphics.FromPdfPage(frontPage))
+                    {
+                        // Grid boundary rectangle
+                        gfx.DrawRectangle(solidPen, startX, startY,
+                            cols * cellW, rows * cellH);
+
+                        // Crosshairs
+                        foreach (var (cx, cy, label) in crosshairs)
+                        {
+                            gfx.DrawLine(solidPen, cx - armLen, cy, cx + armLen, cy);
+                            gfx.DrawLine(solidPen, cx, cy - armLen, cx, cy + armLen);
+                            gfx.DrawString(label, font, XBrushes.Black,
+                                cx + 3, cy + 3, labelFormat);
+                        }
+
+                        // Info text at bottom
+                        float pageHPt = settings.PageHeightMm * MmToPt;
+                        gfx.DrawString("Printer Alignment Test \u2014 Front", font, XBrushes.Black,
+                            startX, pageHPt - 20, labelFormat);
+                        gfx.DrawString($"Offset X: {offsetXMm:F2}mm, Y: {offsetYMm:F2}mm",
+                            font, XBrushes.Black, startX, pageHPt - 10, labelFormat);
+                    }
+
+                    // --- Page 2: Back ---
+                    var backPage = document.AddPage();
+                    SetPageSize(backPage, settings);
+                    using (var gfx = XGraphics.FromPdfPage(backPage))
+                    {
+                        // Apply offset transform
+                        gfx.TranslateTransform(offsetXMm * MmToPt, offsetYMm * MmToPt);
+
+                        // Grid boundary rectangle (dashed)
+                        gfx.DrawRectangle(dashedPen, startX, startY,
+                            cols * cellW, rows * cellH);
+
+                        // Crosshairs (dashed, same positions as front)
+                        foreach (var (cx, cy, label) in crosshairs)
+                        {
+                            gfx.DrawLine(dashedPen, cx - armLen, cy, cx + armLen, cy);
+                            gfx.DrawLine(dashedPen, cx, cy - armLen, cx, cy + armLen);
+                            gfx.DrawString(label, font, XBrushes.Black,
+                                cx + 3, cy + 3, labelFormat);
+                        }
+
+                        // Info text at bottom
+                        float pageHPt = settings.PageHeightMm * MmToPt;
+                        gfx.DrawString(
+                            $"Printer Alignment Test \u2014 Back (offset X: {offsetXMm:F2}mm, Y: {offsetYMm:F2}mm)",
+                            font, XBrushes.Black, startX, pageHPt - 20, labelFormat);
+                    }
+
+                    document.Save(outputPath);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Alignment PDF error: {ex.Message}");
+                    return false;
+                }
+            });
+        }
+
         private void AddPage(PdfDocument doc, PageLayout settings, PrintSettings printSettings,
             List<CardModel> cards, int pageIndex, bool front,
-            Dictionary<string, string> bleedCache)
+            Dictionary<string, string> bleedCache,
+            float backOffsetXPt = 0, float backOffsetYPt = 0)
         {
             var page = doc.AddPage();
             SetPageSize(page, settings);
@@ -100,6 +221,9 @@ namespace MTGProxyBuilder.Core.Services
             if (startIdx >= cards.Count) return;
 
             using var gfx = XGraphics.FromPdfPage(page);
+
+            if (!front && (backOffsetXPt != 0 || backOffsetYPt != 0))
+                gfx.TranslateTransform(backOffsetXPt, backOffsetYPt);
 
             float startX = settings.MarginLeftMm * MmToPt;
             float startY = settings.MarginTopMm * MmToPt;

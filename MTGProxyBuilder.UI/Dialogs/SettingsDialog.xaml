@@ -90,6 +90,8 @@
                              Checked="OnNavChanged"/>
                 <RadioButton x:Name="NavFilters" Content="Content Filters" Style="{StaticResource NavButton}"
                              Checked="OnNavChanged"/>
+                <RadioButton x:Name="NavPrinter" Content="Printer" Style="{StaticResource NavButton}"
+                             Checked="OnNavChanged"/>
             </StackPanel>
         </Border>
 
@@ -363,6 +365,89 @@
                                       Foreground="#CCC" FontSize="11" Margin="0,0,0,8"/>
                             <CheckBox x:Name="ExcludeAiArtBox" Content="Exclude AI-generated art"
                                       Foreground="#CCC" FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ==================== PRINTER CALIBRATION ==================== -->
+                <StackPanel x:Name="PagePrinter" Visibility="Collapsed">
+                    <TextBlock Text="Printer Calibration" Style="{StaticResource SectionHeader}" FontSize="18" Margin="0,0,0,16"/>
+
+                    <!-- Profile Management -->
+                    <Border Style="{StaticResource SectionCard}">
+                        <StackPanel>
+                            <TextBlock Text="Printer Profile" Style="{StaticResource SectionHeader}"/>
+
+                            <TextBlock Text="Active Profile" Style="{StaticResource FieldLabel}"/>
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <ComboBox x:Name="PrinterProfileBox" Padding="4" FontSize="11"
+                                          SelectionChanged="OnPrinterProfileChanged"/>
+                                <Button Grid.Column="1" Content="New..." Padding="10,4" Margin="6,0,0,0"
+                                        Background="#3E3E42" Foreground="#CCC" BorderThickness="0" Cursor="Hand" FontSize="11"
+                                        Click="OnNewPrinterProfile"/>
+                                <Button Grid.Column="2" Content="Delete" Padding="10,4" Margin="4,0,0,0"
+                                        Background="Transparent" Foreground="#888" BorderThickness="0" Cursor="Hand" FontSize="11"
+                                        Click="OnDeletePrinterProfile"/>
+                            </Grid>
+
+                            <TextBlock Text="Profile Name" Style="{StaticResource FieldLabel}"/>
+                            <TextBox x:Name="ProfileNameBox" Padding="6,4" FontSize="12" Width="200" HorizontalAlignment="Left"
+                                     Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"
+                                     LostFocus="OnProfileNameChanged"/>
+                            <TextBlock Text="Rename the selected profile" Style="{StaticResource HintLabel}" Margin="0,2,0,0"/>
+
+                            <CheckBox x:Name="DefaultProfileCheck" Content="Use as default for new projects"
+                                      Foreground="#CCC" FontSize="11" Margin="0,8,0,0"
+                                      Checked="OnDefaultProfileChanged" Unchecked="OnDefaultProfileChanged"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Offset -->
+                    <Border Style="{StaticResource SectionCard}">
+                        <StackPanel>
+                            <TextBlock Text="Back-Page Offset" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="Offsets are applied to back pages to align with front pages during duplex printing."
+                                       Foreground="#999" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+
+                            <Grid Margin="0,0,0,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="16"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="X Offset (mm)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="OffsetXBox" Padding="6,4" FontSize="12" Width="80" HorizontalAlignment="Left"
+                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                    <TextBlock Text="+ shifts back page right" Style="{StaticResource HintLabel}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Y Offset (mm)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="OffsetYBox" Padding="6,4" FontSize="12" Width="80" HorizontalAlignment="Left"
+                                             Background="#3E3E42" Foreground="White" BorderBrush="#555" CaretBrush="White"/>
+                                    <TextBlock Text="+ shifts back page down" Style="{StaticResource HintLabel}"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Calibration -->
+                    <Border Style="{StaticResource SectionCard}">
+                        <StackPanel>
+                            <TextBlock Text="Alignment Calibration" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Foreground="#999" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12">
+                                Export a test PDF, print it duplex, then hold the page up to a light.
+                                Measure the misalignment and enter the offset values above. Repeat until
+                                front and back are aligned.
+                            </TextBlock>
+                            <Button x:Name="ExportAlignmentBtn" Content="Export Alignment Test PDF..." Padding="12,6"
+                                    Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand" FontSize="11"
+                                    HorizontalAlignment="Left" Click="OnExportAlignmentPdf"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>

@@ -58,6 +58,27 @@ public class AppSettingsServiceTests
         Assert.Empty(settings.MpcFillExcludeTags);
         Assert.Empty(settings.MpcFillIncludeTags);
         Assert.False(settings.MpcFillUseFavoritesOnly);
+        Assert.Empty(settings.PrinterProfiles);
+        Assert.Null(settings.DefaultPrinterProfileName);
+    }
+
+    [Fact]
+    public void PrinterProfiles_CanBeAddedAndPersisted()
+    {
+        var settings = new AppSettings();
+        settings.PrinterProfiles.Add(new MTGProxyBuilder.Core.Models.PrinterProfile
+        {
+            Name = "Test Printer",
+            OffsetXMm = 0.5f,
+            OffsetYMm = -0.3f
+        });
+        settings.DefaultPrinterProfileName = "Test Printer";
+
+        Assert.Single(settings.PrinterProfiles);
+        Assert.Equal("Test Printer", settings.PrinterProfiles[0].Name);
+        Assert.Equal(0.5f, settings.PrinterProfiles[0].OffsetXMm);
+        Assert.Equal(-0.3f, settings.PrinterProfiles[0].OffsetYMm);
+        Assert.Equal("Test Printer", settings.DefaultPrinterProfileName);
     }
 
     [Fact]

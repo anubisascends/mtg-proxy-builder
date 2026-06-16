@@ -1,7 +1,9 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
+using MTGProxyBuilder.Core.Models;
 using MTGProxyBuilder.Core.Services;
 
 namespace MTGProxyBuilder.UI.Dialogs
@@ -11,14 +13,16 @@ namespace MTGProxyBuilder.UI.Dialogs
         private readonly AppSettingsService _settingsService;
         private readonly MpcFillSourceManager _sourceManager;
         private readonly MpcFillService? _mpcFillService;
+        private readonly ProjectModel? _activeProject;
 
         public SettingsDialog(AppSettingsService settingsService, MpcFillSourceManager sourceManager,
-            MpcFillService? mpcFillService = null)
+            MpcFillService? mpcFillService = null, ProjectModel? activeProject = null)
         {
             InitializeComponent();
             _settingsService = settingsService;
             _sourceManager = sourceManager;
             _mpcFillService = mpcFillService;
+            _activeProject = activeProject;
 
             var s = settingsService.Settings;
             TokenTextBox.Text = s.DefaultTokenText;
@@ -81,6 +85,9 @@ namespace MTGProxyBuilder.UI.Dialogs
             FontSizeLabel.Text = $"{FontSizeSlider.Value:0} pt";
 
             UpdateFavoritesInfo();
+
+            // Printer profiles
+            LoadPrinterProfiles();
         }
 
         private void OnFontSizeSliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -98,6 +105,7 @@ namespace MTGProxyBuilder.UI.Dialogs
             PageMpcFill.Visibility = NavMpcFill.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             PageLanguages.Visibility = NavLanguages.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
             PageFilters.Visibility = NavFilters.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            PagePrinter.Visibility = NavPrinter.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void UpdateFavoritesInfo()
@@ -177,6 +185,169 @@ namespace MTGProxyBuilder.UI.Dialogs
             return Path.GetDirectoryName(dialog.FileName);
         }
 
+        // ==================== Printer Calibration ====================
+
+        private void LoadPrinterProfiles()
+        {
+            PrinterProfileBox.Items.Clear();
+            foreach (var profile in _settingsService.Settings.PrinterProfiles)
+                PrinterProfileBox.Items.Add(profile);
+
+            // Select the profile matching the saved name
+            var selected = _settingsService.Settings.PrinterProfiles
+                .FirstOrDefault(p => p.Name == _settingsService.Settings.DefaultPrinterProfileName);
+            if (selected != null)
+                PrinterProfileBox.SelectedItem = selected;
+            else if (PrinterProfileBox.Items.Count > 0)
+                PrinterProfileBox.SelectedIndex = 0;
+
+            UpdatePrinterUI();
+        }
+
+        private void UpdatePrinterUI()
+        {
+            bool hasSelection = PrinterProfileBox.SelectedItem is PrinterProfile;
+            ProfileNameBox.IsEnabled = hasSelection;
+            OffsetXBox.IsEnabled = hasSelection;
+            OffsetYBox.IsEnabled = hasSelection;
+            ExportAlignmentBtn.IsEnabled = hasSelection;
+            DefaultProfileCheck.IsEnabled = hasSelection;
+
+            if (hasSelection && PrinterProfileBox.SelectedItem is PrinterProfile p)
+                DefaultProfileCheck.IsChecked = p.Name == _settingsService.Settings.DefaultPrinterProfileName;
+            else
+                DefaultProfileCheck.IsChecked = false;
+        }
+
+        private void OnDefaultProfileChanged(object sender, RoutedEventArgs e)
+        {
+            if (PrinterProfileBox.SelectedItem is PrinterProfile profile)
+            {
+                _settingsService.Settings.DefaultPrinterProfileName =
+                    DefaultProfileCheck.IsChecked == true ? profile.Name : null;
+            }
+        }
+
+        private void OnPrinterProfileChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (PrinterProfileBox.SelectedItem is PrinterProfile profile)
+            {
+                ProfileNameBox.Text = profile.Name;
+                OffsetXBox.Text = profile.OffsetXMm.ToString(CultureInfo.InvariantCulture);
+                OffsetYBox.Text = profile.OffsetYMm.ToString(CultureInfo.InvariantCulture);
+                DefaultProfileCheck.IsChecked = profile.Name == _settingsService.Settings.DefaultPrinterProfileName;
+            }
+            else
+            {
+                ProfileNameBox.Text = "";
+                OffsetXBox.Text = "";
+                OffsetYBox.Text = "";
+            }
+            UpdatePrinterUI();
+        }
+
+        private void OnProfileNameChanged(object sender, RoutedEventArgs e)
+        {
+            if (PrinterProfileBox.SelectedItem is not PrinterProfile profile) return;
+
+            var newName = ProfileNameBox.Text.Trim();
+            if (string.IsNullOrEmpty(newName) || newName == profile.Name) return;
+
+            // Ensure unique name
+            bool duplicate = _settingsService.Settings.PrinterProfiles
+                .Any(p => p != profile && p.Name.Equals(newName, StringComparison.OrdinalIgnoreCase));
+            if (duplicate)
+            {
+                MessageBox.Show($"A profile named \"{newName}\" already exists.", "Duplicate Name",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ProfileNameBox.Text = profile.Name;
+                return;
+            }
+
+            profile.Name = newName;
+
+            // Refresh the ComboBox display
+            int idx = PrinterProfileBox.SelectedIndex;
+            PrinterProfileBox.Items.Refresh();
+            PrinterProfileBox.SelectedIndex = idx;
+        }
+
+        private void OnNewPrinterProfile(object sender, RoutedEventArgs e)
+        {
+            // Generate a unique default name
+            int n = _settingsService.Settings.PrinterProfiles.Count + 1;
+            string name = $"Printer {n}";
+            while (_settingsService.Settings.PrinterProfiles.Any(
+                p => p.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            {
+                n++;
+                name = $"Printer {n}";
+            }
+
+            var profile = new PrinterProfile { Name = name };
+            _settingsService.Settings.PrinterProfiles.Add(profile);
+            PrinterProfileBox.Items.Add(profile);
+            PrinterProfileBox.SelectedItem = profile;
+        }
+
+        private void OnDeletePrinterProfile(object sender, RoutedEventArgs e)
+        {
+            if (PrinterProfileBox.SelectedItem is not PrinterProfile profile) return;
+
+            var result = MessageBox.Show($"Delete profile \"{profile.Name}\"?", "Confirm Delete",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+
+            _settingsService.Settings.PrinterProfiles.Remove(profile);
+            PrinterProfileBox.Items.Remove(profile);
+
+            if (_settingsService.Settings.DefaultPrinterProfileName == profile.Name)
+                _settingsService.Settings.DefaultPrinterProfileName = null;
+
+            if (PrinterProfileBox.Items.Count > 0)
+                PrinterProfileBox.SelectedIndex = 0;
+            else
+                OnPrinterProfileChanged(this, null!);
+        }
+
+        private void SaveCurrentProfileOffsets()
+        {
+            if (PrinterProfileBox.SelectedItem is not PrinterProfile profile) return;
+
+            if (float.TryParse(OffsetXBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var x))
+                profile.OffsetXMm = x;
+            if (float.TryParse(OffsetYBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                profile.OffsetYMm = y;
+        }
+
+        private async void OnExportAlignmentPdf(object sender, RoutedEventArgs e)
+        {
+            SaveCurrentProfileOffsets();
+
+            var profile = PrinterProfileBox.SelectedItem as PrinterProfile;
+            if (profile == null) return;
+
+            var dlg = new SaveFileDialog
+            {
+                Filter = "PDF Files (*.pdf)|*.pdf",
+                Title = "Export Alignment Test PDF",
+                FileName = "alignment_test.pdf"
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            var project = _activeProject ?? new ProjectModel();
+            var pdfService = new PdfGeneratorService();
+            bool ok = await pdfService.GenerateAlignmentPdfAsync(
+                project, dlg.FileName, profile.OffsetXMm, profile.OffsetYMm);
+
+            if (ok)
+                MessageBox.Show("Alignment test PDF exported successfully.", "Export Complete",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+            else
+                MessageBox.Show("Failed to generate alignment test PDF.", "Export Error",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
         private void OnSave(object sender, RoutedEventArgs e)
         {
             var s = _settingsService.Settings;
@@ -234,6 +405,9 @@ namespace MTGProxyBuilder.UI.Dialogs
 
             // UI settings
             s.SidebarFontSize = FontSizeSlider.Value;
+
+            // Printer profiles — write current offsets back to the selected profile
+            SaveCurrentProfileOffsets();
 
             _settingsService.Save();
             DialogResult = true;

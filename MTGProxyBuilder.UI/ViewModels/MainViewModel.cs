@@ -173,6 +173,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             _ = _mpcFillService.EnsureSourcesLoadedAsync();
 
             _currentProject = new ProjectModel();
+            _currentProject.PrinterProfileName = _appSettings.Settings.DefaultPrinterProfileName;
             _currentProject.PageSettings.PropertyChanged += OnPageSettingsChanged;
             _cards = new ObservableCollection<CardModel>();
             _cards.CollectionChanged += OnCardsCollectionChanged;
@@ -260,6 +261,9 @@ namespace MTGProxyBuilder.UI.ViewModels
             // Startup cache cleanup
             _cacheManager.CleanupOnStartup();
 
+            // Load printer profiles
+            RefreshPrinterProfiles();
+
         }
 
         /// <summary>
@@ -303,7 +307,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             string? oldFrontPath = _appSettings.Settings.FrontArtLibraryPath;
             string? oldBackPath = _appSettings.Settings.BackArtLibraryPath;
 
-            var dialog = new Dialogs.SettingsDialog(_appSettings, MpcSourceManager, _mpcFillService);
+            var dialog = new Dialogs.SettingsDialog(_appSettings, MpcSourceManager, _mpcFillService, _currentProject);
             dialog.Owner = Application.Current.MainWindow;
             if (dialog.ShowDialog() == true)
             {
@@ -320,6 +324,23 @@ namespace MTGProxyBuilder.UI.ViewModels
                 _backArtLibraryService = new BackArtLibraryService(_appSettings.Settings.BackArtLibraryPath);
                 RefreshBackArtLibrary();
             }
+
+            RefreshPrinterProfiles();
+        }
+
+        private void RefreshPrinterProfiles()
+        {
+            var names = new ObservableCollection<string> { "None" };
+            foreach (var p in _appSettings.Settings.PrinterProfiles)
+                names.Add(p.Name);
+            PrinterProfileNames = names;
+
+            // Sync from project — keep current selection if it still exists
+            var projectProfile = _currentProject.PrinterProfileName;
+            _selectedPrinterProfileName = !string.IsNullOrEmpty(projectProfile) && names.Contains(projectProfile)
+                ? projectProfile : "None";
+            OnPropertyChanged(nameof(SelectedPrinterProfileName));
+            OnPropertyChanged(nameof(SelectedPrinterOffsetDisplay));
         }
 
         private void DownloadUpdate()
@@ -472,6 +493,38 @@ namespace MTGProxyBuilder.UI.ViewModels
         {
             get => _currentProject.PrintSettings.PrintMode;
             set { _currentProject.PrintSettings.PrintMode = value; OnPropertyChanged(); }
+        }
+
+        private ObservableCollection<string> _printerProfileNames = new() { "None" };
+        public ObservableCollection<string> PrinterProfileNames
+        {
+            get => _printerProfileNames;
+            set { _printerProfileNames = value; OnPropertyChanged(); }
+        }
+
+        private string _selectedPrinterProfileName = "None";
+        public string SelectedPrinterProfileName
+        {
+            get => _selectedPrinterProfileName;
+            set
+            {
+                if (SetProperty(ref _selectedPrinterProfileName, value))
+                {
+                    _currentProject.PrinterProfileName = value == "None" ? null : value;
+                    OnPropertyChanged(nameof(SelectedPrinterOffsetDisplay));
+                }
+            }
+        }
+
+        public string SelectedPrinterOffsetDisplay
+        {
+            get
+            {
+                var profile = _appSettings.Settings.PrinterProfiles
+                    .FirstOrDefault(p => p.Name == _selectedPrinterProfileName);
+                if (profile == null) return "No offset applied";
+                return $"Offset: X {profile.OffsetXMm:+0.0;-0.0;0}mm, Y {profile.OffsetYMm:+0.0;-0.0;0}mm";
+            }
         }
 
         // Card outline enum bindings
@@ -975,6 +1028,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             PushUndo();
             _undoService.Clear();
             _currentProject = new ProjectModel();
+            _currentProject.PrinterProfileName = _appSettings.Settings.DefaultPrinterProfileName;
             _currentProject.PageSettings.PropertyChanged += OnPageSettingsChanged;
             Cards.Clear();
             _currentFilePath = null;
@@ -982,6 +1036,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             OnPropertyChanged(nameof(CurrentProject));
             OnPropertyChanged(nameof(ProjectName));
             OnPropertyChanged(nameof(SelectedPrintMode));
+            RefreshPrinterProfiles();
             HasUnsavedChanges = false;
             StatusText = "New project created";
         }
@@ -1830,7 +1885,20 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             try
             {
-                bool success = await _pdfGeneratorService.GeneratePdfAsync(_currentProject, dialog.FileName);
+                float offsetX = 0, offsetY = 0;
+                var printerName = _currentProject.PrinterProfileName;
+                if (!string.IsNullOrEmpty(printerName))
+                {
+                    var profile = _appSettings.Settings.PrinterProfiles
+                        .FirstOrDefault(p => p.Name == printerName);
+                    if (profile != null)
+                    {
+                        offsetX = profile.OffsetXMm;
+                        offsetY = profile.OffsetYMm;
+                    }
+                }
+                bool success = await _pdfGeneratorService.GeneratePdfAsync(
+                    _currentProject, dialog.FileName, offsetX, offsetY);
 
                 if (success)
                 {

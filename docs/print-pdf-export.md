@@ -51,6 +51,42 @@ Built-in print-and-cut workflow for Silhouette Cameo cutters:
 - **Configurable mark dimensions** — length, thickness, and inset in inches with Silhouette defaults (0.35", 0.039", 0.394")
 - **Automatic mode switching** — when registration marks are enabled, bleed extension, cutting guides, and card outlines are automatically suppressed
 
+## Printer Calibration (Duplex Alignment)
+
+When printing duplex (double-sided), most printers introduce a small offset between front and back pages. The printer calibration feature lets you measure and correct this.
+
+### Setting Up a Printer Profile
+
+1. Open **Settings > Printer** tab
+2. Click **"New..."** to create a profile and name it after your printer
+3. The X and Y offsets start at 0mm
+
+### Calibration Workflow
+
+1. Click **"Export Alignment Test PDF..."** — this generates a 2-page PDF with crosshair marks at the grid corners and center
+2. Print the test PDF using duplex on your actual printer
+3. Hold the printed sheet up to a light — the front page has solid crosshairs, the back has dashed crosshairs
+4. If the dashed crosshairs don't align with the solid ones, measure the gap:
+   - **X offset**: positive shifts back page content to the right
+   - **Y offset**: positive shifts back page content down
+5. Enter the offset values in the Settings dialog
+6. Re-export and reprint the alignment test until the crosshairs overlap
+7. Click **Save**
+
+### Using a Profile
+
+- In the **Layout sidebar > PRINT section**, select your printer profile from the dropdown
+- All PDF exports will automatically apply the offset to back pages
+- The selected profile is saved with the project, so different projects can use different printers
+- Check **"Use as default for new projects"** in Settings to auto-select the profile for new projects
+
+### Notes
+
+- Offsets are applied only to back pages — the front page is the reference
+- The offset shifts all content uniformly (card art, cut guides, outlines)
+- Profiles are stored globally and shared across all projects
+- Each project remembers which profile it uses independently
+
 ## Supported Card Games
 
 | Game | Card Size (mm) |
