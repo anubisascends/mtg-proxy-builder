@@ -40,6 +40,9 @@ namespace MTGProxyBuilder.Core.Models
         private float _cropMarkLengthMm = 3f;
         private float _cropMarkOffsetMm = 0.5f;
 
+        // CMYK color bars
+        private bool _showColorBars;
+
         // Card outline guides
         private bool _showCardOutline = true;
         private string _outlineColor = "#66FF00";
@@ -97,6 +100,15 @@ namespace MTGProxyBuilder.Core.Models
         {
             get => _cropMarkOffsetMm;
             set { _cropMarkOffsetMm = value; OnPropertyChanged(); }
+        }
+
+        // --- CMYK Color Bars ---
+
+        /// <summary>Show CMYK density bars along the bottom margin for color verification.</summary>
+        public bool ShowColorBars
+        {
+            get => _showColorBars;
+            set { _showColorBars = value; OnPropertyChanged(); }
         }
 
         // --- Card Outline Guides ---

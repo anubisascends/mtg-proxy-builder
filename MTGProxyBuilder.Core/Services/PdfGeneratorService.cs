@@ -159,8 +159,12 @@ namespace MTGProxyBuilder.Core.Services
                                 cx + 3, cy + 3, labelFormat);
                         }
 
-                        // Info text at bottom
+                        // Color bars (always on alignment page for color verification)
+                        float pageWPt = settings.PageWidthMm * MmToPt;
                         float pageHPt = settings.PageHeightMm * MmToPt;
+                        DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
+
+                        // Info text at bottom
                         gfx.DrawString("Printer Alignment Test \u2014 Front", font, XBrushes.Black,
                             startX, pageHPt - 20, labelFormat);
                         gfx.DrawString($"Offset X: {offsetXMm:F2}mm, Y: {offsetYMm:F2}mm",
@@ -322,6 +326,13 @@ namespace MTGProxyBuilder.Core.Services
             if (printSettings.ShowRegistrationMarks && front)
             {
                 DrawRegistrationMarks(gfx, pageWPt, pageHPt, printSettings);
+            }
+
+            // Pass 5: Draw CMYK color bars in the bottom margin
+            if (printSettings.ShowColorBars)
+            {
+                int rows = cols > 0 ? perPage / cols : 0;
+                DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
             }
         }
 
@@ -524,6 +535,106 @@ namespace MTGProxyBuilder.Core.Services
             // Bottom-right corner
             gfx.DrawLine(pen, cardRight, cardBottom + offset, cardRight, cardBottom + offset + markLen); // vertical down
             gfx.DrawLine(pen, cardRight + offset, cardBottom, cardRight + offset + markLen, cardBottom); // horizontal right
+        }
+
+        /// <summary>
+        /// Draw CMYK density bars in available margin space.
+        /// Tries bottom margin first (horizontal), then right margin (vertical/rotated).
+        /// </summary>
+        private void DrawColorBars(XGraphics gfx, float startX, float startY,
+            int cols, int rows, float cellW, float cellH, float pageW, float pageH)
+        {
+            float gridRight = startX + cols * cellW;
+            float gridBottom = startY + rows * cellH;
+            float gridWidth = cols * cellW;
+            float gridHeight = rows * cellH;
+            float barThickness = 4 * MmToPt;
+            float gap = 2 * MmToPt;
+            float minClearance = 3 * MmToPt;
+
+            bool fitsBottom = gridBottom + gap + barThickness <= pageH - minClearance;
+            bool fitsRight = gridRight + gap + barThickness <= pageW - minClearance;
+
+            if (!fitsBottom && !fitsRight) return;
+
+            if (fitsBottom)
+            {
+                // Horizontal bar below the grid
+                DrawColorBarStrip(gfx, startX, gridBottom + gap, gridWidth, barThickness, false);
+            }
+            else
+            {
+                // Vertical bar to the right of the grid (rotated 90°)
+                DrawColorBarStrip(gfx, gridRight + gap, startY, gridHeight, barThickness, true);
+            }
+        }
+
+        private void DrawColorBarStrip(XGraphics gfx, float originX, float originY,
+            float stripLength, float stripThickness, bool vertical)
+        {
+            var colors = new (string Label, int R, int G, int B)[]
+            {
+                ("C", 0, 174, 239), ("M", 236, 0, 140), ("Y", 255, 242, 0),
+                ("K", 0, 0, 0), ("R", 237, 28, 36), ("G", 0, 166, 81), ("B", 46, 49, 146),
+            };
+
+            int totalPatches = colors.Length * 4 + 8;
+            float patchSize = stripLength / totalPatches;
+            float pos = 0;
+
+            var labelFont = new XFont("Arial", 5);
+            var labelFormat = new XStringFormat
+            {
+                Alignment = XStringAlignment.Center,
+                LineAlignment = XLineAlignment.Far
+            };
+
+            foreach (var (label, cr, cg, cb) in colors)
+            {
+                float[] densities = { 0.25f, 0.50f, 0.75f, 1.0f };
+                foreach (float d in densities)
+                {
+                    int r = (int)(255 + (cr - 255) * d);
+                    int g = (int)(255 + (cg - 255) * d);
+                    int b = (int)(255 + (cb - 255) * d);
+                    var brush = new XSolidBrush(XColor.FromArgb(r, g, b));
+
+                    if (vertical)
+                        gfx.DrawRectangle(brush, originX, originY + pos, stripThickness, patchSize);
+                    else
+                        gfx.DrawRectangle(brush, originX + pos, originY, patchSize, stripThickness);
+                    pos += patchSize;
+                }
+
+                // Label at center of the 4-patch group
+                float labelPos = pos - patchSize * 2;
+                if (vertical)
+                    gfx.DrawString(label, labelFont, XBrushes.Black,
+                        originX + stripThickness + 2, originY + labelPos + patchSize / 2, labelFormat);
+                else
+                    gfx.DrawString(label, labelFont, XBrushes.Black,
+                        originX + labelPos, originY - 1, labelFormat);
+            }
+
+            // Grayscale ramp
+            for (int i = 0; i < 8; i++)
+            {
+                int v = 255 - (int)(255 * i / 7.0);
+                var brush = new XSolidBrush(XColor.FromArgb(v, v, v));
+                if (vertical)
+                    gfx.DrawRectangle(brush, originX, originY + pos, stripThickness, patchSize);
+                else
+                    gfx.DrawRectangle(brush, originX + pos, originY, patchSize, stripThickness);
+                pos += patchSize;
+            }
+
+            // Border
+            if (vertical)
+                gfx.DrawRectangle(new XPen(XColors.Black, 0.25),
+                    originX, originY, stripThickness, stripLength);
+            else
+                gfx.DrawRectangle(new XPen(XColors.Black, 0.25),
+                    originX, originY, stripLength, stripThickness);
         }
 
         private const float InToPt = 72f;
