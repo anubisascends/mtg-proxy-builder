@@ -98,7 +98,7 @@ namespace MTGProxyBuilder.Core.Services
                 try
                 {
                     var document = new PdfDocument();
-                    document.Info.Title = "Printer Alignment Test";
+                    document.Info.Title = "Printer Calibration Test";
 
                     var settings = project.PageSettings;
                     float bleedPt = settings.BleedWidthMm * MmToPt;
@@ -115,88 +115,114 @@ namespace MTGProxyBuilder.Core.Services
                         ? settings.CardsPerPage / cols
                         : 0;
 
-                    float gridRight = startX + cols * cellW;
-                    float gridBottom = startY + rows * cellH;
+                    float gridW = cols * cellW;
+                    float gridH = rows * cellH;
+                    float gridRight = startX + gridW;
+                    float gridBottom = startY + gridH;
 
                     float centerX = (startX + gridRight) / 2;
                     float centerY = (startY + gridBottom) / 2;
 
-                    float armLen = 8 * MmToPt;
-                    var solidPen = new XPen(XColors.Black, 0.5);
-                    var dashedPen = new XPen(XColors.Black, 0.5) { DashStyle = XDashStyle.Dash };
-                    var font = new XFont("Arial", 8);
-                    var labelFormat = new XStringFormat
+                    float pageWPt = settings.PageWidthMm * MmToPt;
+                    float pageHPt = settings.PageHeightMm * MmToPt;
+
+                    // Fonts
+                    var titleFont = new XFont("Arial", 10, XFontStyleEx.Bold);
+                    var infoFont = new XFont("Arial", 8);
+                    var instructionFont = new XFont("Arial", 6);
+
+                    var leftFormat = new XStringFormat
                     {
                         Alignment = XStringAlignment.Near,
                         LineAlignment = XLineAlignment.Near
                     };
+                    var centerFormat = new XStringFormat
+                    {
+                        Alignment = XStringAlignment.Center,
+                        LineAlignment = XLineAlignment.Center
+                    };
 
-                    // Helper: crosshair positions and labels
-                    var crosshairs = new (float X, float Y, string Label)[]
+                    // Target positions and labels
+                    var targets = new (float X, float Y, string Label)[]
                     {
                         (startX, startY, "TL"),
                         (gridRight, startY, "TR"),
                         (startX, gridBottom, "BL"),
                         (gridRight, gridBottom, "BR"),
-                        (centerX, centerY, "CENTER")
+                        (centerX, centerY, "C")
                     };
 
-                    // --- Page 1: Front ---
+                    // ===== Page 1: Front (Reference) =====
                     var frontPage = document.AddPage();
                     SetPageSize(frontPage, settings);
                     using (var gfx = XGraphics.FromPdfPage(frontPage))
                     {
-                        // Grid boundary rectangle
-                        gfx.DrawRectangle(solidPen, startX, startY,
-                            cols * cellW, rows * cellH);
+                        // Title bar
+                        float titleY = Math.Min(startY - 24, 10);
+                        gfx.DrawString("PRINTER CALIBRATION TEST \u2014 FRONT", titleFont, XBrushes.Black,
+                            startX, titleY, leftFormat);
+                        string settingsInfo = $"{settings.PageWidthMm}x{settings.PageHeightMm}mm page | " +
+                            $"{settings.CardWidthMm}x{settings.CardHeightMm}mm card | " +
+                            $"{cols}x{rows} grid | {DateTime.Now:yyyy-MM-dd}";
+                        gfx.DrawString(settingsInfo, infoFont, XBrushes.Black,
+                            startX, titleY + 12, leftFormat);
 
-                        // Crosshairs
-                        foreach (var (cx, cy, label) in crosshairs)
-                        {
-                            gfx.DrawLine(solidPen, cx - armLen, cy, cx + armLen, cy);
-                            gfx.DrawLine(solidPen, cx, cy - armLen, cx, cy + armLen);
-                            gfx.DrawString(label, font, XBrushes.Black,
-                                cx + 3, cy + 3, labelFormat);
-                        }
+                        // Grid boundary rectangle (solid)
+                        var gridPen = new XPen(XColors.Black, 0.5);
+                        gfx.DrawRectangle(gridPen, startX, startY, gridW, gridH);
 
-                        // Color bars (always on alignment page for color verification)
-                        float pageWPt = settings.PageWidthMm * MmToPt;
-                        float pageHPt = settings.PageHeightMm * MmToPt;
+                        // Alignment targets at each corner + center
+                        foreach (var (tx, ty, label) in targets)
+                            DrawAlignmentTarget(gfx, tx, ty, label, false);
+
+                        // Measurement rulers along top and left grid edges
+                        float rulerOffset = 3 * MmToPt; // 3mm outside the grid
+                        DrawRuler(gfx, startX, startY - rulerOffset, gridW, true, false);
+                        DrawRuler(gfx, startX - rulerOffset, startY, gridH, false, false);
+
+                        // CMYK color bars (full graduated density + grayscale)
                         DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
 
-                        // Info text at bottom
-                        gfx.DrawString("Printer Alignment Test \u2014 Front", font, XBrushes.Black,
-                            startX, pageHPt - 20, labelFormat);
-                        gfx.DrawString($"Offset X: {offsetXMm:F2}mm, Y: {offsetYMm:F2}mm",
-                            font, XBrushes.Black, startX, pageHPt - 10, labelFormat);
+                        // Current offset values
+                        gfx.DrawString($"Current offset: X={offsetXMm:F2}mm, Y={offsetYMm:F2}mm",
+                            infoFont, XBrushes.Black, startX, pageHPt - 28, leftFormat);
+
+                        // Instructions at very bottom
+                        gfx.DrawString(
+                            "Print this page duplex (flip on long edge). Hold up to light. Measure offset between " +
+                            "solid (front) and dashed (back) targets. Enter offset in Settings > Printer Calibration.",
+                            instructionFont, XBrushes.DarkGray, startX, pageHPt - 16, leftFormat);
                     }
 
-                    // --- Page 2: Back ---
+                    // ===== Page 2: Back (Offset) =====
                     var backPage = document.AddPage();
                     SetPageSize(backPage, settings);
                     using (var gfx = XGraphics.FromPdfPage(backPage))
                     {
-                        // Apply offset transform
+                        // Apply calibration offset
                         gfx.TranslateTransform(offsetXMm * MmToPt, offsetYMm * MmToPt);
 
+                        // Title bar
+                        float titleY = Math.Min(startY - 24, 10);
+                        gfx.DrawString("PRINTER CALIBRATION TEST \u2014 BACK", titleFont, XBrushes.Black,
+                            startX, titleY, leftFormat);
+                        gfx.DrawString($"Applied offset: X={offsetXMm:F2}mm, Y={offsetYMm:F2}mm",
+                            infoFont, XBrushes.Black, startX, titleY + 12, leftFormat);
+
                         // Grid boundary rectangle (dashed)
-                        gfx.DrawRectangle(dashedPen, startX, startY,
-                            cols * cellW, rows * cellH);
+                        var dashedGridPen = new XPen(XColors.Black, 0.5) { DashStyle = XDashStyle.Dash };
+                        gfx.DrawRectangle(dashedGridPen, startX, startY, gridW, gridH);
 
-                        // Crosshairs (dashed, same positions as front)
-                        foreach (var (cx, cy, label) in crosshairs)
-                        {
-                            gfx.DrawLine(dashedPen, cx - armLen, cy, cx + armLen, cy);
-                            gfx.DrawLine(dashedPen, cx, cy - armLen, cx, cy + armLen);
-                            gfx.DrawString(label, font, XBrushes.Black,
-                                cx + 3, cy + 3, labelFormat);
-                        }
+                        // Alignment targets at each corner + center (dashed)
+                        foreach (var (tx, ty, label) in targets)
+                            DrawAlignmentTarget(gfx, tx, ty, label, true);
 
-                        // Info text at bottom
-                        float pageHPt = settings.PageHeightMm * MmToPt;
-                        gfx.DrawString(
-                            $"Printer Alignment Test \u2014 Back (offset X: {offsetXMm:F2}mm, Y: {offsetYMm:F2}mm)",
-                            font, XBrushes.Black, startX, pageHPt - 20, labelFormat);
+                        // Measurement rulers (dashed)
+                        float rulerOffset = 3 * MmToPt;
+                        DrawRuler(gfx, startX, startY - rulerOffset, gridW, true, true);
+                        DrawRuler(gfx, startX - rulerOffset, startY, gridH, false, true);
+
+                        // No color bars on back (saves ink)
                     }
 
                     document.Save(outputPath);
@@ -208,6 +234,142 @@ namespace MTGProxyBuilder.Core.Services
                     return false;
                 }
             });
+        }
+
+        /// <summary>
+        /// Draws a precision alignment target with concentric circles, graduated crosshair, and label.
+        /// </summary>
+        private void DrawAlignmentTarget(XGraphics gfx, float cx, float cy, string label, bool dashed)
+        {
+            // Pens
+            var finePen = new XPen(XColors.Black, 0.25);
+            var medPen = new XPen(XColors.Black, 0.5);
+            if (dashed)
+            {
+                finePen.DashStyle = XDashStyle.Dash;
+                medPen.DashStyle = XDashStyle.Dash;
+            }
+
+            // Concentric circles at 2mm, 4mm, 6mm radius
+            float[] radiiMm = { 2f, 4f, 6f };
+            foreach (float rMm in radiiMm)
+            {
+                float r = rMm * MmToPt;
+                gfx.DrawEllipse(finePen, cx - r, cy - r, 2 * r, 2 * r);
+            }
+
+            // Crosshair arms extending 8mm in each direction
+            float armLen = 8 * MmToPt;
+            gfx.DrawLine(finePen, cx - armLen, cy, cx + armLen, cy);
+            gfx.DrawLine(finePen, cx, cy - armLen, cx, cy + armLen);
+
+            // Graduated ruler marks along crosshair arms (1mm ticks, longer at 5mm, labels at 5mm)
+            var tickPen = new XPen(XColors.Black, 0.25);
+            if (dashed) tickPen.DashStyle = XDashStyle.Dash;
+            var tickLabelFont = new XFont("Arial", 4);
+            float shortTick = 0.5f * MmToPt;
+            float longTick = 1.0f * MmToPt;
+
+            for (int mm = 1; mm <= 8; mm++)
+            {
+                float d = mm * MmToPt;
+                bool isMajor = (mm % 5 == 0);
+                float tickLen = isMajor ? longTick : shortTick;
+
+                // Right arm
+                gfx.DrawLine(tickPen, cx + d, cy - tickLen, cx + d, cy + tickLen);
+                // Left arm
+                gfx.DrawLine(tickPen, cx - d, cy - tickLen, cx - d, cy + tickLen);
+                // Down arm
+                gfx.DrawLine(tickPen, cx - tickLen, cy + d, cx + tickLen, cy + d);
+                // Up arm
+                gfx.DrawLine(tickPen, cx - tickLen, cy - d, cx + tickLen, cy - d);
+
+                if (isMajor)
+                {
+                    string numLabel = mm.ToString();
+                    gfx.DrawString(numLabel, tickLabelFont, XBrushes.Black,
+                        cx + d, cy + tickLen + 1, new XStringFormat
+                        {
+                            Alignment = XStringAlignment.Center,
+                            LineAlignment = XLineAlignment.Near
+                        });
+                }
+            }
+
+            // Position label (TL, TR, BL, BR, C)
+            var labelFont = new XFont("Arial", 5, XFontStyleEx.Bold);
+            float labelOffset = 7 * MmToPt;
+            gfx.DrawString(label, labelFont, XBrushes.Black,
+                cx + labelOffset, cy - labelOffset, new XStringFormat
+                {
+                    Alignment = XStringAlignment.Near,
+                    LineAlignment = XLineAlignment.Far
+                });
+        }
+
+        /// <summary>
+        /// Draws a precision measurement ruler with mm graduations.
+        /// Short ticks every 1mm, medium ticks every 5mm, tall ticks every 10mm with number labels.
+        /// </summary>
+        private void DrawRuler(XGraphics gfx, float originX, float originY, float length, bool horizontal, bool dashed)
+        {
+            var pen = new XPen(XColors.Black, 0.25);
+            if (dashed) pen.DashStyle = XDashStyle.Dash;
+
+            var labelFont = new XFont("Arial", 5);
+            float totalMm = length / MmToPt;
+            int totalTicks = (int)Math.Floor(totalMm);
+
+            float shortTick = 1.0f * MmToPt;
+            float medTick = 1.5f * MmToPt;
+            float tallTick = 2.5f * MmToPt;
+
+            // Draw baseline
+            if (horizontal)
+                gfx.DrawLine(pen, originX, originY, originX + length, originY);
+            else
+                gfx.DrawLine(pen, originX, originY, originX, originY + length);
+
+            for (int mm = 0; mm <= totalTicks; mm++)
+            {
+                float d = mm * MmToPt;
+                float tickLen;
+                if (mm % 10 == 0) tickLen = tallTick;
+                else if (mm % 5 == 0) tickLen = medTick;
+                else tickLen = shortTick;
+
+                if (horizontal)
+                {
+                    float x = originX + d;
+                    gfx.DrawLine(pen, x, originY, x, originY + tickLen);
+
+                    if (mm % 10 == 0 && mm > 0)
+                    {
+                        gfx.DrawString(mm.ToString(), labelFont, XBrushes.Black,
+                            x, originY + tallTick + 1, new XStringFormat
+                            {
+                                Alignment = XStringAlignment.Center,
+                                LineAlignment = XLineAlignment.Near
+                            });
+                    }
+                }
+                else
+                {
+                    float y = originY + d;
+                    gfx.DrawLine(pen, originX, y, originX + tickLen, y);
+
+                    if (mm % 10 == 0 && mm > 0)
+                    {
+                        gfx.DrawString(mm.ToString(), labelFont, XBrushes.Black,
+                            originX + tallTick + 1, y, new XStringFormat
+                            {
+                                Alignment = XStringAlignment.Near,
+                                LineAlignment = XLineAlignment.Center
+                            });
+                    }
+                }
+            }
         }
 
         private void AddPage(PdfDocument doc, PageLayout settings, PrintSettings printSettings,
@@ -328,7 +490,7 @@ namespace MTGProxyBuilder.Core.Services
                 DrawRegistrationMarks(gfx, pageWPt, pageHPt, printSettings);
             }
 
-            // Pass 5: Draw CMYK color bars in the bottom margin
+            // Pass 5: Draw CMYK color bars in the margin
             if (printSettings.ShowColorBars)
             {
                 int rows = cols > 0 ? perPage / cols : 0;
@@ -539,7 +701,7 @@ namespace MTGProxyBuilder.Core.Services
 
         /// <summary>
         /// Draw CMYK density bars in available margin space.
-        /// Tries bottom margin first (horizontal), then right margin (vertical/rotated).
+        /// Tries bottom margin first (horizontal), then right margin (vertical).
         /// </summary>
         private void DrawColorBars(XGraphics gfx, float startX, float startY,
             int cols, int rows, float cellW, float cellH, float pageW, float pageH)
@@ -558,15 +720,9 @@ namespace MTGProxyBuilder.Core.Services
             if (!fitsBottom && !fitsRight) return;
 
             if (fitsBottom)
-            {
-                // Horizontal bar below the grid
                 DrawColorBarStrip(gfx, startX, gridBottom + gap, gridWidth, barThickness, false);
-            }
             else
-            {
-                // Vertical bar to the right of the grid (rotated 90°)
                 DrawColorBarStrip(gfx, gridRight + gap, startY, gridHeight, barThickness, true);
-            }
         }
 
         private void DrawColorBarStrip(XGraphics gfx, float originX, float originY,
@@ -606,7 +762,6 @@ namespace MTGProxyBuilder.Core.Services
                     pos += patchSize;
                 }
 
-                // Label at center of the 4-patch group
                 float labelPos = pos - patchSize * 2;
                 if (vertical)
                     gfx.DrawString(label, labelFont, XBrushes.Black,
@@ -616,7 +771,6 @@ namespace MTGProxyBuilder.Core.Services
                         originX + labelPos, originY - 1, labelFormat);
             }
 
-            // Grayscale ramp
             for (int i = 0; i < 8; i++)
             {
                 int v = 255 - (int)(255 * i / 7.0);
@@ -628,7 +782,6 @@ namespace MTGProxyBuilder.Core.Services
                 pos += patchSize;
             }
 
-            // Border
             if (vertical)
                 gfx.DrawRectangle(new XPen(XColors.Black, 0.25),
                     originX, originY, stripThickness, stripLength);

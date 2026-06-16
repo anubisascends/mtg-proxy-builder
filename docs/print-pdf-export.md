@@ -1,22 +1,10 @@
 # Print & PDF Export
 
-## Print Preview
-
-Press **Ctrl+P** (or File > Preview PDF, or the toolbar preview button) to open the Print Preview dialog showing fully rendered pages as they will appear in the exported PDF.
-
-- **Page navigation** — Prev/Next buttons, arrow keys, or type a page number to jump directly
-- **Zoom** — Ctrl+mouse wheel, Fit to window, 100% reset
-- **Pan** — middle-click drag
-- **Print** — send directly to a printer, re-rendered at the printer's native DPI
-- **Export PDF** — save to PDF directly from the preview
-
-In duplex mode, page labels show "Front 1", "Back 1", "Front 2", etc. The bottom bar shows page dimensions, print mode, and card count.
-
 ## Exporting PDF
 
 1. Click "Export PDF" in the toolbar (or Ctrl+E)
 2. Choose a save location
-3. The PDF includes bleed-extended images, cutting guides, crop marks, card outlines, color bars, overlay text, and registration marks (as enabled)
+3. The PDF includes bleed-extended images, cutting guides, card outlines, overlay text, and registration marks (if enabled)
 
 ## Page Layout
 
@@ -33,19 +21,11 @@ In duplex mode, page labels show "Front 1", "Back 1", "Front 2", etc. The bottom
 
 ## Bleed Extension
 
-Edge pixels are extended outward using multi-pixel weighted sampling and gaussian blur for a smooth, natural falloff — no visible banding artifacts on gradients or complex art. Bleed width is configurable per project.
+Edge pixels are stretched outward (not just image resize) for clean cutting. Bleed width is configurable per project.
 
 ## Cutting Guides
 
-Thin lines extending from card edges to page edges, drawn behind card art so they never show through light-colored artwork.
-
-## Crop Marks
-
-Professional corner trim marks at each card's trim boundary, extending outward into the bleed area with a small gap from the card edge. Configurable mark length (default 3mm) and offset (default 0.5mm). Independent of cutting guides — both can be used together.
-
-## CMYK Color Bars
-
-Graduated density patches for verifying color accuracy after printing. Shows 7 colors (C, M, Y, K, R, G, B) at 4 density levels each (25%, 50%, 75%, 100%) plus an 8-step grayscale ramp. Positioned in the bottom margin below the card grid; automatically falls back to the right margin if the bottom doesn't have enough space. Always included on alignment test PDFs.
+Thin crop marks extending from card edges to page edges, drawn behind card art so they never show through light-colored artwork.
 
 ## Card Outlines
 

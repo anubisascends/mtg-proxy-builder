@@ -104,7 +104,7 @@ namespace MTGProxyBuilder.Core.Models
 
         // --- CMYK Color Bars ---
 
-        /// <summary>Show CMYK density bars along the bottom margin for color verification.</summary>
+        /// <summary>Show CMYK density bars in the margin for color verification.</summary>
         public bool ShowColorBars
         {
             get => _showColorBars;

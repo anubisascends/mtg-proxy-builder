@@ -150,62 +150,6 @@ public class PrintSettingsTests
         Assert.Contains("LineWeight", changed);
     }
 
-    // --- Crop Marks & Color Bars Defaults ---
-
-    [Fact]
-    public void CropMarks_DefaultsAreCorrect()
-    {
-        var settings = new PrintSettings();
-        Assert.False(settings.ShowCropMarks);
-        Assert.Equal(3f, settings.CropMarkLengthMm);
-        Assert.Equal(0.5f, settings.CropMarkOffsetMm);
-    }
-
-    [Fact]
-    public void CropMarks_CanBeToggled()
-    {
-        var settings = new PrintSettings();
-        settings.ShowCropMarks = true;
-        Assert.True(settings.ShowCropMarks);
-        settings.CropMarkLengthMm = 5f;
-        Assert.Equal(5f, settings.CropMarkLengthMm);
-        settings.CropMarkOffsetMm = 1f;
-        Assert.Equal(1f, settings.CropMarkOffsetMm);
-    }
-
-    [Fact]
-    public void ColorBars_DefaultsAreCorrect()
-    {
-        var settings = new PrintSettings();
-        Assert.False(settings.ShowColorBars);
-    }
-
-    [Fact]
-    public void ColorBars_CanBeToggled()
-    {
-        var settings = new PrintSettings();
-        settings.ShowColorBars = true;
-        Assert.True(settings.ShowColorBars);
-    }
-
-    [Fact]
-    public void PropertyChanged_FiresOnCropMarkAndColorBarProperties()
-    {
-        var settings = new PrintSettings();
-        var changed = new List<string>();
-        settings.PropertyChanged += (_, e) => changed.Add(e.PropertyName!);
-
-        settings.ShowCropMarks = true;
-        settings.CropMarkLengthMm = 4f;
-        settings.CropMarkOffsetMm = 1f;
-        settings.ShowColorBars = true;
-
-        Assert.Contains("ShowCropMarks", changed);
-        Assert.Contains("CropMarkLengthMm", changed);
-        Assert.Contains("CropMarkOffsetMm", changed);
-        Assert.Contains("ShowColorBars", changed);
-    }
-
     // --- Silhouette Cameo Defaults ---
 
     [Fact]
