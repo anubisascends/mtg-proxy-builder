@@ -1,0 +1,94 @@
+<Window x:Class="MTGProxyBuilder.UI.Dialogs.AboutDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="About TCG Proxy Builder" Height="520" Width="450"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#1E1E1E" ShowInTaskbar="False"
+        PreviewKeyDown="OnPreviewKeyDown">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- App Title + Version -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="TCG Proxy Builder" Foreground="White" FontSize="22" FontWeight="Bold"/>
+            <TextBlock x:Name="VersionLabel" Text="Version" Foreground="#888" FontSize="12" Margin="0,4,0,0"/>
+            <TextBlock Text="A desktop tool for creating printable trading card game proxy PDFs."
+                       Foreground="#AAA" FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0"/>
+        </StackPanel>
+
+        <!-- Scrollable content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,0,12">
+            <StackPanel>
+                <!-- Credits -->
+                <TextBlock Text="CREDITS" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock Foreground="#CCC" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12">
+                    <Run FontWeight="SemiBold">Mana Symbols</Run>
+                    <Run Foreground="#888">— CardConjurer by MrTeferi</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Set Symbols</Run>
+                    <Run Foreground="#888">— mtg-vectors by Investigamer</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Card Data</Run>
+                    <Run Foreground="#888">— Scryfall API</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Proxy Art</Run>
+                    <Run Foreground="#888">— MPCFill.com</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Riftbound Data</Run>
+                    <Run Foreground="#888">— Piltover Archive</Run>
+                </TextBlock>
+
+                <!-- Open-Source Libraries -->
+                <TextBlock Text="OPEN-SOURCE LIBRARIES" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock Foreground="#CCC" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,12">
+                    <Run FontWeight="SemiBold">PdfSharp 6.1.1</Run>
+                    <Run Foreground="#888">— PDF generation (MIT License)</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">SkiaSharp 3.119.0</Run>
+                    <Run Foreground="#888">— Image processing and preview rendering (MIT License)</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Svg.Skia 2.0</Run>
+                    <Run Foreground="#888">— SVG rendering for mana/set symbols (MIT License)</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Newtonsoft.Json 13.0.3</Run>
+                    <Run Foreground="#888">— JSON serialization (MIT License)</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Serilog 4.2</Run>
+                    <Run Foreground="#888">— Structured logging (Apache 2.0 License)</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">Serilog.Sinks.File 6.0</Run>
+                    <Run Foreground="#888">— Rolling file log output (Apache 2.0 License)</Run><LineBreak/>
+                    <Run FontWeight="SemiBold">VirtualizingWrapPanel 2.5.1</Run>
+                    <Run Foreground="#888">— Virtualized grid layout (MIT License)</Run>
+                </TextBlock>
+
+                <!-- License -->
+                <TextBlock Text="LICENSE" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                <TextBlock Foreground="#AAA" FontSize="11" TextWrapping="Wrap">
+                    This project is for personal and educational use with trading card game proxies.
+                    Card images and data are the property of their respective rights holders.
+                    This application is not affiliated with or endorsed by Wizards of the Coast,
+                    The Pokemon Company, Konami, Riot Games, or any other game publisher.
+                </TextBlock>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Close button -->
+        <Button Grid.Row="2" Content="Close" Padding="16,6" HorizontalAlignment="Right"
+                Background="#3E3E42" Foreground="#CCC" BorderThickness="0" Cursor="Hand"
+                FontSize="12" Click="OnCloseClick">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="4"
+                            Padding="{TemplateBinding Padding}" x:Name="Bd">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#4E4E52"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#5E5E62"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+    </Grid>
+</Window>

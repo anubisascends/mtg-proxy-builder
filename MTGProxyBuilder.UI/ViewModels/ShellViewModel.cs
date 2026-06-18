@@ -52,6 +52,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             DismissUpdateCommand = new RelayCommand(_ => UpdateAvailable = false);
             ManageFrontArtLibraryCommand = new RelayCommand(_ => ManageFrontArtLibrary());
             ManageBackArtLibraryCommand = new RelayCommand(_ => ManageBackArtLibrary());
+            AboutCommand = new RelayCommand(_ => ShowAbout());
 
             _ = CheckForUpdateAsync();
             RefreshRecentFiles();
@@ -79,6 +80,7 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand DismissUpdateCommand { get; }
         public ICommand ManageFrontArtLibraryCommand { get; }
         public ICommand ManageBackArtLibraryCommand { get; }
+        public ICommand AboutCommand { get; }
 
         // --- Update ---
         public bool UpdateAvailable
@@ -354,6 +356,13 @@ namespace MTGProxyBuilder.UI.ViewModels
         private void ManageFrontArtLibrary() => ManageArtLibrary(0);
 
         private void ManageBackArtLibrary() => ManageArtLibrary(1);
+
+        private void ShowAbout()
+        {
+            var dialog = new Dialogs.AboutDialog();
+            dialog.Owner = Application.Current.MainWindow;
+            dialog.ShowDialog();
+        }
 
         private void ManageArtLibrary(int initialTab)
         {
