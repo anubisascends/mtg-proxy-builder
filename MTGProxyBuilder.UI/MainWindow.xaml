@@ -1161,6 +1161,21 @@
                                             <TextBox Text="{Binding CurrentProject.PageSettings.BleedWidthMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
                                         </StackPanel>
                                     </Grid>
+                                    <Grid Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="H spacing (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.HorizontalSpacingMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="V spacing (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.VerticalSpacingMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                        </StackPanel>
+                                    </Grid>
 
                                     <!-- Grid -->
                                     <TextBlock Text="GRID" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,12,0,6"/>

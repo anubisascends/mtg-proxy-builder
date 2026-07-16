@@ -131,6 +131,8 @@ namespace MTGProxyBuilder.UI.Services
             float cardHPt = settings.CardHeightMm * MmToPt;
             float cellW = cardWPt + 2 * bleedPt;
             float cellH = cardHPt + 2 * bleedPt;
+            float strideX = settings.CellStrideXMm * MmToPt;
+            float strideY = settings.CellStrideYMm * MmToPt;
 
             int cols = settings.CardsPerRow;
 
@@ -144,8 +146,8 @@ namespace MTGProxyBuilder.UI.Services
                 {
                     int row = i / cols;
                     int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * cellW;
-                    float cellY = startY + row * cellH;
+                    float cellX = startX + col * strideX;
+                    float cellY = startY + row * strideY;
 
                     DrawCutGuides(canvas, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
                 }
@@ -160,8 +162,8 @@ namespace MTGProxyBuilder.UI.Services
                 {
                     int row = i / cols;
                     int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * cellW;
-                    float cellY = startY + row * cellH;
+                    float cellX = startX + col * strideX;
+                    float cellY = startY + row * strideY;
 
                     DrawCropMarks(canvas, cellX, cellY, bleedPt, cardWPt, cardHPt, cropLen, cropOffset);
                 }
@@ -175,8 +177,8 @@ namespace MTGProxyBuilder.UI.Services
                 int row = i / cols;
                 int col = front ? (i % cols) : (cols - 1 - (i % cols));
 
-                float cellX = startX + col * cellW;
-                float cellY = startY + row * cellH;
+                float cellX = startX + col * strideX;
+                float cellY = startY + row * strideY;
 
                 string imagePath = front ? card.ArtworkPath : (card.BackArtworkPath ?? card.ArtworkPath);
 
@@ -208,8 +210,8 @@ namespace MTGProxyBuilder.UI.Services
                 {
                     int row = i / cols;
                     int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * cellW;
-                    float cellY = startY + row * cellH;
+                    float cellX = startX + col * strideX;
+                    float cellY = startY + row * strideY;
 
                     DrawCardOutline(canvas, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, printSettings);
                 }
@@ -225,7 +227,9 @@ namespace MTGProxyBuilder.UI.Services
             if (printSettings.ShowColorBars)
             {
                 int rows = cols > 0 ? perPage / cols : 0;
-                DrawColorBars(canvas, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
+                float gridWidth = cols > 0 ? (cols - 1) * strideX + cellW : 0;
+                float gridHeight = rows > 0 ? (rows - 1) * strideY + cellH : 0;
+                DrawColorBars(canvas, startX, startY, gridWidth, gridHeight, pageWPt, pageHPt);
             }
 
             return ConvertToBitmapSource(bitmap);
@@ -573,12 +577,10 @@ namespace MTGProxyBuilder.UI.Services
 
         /// <summary>Each card in the list is one slot on the page — no quantity expansion.</summary>
         private void DrawColorBars(SKCanvas canvas, float startX, float startY,
-            int cols, int rows, float cellW, float cellH, float pageW, float pageH)
+            float gridWidth, float gridHeight, float pageW, float pageH)
         {
-            float gridRight = startX + cols * cellW;
-            float gridBottom = startY + rows * cellH;
-            float gridWidth = cols * cellW;
-            float gridHeight = rows * cellH;
+            float gridRight = startX + gridWidth;
+            float gridBottom = startY + gridHeight;
             float barThickness = 4 * MmToPt;
             float gap = 2 * MmToPt;
             float minClearance = 3 * MmToPt;

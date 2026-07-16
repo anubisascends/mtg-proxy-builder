@@ -543,12 +543,7 @@ namespace MTGProxyBuilder.UI.ViewModels
             var profile = _appSettings.Settings.PrinterProfiles.FirstOrDefault(p => p.Name == printerName);
             if (profile == null) return null;
             var s = _currentProject.PageSettings;
-            float cellWMm = s.CardWidthMm + 2 * s.BleedWidthMm;
-            float cellHMm = s.CardHeightMm + 2 * s.BleedWidthMm;
-            float gridWMm = s.CardsPerRow * cellWMm;
-            int rows = s.CardsPerRow > 0 ? s.CardsPerPage / s.CardsPerRow : 0;
-            float gridHMm = rows * cellHMm;
-            return CalibrationTransform.Compute(profile, gridWMm, gridHMm);
+            return CalibrationTransform.Compute(profile, s.GridWidthMm, s.GridHeightMm);
         }
 
         // Card outline enum bindings
