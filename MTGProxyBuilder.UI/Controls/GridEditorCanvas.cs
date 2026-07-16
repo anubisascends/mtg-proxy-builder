@@ -40,7 +40,7 @@ namespace MTGProxyBuilder.UI.Controls
         private bool _allFlipped;
 
         // Cached layout info for hit testing
-        private float _pageW, _pageH, _cellW, _cellH, _marginL, _marginT;
+        private float _pageW, _pageH, _cellW, _cellH, _marginL, _marginT, _strideX, _strideY;
         private int _cols, _rows, _perPage, _totalPages;
         private List<ExpandedSlot> _expandedSlots = new();
 
@@ -353,6 +353,8 @@ namespace MTGProxyBuilder.UI.Controls
             float marginB = settings.MarginBottomMm * MmToPx;
             float cellW = (settings.CardWidthMm + 2 * settings.BleedWidthMm) * MmToPx;
             float cellH = (settings.CardHeightMm + 2 * settings.BleedWidthMm) * MmToPx;
+            float strideX = settings.CellStrideXMm * MmToPx;
+            float strideY = settings.CellStrideYMm * MmToPx;
             float bleed = settings.BleedWidthMm * MmToPx;
             float cardW = settings.CardWidthMm * MmToPx;
             float cardH = settings.CardHeightMm * MmToPx;
@@ -397,6 +399,7 @@ namespace MTGProxyBuilder.UI.Controls
 
             _pageW = pageW; _pageH = pageH; _cellW = cellW; _cellH = cellH;
             _marginL = marginL; _marginT = marginT;
+            _strideX = strideX; _strideY = strideY;
             _cols = cols; _rows = rows; _perPage = perPage;
             _expandedSlots = slots;
 
@@ -441,8 +444,8 @@ namespace MTGProxyBuilder.UI.Controls
                     for (int c = 0; c < cols; c++)
                     {
                         int flat = pageStart + r * cols + c;
-                        float x = marginL + c * cellW;
-                        float y = pageTop + marginT + r * cellH;
+                        float x = marginL + c * strideX;
+                        float y = pageTop + marginT + r * strideY;
 
                         var slot = new Rectangle
                         {
@@ -882,10 +885,13 @@ namespace MTGProxyBuilder.UI.Controls
             float pageTop = page * pageStride;
             float localY = (float)pos.Y - pageTop;
             float localX = (float)pos.X;
-            if (localY < _marginT || localY >= _marginT + _rows * _cellH) return -1;
-            if (localX < _marginL || localX >= _marginL + _cols * _cellW) return -1;
-            int col = (int)((localX - _marginL) / _cellW);
-            int row = (int)((localY - _marginT) / _cellH);
+            if (_strideX <= 0 || _strideY <= 0) return -1;
+            float gridRight = _marginL + (_cols - 1) * _strideX + _cellW;
+            float gridBottom = _marginT + (_rows - 1) * _strideY + _cellH;
+            if (localY < _marginT || localY >= gridBottom) return -1;
+            if (localX < _marginL || localX >= gridRight) return -1;
+            int col = Math.Min((int)((localX - _marginL) / _strideX), _cols - 1);
+            int row = Math.Min((int)((localY - _marginT) / _strideY), _rows - 1);
             if (col < 0 || col >= _cols || row < 0 || row >= _rows) return -1;
             return page * _perPage + row * _cols + col;
         }
@@ -895,7 +901,7 @@ namespace MTGProxyBuilder.UI.Controls
             int page = flatSlot / _perPage;
             int slotOnPage = flatSlot % _perPage;
             float pageTop = page * (_pageH + PageGapPx);
-            return (_marginL + (slotOnPage % _cols) * _cellW, pageTop + _marginT + (slotOnPage / _cols) * _cellH);
+            return (_marginL + (slotOnPage % _cols) * _strideX, pageTop + _marginT + (slotOnPage / _cols) * _strideY);
         }
 
         // ================================================================
