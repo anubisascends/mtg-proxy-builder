@@ -18,6 +18,8 @@ namespace MTGProxyBuilder.Core.Models
         private int? _columnsOverride;
         private int? _rowsOverride;
         private bool _isCentering;
+        private float _horizontalSpacingMm;
+        private float _verticalSpacingMm;
 
         public PageLayout()
         {
@@ -41,6 +43,20 @@ namespace MTGProxyBuilder.Core.Models
         {
             get => _bleedWidthMm;
             set { _bleedWidthMm = value; OnPropertyChanged(); OnGridAffectingChange(); }
+        }
+
+        /// <summary>Horizontal gap (mm) inserted between adjacent cells' bleed edges. 0 = cards touch.</summary>
+        public float HorizontalSpacingMm
+        {
+            get => _horizontalSpacingMm;
+            set { _horizontalSpacingMm = value; OnPropertyChanged(); OnGridAffectingChange(); }
+        }
+
+        /// <summary>Vertical gap (mm) inserted between adjacent cells' bleed edges. 0 = cards touch.</summary>
+        public float VerticalSpacingMm
+        {
+            get => _verticalSpacingMm;
+            set { _verticalSpacingMm = value; OnPropertyChanged(); OnGridAffectingChange(); }
         }
 
         // Margins: user can still edit these manually. They won't trigger re-centering.
@@ -116,23 +132,29 @@ namespace MTGProxyBuilder.Core.Models
 
         // --- Computed properties ---
 
-        /// <summary>Max columns that fit using the full page width (ignoring margins).</summary>
+        /// <summary>Distance (mm) from one cell's left edge to the next: card + both bleeds + horizontal spacing.</summary>
+        public float CellStrideXMm => CardWidthMm + 2 * BleedWidthMm + HorizontalSpacingMm;
+
+        /// <summary>Distance (mm) from one cell's top edge to the next: card + both bleeds + vertical spacing.</summary>
+        public float CellStrideYMm => CardHeightMm + 2 * BleedWidthMm + VerticalSpacingMm;
+
+        /// <summary>Max columns that fit using the full page width (ignoring margins), accounting for inter-card spacing.</summary>
         public int AutoCardsPerRow
         {
             get
             {
-                float cellW = CardWidthMm + 2 * BleedWidthMm;
-                return cellW > 0 ? Math.Max(1, (int)(PageWidthMm / cellW)) : 0;
+                float stride = CellStrideXMm;
+                return stride > 0 ? Math.Max(1, (int)((PageWidthMm + HorizontalSpacingMm) / stride)) : 0;
             }
         }
 
-        /// <summary>Max rows that fit using the full page height (ignoring margins).</summary>
+        /// <summary>Max rows that fit using the full page height (ignoring margins), accounting for inter-card spacing.</summary>
         public int AutoCardsPerColumn
         {
             get
             {
-                float cellH = CardHeightMm + 2 * BleedWidthMm;
-                return cellH > 0 ? Math.Max(1, (int)(PageHeightMm / cellH)) : 0;
+                float stride = CellStrideYMm;
+                return stride > 0 ? Math.Max(1, (int)((PageHeightMm + VerticalSpacingMm) / stride)) : 0;
             }
         }
 
@@ -188,8 +210,8 @@ namespace MTGProxyBuilder.Core.Models
             if (cols <= 0) cols = 1;
             if (rows <= 0) rows = 1;
 
-            float gridWidth = cols * (CardWidthMm + 2 * BleedWidthMm);
-            float gridHeight = rows * (CardHeightMm + 2 * BleedWidthMm);
+            float gridWidth = cols * (CardWidthMm + 2 * BleedWidthMm) + Math.Max(0, cols - 1) * HorizontalSpacingMm;
+            float gridHeight = rows * (CardHeightMm + 2 * BleedWidthMm) + Math.Max(0, rows - 1) * VerticalSpacingMm;
 
             float hSpace = PageWidthMm - gridWidth;
             float vSpace = PageHeightMm - gridHeight;

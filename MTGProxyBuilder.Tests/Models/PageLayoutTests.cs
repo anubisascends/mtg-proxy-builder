@@ -281,4 +281,102 @@ public class PageLayoutTests
         var layout = new PageLayout { ColumnsOverride = 4, RowsOverride = 5 };
         Assert.Equal(20, layout.CardsPerPage);
     }
+
+    [Fact]
+    public void CellStride_IncludesSpacing()
+    {
+        var layout = new PageLayout
+        {
+            CardWidthMm = 63,
+            CardHeightMm = 88,
+            BleedWidthMm = 3,
+            HorizontalSpacingMm = 5,
+            VerticalSpacingMm = 4
+        };
+        // 63 + 2*3 + 5 = 74 ; 88 + 2*3 + 4 = 98
+        Assert.Equal(74f, layout.CellStrideXMm);
+        Assert.Equal(98f, layout.CellStrideYMm);
+    }
+
+    [Fact]
+    public void CellStride_ZeroSpacing_EqualsCardPlusBleed()
+    {
+        var layout = new PageLayout { CardWidthMm = 63, CardHeightMm = 88, BleedWidthMm = 3 };
+        Assert.Equal(69f, layout.CellStrideXMm);
+        Assert.Equal(94f, layout.CellStrideYMm);
+    }
+
+    [Fact]
+    public void AutoCardsPerRow_SpacingReducesCount()
+    {
+        var layout = new PageLayout
+        {
+            PageWidthMm = 210,
+            CardWidthMm = 63,
+            BleedWidthMm = 0,
+            HorizontalSpacingMm = 30
+        };
+        // stride 93: 2 cards = 2*63 + 1*30 = 156 <= 210 ; 3 cards = 249 > 210 -> 2
+        Assert.Equal(2, layout.AutoCardsPerRow);
+    }
+
+    [Fact]
+    public void AutoCardsPerColumn_SpacingReducesCount()
+    {
+        var layout = new PageLayout
+        {
+            PageHeightMm = 297,
+            CardHeightMm = 88,
+            BleedWidthMm = 0,
+            VerticalSpacingMm = 40
+        };
+        // stride 128: 2 rows = 2*88 + 1*40 = 216 <= 297 ; 3 rows = 344 > 297 -> 2
+        Assert.Equal(2, layout.AutoCardsPerColumn);
+    }
+
+    [Fact]
+    public void AutoCardsPerRow_ZeroSpacing_UnchangedFromBleedOnly()
+    {
+        var layout = new PageLayout { PageWidthMm = 210, CardWidthMm = 63, BleedWidthMm = 3 };
+        // Regression: same as AutoCardsPerRow_WithBleed -> 3
+        Assert.Equal(3, layout.AutoCardsPerRow);
+    }
+
+    [Fact]
+    public void CenterGrid_AccountsForInterCardGaps()
+    {
+        var layout = new PageLayout
+        {
+            PageWidthMm = 210,
+            PageHeightMm = 297,
+            CardWidthMm = 60,
+            CardHeightMm = 60,
+            BleedWidthMm = 0,
+            ColumnsOverride = 2,
+            RowsOverride = 2,
+            HorizontalSpacingMm = 10,
+            VerticalSpacingMm = 10
+        };
+        layout.CenterGrid();
+
+        // gridWidth = 2*60 + 1*10 = 130 ; hMargin = (210-130)/2 = 40
+        Assert.Equal(40f, layout.MarginLeftMm, 1);
+        Assert.Equal(40f, layout.MarginRightMm, 1);
+        // gridHeight = 2*60 + 1*10 = 130 ; vMargin = (297-130)/2 = 83.5
+        Assert.Equal(83.5f, layout.MarginTopMm, 1);
+        Assert.Equal(83.5f, layout.MarginBottomMm, 1);
+    }
+
+    [Fact]
+    public void PropertyChanged_FiresOnHorizontalSpacingChange()
+    {
+        var layout = new PageLayout();
+        var changedProps = new List<string>();
+        layout.PropertyChanged += (_, e) => changedProps.Add(e.PropertyName!);
+
+        layout.HorizontalSpacingMm = 5;
+
+        Assert.Contains("HorizontalSpacingMm", changedProps);
+        Assert.Contains("CardsPerRow", changedProps);
+    }
 }
