@@ -379,4 +379,34 @@ public class PageLayoutTests
         Assert.Contains("HorizontalSpacingMm", changedProps);
         Assert.Contains("CardsPerRow", changedProps);
     }
+
+    [Fact]
+    public void GridWidthMm_IncludesInterCardSpacing()
+    {
+        var layout = new PageLayout
+        {
+            CardWidthMm = 60,
+            CardHeightMm = 90,
+            BleedWidthMm = 0,
+            ColumnsOverride = 3,
+            RowsOverride = 2,
+            HorizontalSpacingMm = 10,
+            VerticalSpacingMm = 8
+        };
+        // 3*60 + 2*10 = 200 ; 2*90 + 1*8 = 188
+        Assert.Equal(200f, layout.GridWidthMm, 1);
+        Assert.Equal(188f, layout.GridHeightMm, 1);
+    }
+
+    [Fact]
+    public void GridWidthMm_ZeroSpacing_EqualsColumnsTimesCell()
+    {
+        var layout = new PageLayout
+        {
+            CardWidthMm = 60, CardHeightMm = 90, BleedWidthMm = 3,
+            ColumnsOverride = 3, RowsOverride = 2
+        };
+        Assert.Equal(3 * (60 + 6), layout.GridWidthMm, 1);
+        Assert.Equal(2 * (90 + 6), layout.GridHeightMm, 1);
+    }
 }

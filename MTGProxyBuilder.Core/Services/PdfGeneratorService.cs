@@ -126,13 +126,7 @@ namespace MTGProxyBuilder.Core.Services
                     float pageHPt = settings.PageHeightMm * MmToPt;
 
                     // Compute calibration transform from profile + grid dimensions
-                    float gridWidthMm = cols > 0
-                        ? cols * (settings.CardWidthMm + 2 * settings.BleedWidthMm) + (cols - 1) * settings.HorizontalSpacingMm
-                        : 0;
-                    float gridHeightMm = rows > 0
-                        ? rows * (settings.CardHeightMm + 2 * settings.BleedWidthMm) + (rows - 1) * settings.VerticalSpacingMm
-                        : 0;
-                    var calibration = CalibrationTransform.Compute(profile, gridWidthMm, gridHeightMm);
+                    var calibration = CalibrationTransform.Compute(profile, settings.GridWidthMm, settings.GridHeightMm);
 
                     // Fonts
                     var titleFont = new XFont("Arial", 10, XFontStyleEx.Bold);

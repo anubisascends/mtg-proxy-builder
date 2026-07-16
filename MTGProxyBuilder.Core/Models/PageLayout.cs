@@ -162,6 +162,12 @@ namespace MTGProxyBuilder.Core.Models
         public int CardsPerColumn => RowsOverride ?? AutoCardsPerColumn;
         public int CardsPerPage => CardsPerRow * CardsPerColumn;
 
+        /// <summary>Total grid width (mm) across all columns, including inter-card horizontal spacing.</summary>
+        public float GridWidthMm => CardsPerRow * (CardWidthMm + 2 * BleedWidthMm) + Math.Max(0, CardsPerRow - 1) * HorizontalSpacingMm;
+
+        /// <summary>Total grid height (mm) across all rows, including inter-card vertical spacing.</summary>
+        public float GridHeightMm => CardsPerColumn * (CardHeightMm + 2 * BleedWidthMm) + Math.Max(0, CardsPerColumn - 1) * VerticalSpacingMm;
+
         public float GetUsableWidthMm() => PageWidthMm - MarginLeftMm - MarginRightMm;
         public float GetUsableHeightMm() => PageHeightMm - MarginTopMm - MarginBottomMm;
 

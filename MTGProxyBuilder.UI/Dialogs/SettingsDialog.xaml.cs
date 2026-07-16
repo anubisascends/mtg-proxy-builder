@@ -376,14 +376,10 @@ namespace MTGProxyBuilder.UI.Dialogs
             if (_activeProject != null)
             {
                 var s = _activeProject.PageSettings;
-                float cellW = s.CardWidthMm + 2 * s.BleedWidthMm;
-                float cellH = s.CardHeightMm + 2 * s.BleedWidthMm;
-                int cols = s.CardsPerRow;
-                int rows = cols > 0 && s.CardsPerPage > 0 ? s.CardsPerPage / cols : 0;
-                if (cols > 0 && rows > 0)
+                if (s.CardsPerRow > 0 && s.CardsPerColumn > 0)
                 {
-                    gridW = cols * cellW;
-                    gridH = rows * cellH;
+                    gridW = s.GridWidthMm;
+                    gridH = s.GridHeightMm;
                 }
             }
 

@@ -348,12 +348,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     if (profile != null)
                     {
                         var s = _project.PageSettings;
-                        float cellW = s.CardWidthMm + 2 * s.BleedWidthMm;
-                        float cellH = s.CardHeightMm + 2 * s.BleedWidthMm;
-                        float gridW = s.CardsPerRow * cellW;
-                        int rows = s.CardsPerRow > 0 ? s.CardsPerPage / s.CardsPerRow : 0;
-                        float gridH = rows * cellH;
-                        calibration = CalibrationTransform.Compute(profile, gridW, gridH);
+                        calibration = CalibrationTransform.Compute(profile, s.GridWidthMm, s.GridHeightMm);
                     }
                 }
 
@@ -440,12 +435,7 @@ namespace MTGProxyBuilder.UI.Dialogs
                     if (profile != null)
                     {
                         var s = _project.PageSettings;
-                        float cellW = s.CardWidthMm + 2 * s.BleedWidthMm;
-                        float cellH = s.CardHeightMm + 2 * s.BleedWidthMm;
-                        float gridW = s.CardsPerRow * cellW;
-                        int rows = s.CardsPerRow > 0 ? s.CardsPerPage / s.CardsPerRow : 0;
-                        float gridH = rows * cellH;
-                        calibration = CalibrationTransform.Compute(profile, gridW, gridH);
+                        calibration = CalibrationTransform.Compute(profile, s.GridWidthMm, s.GridHeightMm);
                     }
                 }
 
