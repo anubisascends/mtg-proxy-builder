@@ -112,8 +112,10 @@ namespace MTGProxyBuilder.Core.Services
                         ? settings.CardsPerPage / cols
                         : 0;
 
-                    float gridW = cols * cellW;
-                    float gridH = rows * cellH;
+                    float strideX = settings.CellStrideXMm * MmToPt;
+                    float strideY = settings.CellStrideYMm * MmToPt;
+                    float gridW = cols > 0 ? (cols - 1) * strideX + cellW : 0;
+                    float gridH = rows > 0 ? (rows - 1) * strideY + cellH : 0;
                     float gridRight = startX + gridW;
                     float gridBottom = startY + gridH;
 
@@ -124,8 +126,12 @@ namespace MTGProxyBuilder.Core.Services
                     float pageHPt = settings.PageHeightMm * MmToPt;
 
                     // Compute calibration transform from profile + grid dimensions
-                    float gridWidthMm = cols * (settings.CardWidthMm + 2 * settings.BleedWidthMm);
-                    float gridHeightMm = rows * (settings.CardHeightMm + 2 * settings.BleedWidthMm);
+                    float gridWidthMm = cols > 0
+                        ? cols * (settings.CardWidthMm + 2 * settings.BleedWidthMm) + (cols - 1) * settings.HorizontalSpacingMm
+                        : 0;
+                    float gridHeightMm = rows > 0
+                        ? rows * (settings.CardHeightMm + 2 * settings.BleedWidthMm) + (rows - 1) * settings.VerticalSpacingMm
+                        : 0;
                     var calibration = CalibrationTransform.Compute(profile, gridWidthMm, gridHeightMm);
 
                     // Fonts
@@ -183,7 +189,7 @@ namespace MTGProxyBuilder.Core.Services
                         DrawRuler(gfx, startX - rulerOffset, startY, gridH, false, false);
 
                         // CMYK color bars (full graduated density + grayscale)
-                        DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
+                        DrawColorBars(gfx, startX, startY, gridW, gridH, pageWPt, pageHPt);
 
                         // Current calibration info
                         float txMm = calibration.TranslateXPt / MmToPt;
@@ -411,6 +417,8 @@ namespace MTGProxyBuilder.Core.Services
             float cardHPt = settings.CardHeightMm * MmToPt;
             float cellW = cardWPt + 2 * bleedPt;
             float cellH = cardHPt + 2 * bleedPt;
+            float strideX = settings.CellStrideXMm * MmToPt;
+            float strideY = settings.CellStrideYMm * MmToPt;
 
             int cols = settings.CardsPerRow;
             float pageWPt = settings.PageWidthMm * MmToPt;
@@ -436,8 +444,8 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     int row = i / cols;
                     int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * cellW;
-                    float cellY = startY + row * cellH;
+                    float cellX = startX + col * strideX;
+                    float cellY = startY + row * strideY;
 
                     DrawCutGuides(gfx, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
                 }
@@ -452,8 +460,8 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     int row = i / cols;
                     int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * cellW;
-                    float cellY = startY + row * cellH;
+                    float cellX = startX + col * strideX;
+                    float cellY = startY + row * strideY;
 
                     DrawCropMarks(gfx, cellX, cellY, bleedPt, cardWPt, cardHPt, cropLen, cropOffset);
                 }
@@ -467,8 +475,8 @@ namespace MTGProxyBuilder.Core.Services
                 int row = i / cols;
                 int col = front ? (i % cols) : (cols - 1 - (i % cols));
 
-                float cellX = startX + col * cellW;
-                float cellY = startY + row * cellH;
+                float cellX = startX + col * strideX;
+                float cellY = startY + row * strideY;
 
                 string imagePath = front ? card.ArtworkPath : (card.BackArtworkPath ?? card.ArtworkPath);
 
@@ -500,8 +508,8 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     int row = i / cols;
                     int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * cellW;
-                    float cellY = startY + row * cellH;
+                    float cellX = startX + col * strideX;
+                    float cellY = startY + row * strideY;
 
                     DrawCardOutline(gfx, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, printSettings);
                 }
@@ -517,7 +525,9 @@ namespace MTGProxyBuilder.Core.Services
             if (printSettings.ShowColorBars)
             {
                 int rows = cols > 0 ? perPage / cols : 0;
-                DrawColorBars(gfx, startX, startY, cols, rows, cellW, cellH, pageWPt, pageHPt);
+                float gridWidth = cols > 0 ? (cols - 1) * strideX + cellW : 0;
+                float gridHeight = rows > 0 ? (rows - 1) * strideY + cellH : 0;
+                DrawColorBars(gfx, startX, startY, gridWidth, gridHeight, pageWPt, pageHPt);
             }
         }
 
@@ -727,12 +737,10 @@ namespace MTGProxyBuilder.Core.Services
         /// Tries bottom margin first (horizontal), then right margin (vertical).
         /// </summary>
         private void DrawColorBars(XGraphics gfx, float startX, float startY,
-            int cols, int rows, float cellW, float cellH, float pageW, float pageH)
+            float gridWidth, float gridHeight, float pageW, float pageH)
         {
-            float gridRight = startX + cols * cellW;
-            float gridBottom = startY + rows * cellH;
-            float gridWidth = cols * cellW;
-            float gridHeight = rows * cellH;
+            float gridRight = startX + gridWidth;
+            float gridBottom = startY + gridHeight;
             float barThickness = 4 * MmToPt;
             float gap = 2 * MmToPt;
             float minClearance = 3 * MmToPt;

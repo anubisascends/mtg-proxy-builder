@@ -69,6 +69,8 @@ namespace MTGProxyBuilder.Core.Services
             float cardHPt = settings.CardHeightMm * MmToPt;
             float cellW = cardWPt + 2 * bleedPt;
             float cellH = cardHPt + 2 * bleedPt;
+            float strideX = settings.CellStrideXMm * MmToPt;
+            float strideY = settings.CellStrideYMm * MmToPt;
             int cols = settings.CardsPerRow;
             float radiusPt = printSettings.CornerRadiusMm * MmToPt;
 
@@ -85,8 +87,8 @@ namespace MTGProxyBuilder.Core.Services
                 int row = i / cols;
                 int col = i % cols;
 
-                float cellX = startX + col * cellW;
-                float cellY = startY + row * cellH;
+                float cellX = startX + col * strideX;
+                float cellY = startY + row * strideY;
 
                 float cardX = cellX + bleedPt;
                 float cardY = cellY + bleedPt;
