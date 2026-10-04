@@ -7,6 +7,9 @@ namespace MTGProxyBuilder.Core
         public const float DefaultBleedMm = 1.5f;
         public const int DefaultDpi = 300;
 
+        /// <summary>Typical unprintable border (mm) at each page edge on desktop printers.</summary>
+        public const float NoPrintZoneMm = 4f;
+
         public const int MmToDpiConversion = 25; // Approximate conversion for DPI
     }
 }

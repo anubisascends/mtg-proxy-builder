@@ -17,6 +17,8 @@
         <converters:NullToCollapsedConverter x:Key="NullToCollapsed"/>
         <converters:BoolToFaceTextConverter x:Key="BoolToFaceText"/>
         <converters:FileNameConverter x:Key="FileNameConverter"/>
+        <converters:LengthMmConverter x:Key="LengthMm"/>
+        <converters:InverseBoolConverter x:Key="InverseBool"/>
 
         <!-- Toolbar icon button style -->
         <Style x:Key="ToolbarIconBtn" TargetType="Button">
@@ -1085,9 +1087,13 @@
 
                                     <!-- Silhouette Cameo -->
                                     <TextBlock Text="SILHOUETTE CAMEO" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,6,0,6"/>
+                                    <TextBlock Text="Not available while punch mode is on." Foreground="#E0A040" FontSize="9" Margin="0,0,0,4"
+                                               Visibility="{Binding CurrentProject.PageSettings.IsPunchModeEnabled, Converter={StaticResource BoolToVisibility}}"/>
                                     <CheckBox Content="Add registration marks to PDF" IsChecked="{Binding CurrentProject.PrintSettings.ShowRegistrationMarks}"
+                                              IsEnabled="{Binding CurrentProject.PageSettings.IsPunchModeEnabled, Converter={StaticResource InverseBool}}"
                                               Foreground="#CCC" Margin="0,0,0,4"/>
                                     <CheckBox Content="Export SVG cut lines with PDF" IsChecked="{Binding CurrentProject.PrintSettings.ExportSvgCutLines}"
+                                              IsEnabled="{Binding CurrentProject.PageSettings.IsPunchModeEnabled, Converter={StaticResource InverseBool}}"
                                               Foreground="#CCC" Margin="0,0,0,4"/>
                                     <Button Content="Export SVG Only" Command="{Binding ExportSvgCommand}"
                                             Background="#3E3E42" Foreground="#CCC" BorderThickness="0"
@@ -1169,13 +1175,58 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0">
                                             <TextBlock Text="H spacing (mm)" Foreground="#999" FontSize="9"/>
-                                            <TextBox Text="{Binding CurrentProject.PageSettings.HorizontalSpacingMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.HorizontalSpacingMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"
+                                                     IsReadOnly="{Binding CurrentProject.PageSettings.IsPunchControllingColumns}"
+                                                     ToolTip="Set by punch mode while it controls columns"
+                                                     ToolTipService.IsEnabled="{Binding CurrentProject.PageSettings.IsPunchControllingColumns}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Text="V spacing (mm)" Foreground="#999" FontSize="9"/>
-                                            <TextBox Text="{Binding CurrentProject.PageSettings.VerticalSpacingMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.VerticalSpacingMm, UpdateSourceTrigger=LostFocus}" Padding="4" FontSize="11"
+                                                     IsReadOnly="{Binding CurrentProject.PageSettings.IsPunchControllingRows}"
+                                                     ToolTip="Set by punch mode while it controls rows"
+                                                     ToolTipService.IsEnabled="{Binding CurrentProject.PageSettings.IsPunchControllingRows}"/>
                                         </StackPanel>
                                     </Grid>
+
+                                    <!-- Punch alignment -->
+                                    <TextBlock Text="PUNCH ALIGNMENT" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,12,0,6"/>
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="Opening size (mm)" Foreground="#999" FontSize="9"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.PunchOpeningMm, UpdateSourceTrigger=LostFocus, Converter={StaticResource LengthMm}}"
+                                                     Padding="4" FontSize="11"
+                                                     ToolTip="Width of the punch slot. Accepts mm, cm or inches (e.g. 70, 7cm, 2.75in)"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Side" Foreground="#999" FontSize="9"/>
+                                            <ComboBox ItemsSource="{Binding PunchSideOptions}" SelectedItem="{Binding CurrentProject.PageSettings.PunchSide}"
+                                                      Padding="4" FontSize="11"
+                                                      ToolTip="Paper side the strips are laid out along"/>
+                                        </StackPanel>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,4">
+                                        <Button Content="Calculate" Padding="10,3" FontSize="11"
+                                                Background="#0078D4" Foreground="White" BorderThickness="0" Cursor="Hand"
+                                                Command="{Binding CalculatePunchLayoutCommand}"/>
+                                        <Button Content="Turn Off" Padding="10,3" FontSize="11" Margin="4,0,0,0"
+                                                Background="#3E3E42" Foreground="#CCC" BorderThickness="0" Cursor="Hand"
+                                                Command="{Binding ClearPunchLayoutCommand}"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding CurrentProject.PageSettings.PunchSummary}" Foreground="#7FBF7F" FontSize="10"
+                                               TextWrapping="Wrap" Margin="0,2"
+                                               Visibility="{Binding CurrentProject.PageSettings.PunchSummary, Converter={StaticResource NullToCollapsed}}"/>
+                                    <TextBlock Text="{Binding CurrentProject.PageSettings.PunchNoPrintWarning}" Foreground="#E0A040" FontSize="10"
+                                               TextWrapping="Wrap" Margin="0,2"
+                                               Visibility="{Binding CurrentProject.PageSettings.PunchNoPrintWarning, Converter={StaticResource NullToCollapsed}}"/>
+                                    <TextBlock Text="{Binding CurrentProject.PageSettings.PunchModeError}" Foreground="#E06060" FontSize="10"
+                                               TextWrapping="Wrap" Margin="0,2"
+                                               Visibility="{Binding CurrentProject.PageSettings.PunchModeError, Converter={StaticResource NullToCollapsed}}"/>
 
                                     <!-- Grid -->
                                     <TextBlock Text="GRID" Foreground="#0078D4" FontSize="10" FontWeight="Bold" Margin="0,12,0,6"/>
@@ -1190,13 +1241,15 @@
                                             <TextBlock Foreground="#999" FontSize="9">
                                                 <Run Text="Columns (auto: "/><Run Text="{Binding CurrentProject.PageSettings.AutoCardsPerRow, Mode=OneWay}"/><Run Text=")"/>
                                             </TextBlock>
-                                            <TextBox Text="{Binding CurrentProject.PageSettings.ColumnsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.ColumnsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"
+                                                     IsReadOnly="{Binding CurrentProject.PageSettings.IsPunchControllingColumns}"/>
                                         </StackPanel>
                                         <StackPanel Grid.Column="2">
                                             <TextBlock Foreground="#999" FontSize="9">
                                                 <Run Text="Rows (auto: "/><Run Text="{Binding CurrentProject.PageSettings.AutoCardsPerColumn, Mode=OneWay}"/><Run Text=")"/>
                                             </TextBlock>
-                                            <TextBox Text="{Binding CurrentProject.PageSettings.RowsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"/>
+                                            <TextBox Text="{Binding CurrentProject.PageSettings.RowsOverride, UpdateSourceTrigger=LostFocus, TargetNullValue=''}" Padding="4" FontSize="11"
+                                                     IsReadOnly="{Binding CurrentProject.PageSettings.IsPunchControllingRows}"/>
                                         </StackPanel>
                                     </Grid>
 

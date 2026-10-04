@@ -139,17 +139,25 @@ namespace MTGProxyBuilder.UI.Services
             // When registration marks are active, suppress bleed, cut guides, and outlines
             bool useBleed = bleedCache.Count > 0 && !printSettings.ShowRegistrationMarks;
 
-            // Pass 1a: Draw cut guides BEHIND card art (disabled with registration marks)
+            // Pass 1a: Draw cut guides BEHIND card art (disabled with registration marks).
+            // Punch mode replaces per-card guides with full-length lines at the strip boundaries.
             if (printSettings.ShowCutGuides && !printSettings.ShowRegistrationMarks)
             {
-                for (int i = 0; i < perPage && (startIdx + i) < cards.Count; i++)
+                if (settings.IsPunchActive)
                 {
-                    int row = i / cols;
-                    int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * strideX;
-                    float cellY = startY + row * strideY;
+                    DrawPunchCutGuides(canvas, settings, pageWPt, pageHPt);
+                }
+                else
+                {
+                    for (int i = 0; i < perPage && (startIdx + i) < cards.Count; i++)
+                    {
+                        int row = i / cols;
+                        int col = front ? (i % cols) : (cols - 1 - (i % cols));
+                        float cellX = startX + col * strideX;
+                        float cellY = startY + row * strideY;
 
-                    DrawCutGuides(canvas, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
+                        DrawCutGuides(canvas, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
+                    }
                 }
             }
 
@@ -182,6 +190,15 @@ namespace MTGProxyBuilder.UI.Services
 
                 string imagePath = front ? card.ArtworkPath : (card.BackArtworkPath ?? card.ArtworkPath);
 
+                // Punch mode: clip bleed at this card's strip boundaries
+                bool clipped = settings.IsPunchActive;
+                if (clipped)
+                {
+                    var (clipX, clipY, clipW, clipH) = settings.GetPunchClipRectMm(col, row);
+                    canvas.Save();
+                    canvas.ClipRect(SKRect.Create(clipX * MmToPt, clipY * MmToPt, clipW * MmToPt, clipH * MmToPt));
+                }
+
                 if (useBleed && !string.IsNullOrEmpty(imagePath) && bleedCache.TryGetValue(imagePath, out var bleedImage))
                 {
                     DrawCard(canvas, bleedImage, cellX, cellY, cellW, cellH);
@@ -194,6 +211,9 @@ namespace MTGProxyBuilder.UI.Services
                 {
                     DrawCard(canvas, null, cellX + bleedPt, cellY + bleedPt, cardWPt, cardHPt);
                 }
+
+                if (clipped)
+                    canvas.Restore();
 
                 // Overlay text (e.g. "TOKEN") rendered on front face only
                 if (front && !string.IsNullOrEmpty(card.OverlayText))
@@ -263,6 +283,27 @@ namespace MTGProxyBuilder.UI.Services
             canvas.DrawLine(cardRight, cardTop, pageW, cardTop, paint);
             canvas.DrawLine(0, cardBottom, cardLeft, cardBottom, paint);
             canvas.DrawLine(cardRight, cardBottom, pageW, cardBottom, paint);
+        }
+
+        private void DrawPunchCutGuides(SKCanvas canvas, PageLayout settings, float pageW, float pageH)
+        {
+            using var paint = new SKPaint
+            {
+                Color = SKColors.Black,
+                StrokeWidth = 0.25f,
+                Style = SKPaintStyle.Stroke,
+                IsAntialias = true
+            };
+
+            bool horizontal = settings.IsPunchAxisHorizontal;
+            foreach (float cutMm in settings.GetPunchCutPositionsMm())
+            {
+                float p = cutMm * MmToPt;
+                if (horizontal)
+                    canvas.DrawLine(p, 0, p, pageH, paint);
+                else
+                    canvas.DrawLine(0, p, pageW, p, paint);
+            }
         }
 
         private void DrawCropMarks(SKCanvas canvas, float cellX, float cellY,

@@ -431,17 +431,25 @@ namespace MTGProxyBuilder.Core.Services
             // When registration marks are active, suppress bleed, cut guides, and outlines
             bool useBleed = bleedCache.Count > 0 && !printSettings.ShowRegistrationMarks;
 
-            // Pass 1a: Draw cut guides BEHIND card art (disabled with registration marks)
+            // Pass 1a: Draw cut guides BEHIND card art (disabled with registration marks).
+            // Punch mode replaces per-card guides with full-length lines at the strip boundaries.
             if (printSettings.ShowCutGuides && !printSettings.ShowRegistrationMarks)
             {
-                for (int i = 0; i < perPage && (startIdx + i) < cards.Count; i++)
+                if (settings.IsPunchActive)
                 {
-                    int row = i / cols;
-                    int col = front ? (i % cols) : (cols - 1 - (i % cols));
-                    float cellX = startX + col * strideX;
-                    float cellY = startY + row * strideY;
+                    DrawPunchCutGuides(gfx, settings, pageWPt, pageHPt);
+                }
+                else
+                {
+                    for (int i = 0; i < perPage && (startIdx + i) < cards.Count; i++)
+                    {
+                        int row = i / cols;
+                        int col = front ? (i % cols) : (cols - 1 - (i % cols));
+                        float cellX = startX + col * strideX;
+                        float cellY = startY + row * strideY;
 
-                    DrawCutGuides(gfx, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
+                        DrawCutGuides(gfx, cellX, cellY, cellW, cellH, bleedPt, cardWPt, cardHPt, pageWPt, pageHPt);
+                    }
                 }
             }
 
@@ -474,6 +482,15 @@ namespace MTGProxyBuilder.Core.Services
 
                 string imagePath = front ? card.ArtworkPath : (card.BackArtworkPath ?? card.ArtworkPath);
 
+                // Punch mode: clip bleed at this card's strip boundaries
+                XGraphicsState? clipState = null;
+                if (settings.IsPunchActive)
+                {
+                    var (clipX, clipY, clipW, clipH) = settings.GetPunchClipRectMm(col, row);
+                    clipState = gfx.Save();
+                    gfx.IntersectClip(new XRect(clipX * MmToPt, clipY * MmToPt, clipW * MmToPt, clipH * MmToPt));
+                }
+
                 if (useBleed && !string.IsNullOrEmpty(imagePath) && bleedCache.TryGetValue(imagePath, out var bleedImage))
                 {
                     DrawCard(gfx, bleedImage, cellX, cellY, cellW, cellH);
@@ -486,6 +503,9 @@ namespace MTGProxyBuilder.Core.Services
                 {
                     DrawCard(gfx, null, cellX + bleedPt, cellY + bleedPt, cardWPt, cardHPt);
                 }
+
+                if (clipState != null)
+                    gfx.Restore(clipState);
 
                 // Overlay text (e.g. "TOKEN") rendered on front face only
                 if (front && !string.IsNullOrEmpty(card.OverlayText))
@@ -692,6 +712,24 @@ namespace MTGProxyBuilder.Core.Services
             gfx.DrawLine(pen, cardRight, cardTop, pageW, cardTop);      // top-right horizontal right
             gfx.DrawLine(pen, 0, cardBottom, cardLeft, cardBottom);     // bottom-left horizontal left
             gfx.DrawLine(pen, cardRight, cardBottom, pageW, cardBottom); // bottom-right horizontal right
+        }
+
+        /// <summary>
+        /// Draw punch-mode cut guides: one edge-to-edge line at every strip boundary along the
+        /// punch axis, so each cut strip is exactly one punch opening wide.
+        /// </summary>
+        private void DrawPunchCutGuides(XGraphics gfx, PageLayout settings, float pageW, float pageH)
+        {
+            var pen = new XPen(XColors.Black, 0.25);
+            bool horizontal = settings.IsPunchAxisHorizontal;
+            foreach (float cutMm in settings.GetPunchCutPositionsMm())
+            {
+                float p = cutMm * MmToPt;
+                if (horizontal)
+                    gfx.DrawLine(pen, p, 0, p, pageH);
+                else
+                    gfx.DrawLine(pen, 0, p, pageW, p);
+            }
         }
 
         /// <summary>

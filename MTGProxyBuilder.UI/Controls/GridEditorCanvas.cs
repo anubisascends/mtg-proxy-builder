@@ -469,8 +469,12 @@ namespace MTGProxyBuilder.UI.Controls
                 var pn = new TextBlock { Text = $"{page + 1}", FontSize = 14, Foreground = new SolidColorBrush(Color.FromArgb(80, 0, 0, 0)), FontWeight = FontWeights.Bold };
                 SetLeft(pn, pageW - 30); SetTop(pn, pageTop + pageH - 25); Children.Add(pn);
 
-                // Registration marks
+                // Punch-mode cut guides at strip boundaries (replace the per-card guides)
                 var regPs = PrintSettingsSource;
+                if (ShowCutGuides && settings.IsPunchActive && regPs?.ShowRegistrationMarks != true)
+                    DrawPunchCutGuides(settings, pageTop, pageW, pageH);
+
+                // Registration marks
                 if (regPs != null && regPs.ShowRegistrationMarks)
                 {
                     DrawRegistrationMarksPreview(pageTop, pageW, pageH, regPs);
@@ -489,6 +493,23 @@ namespace MTGProxyBuilder.UI.Controls
         }
 
         private const float InToPx = 96f; // 1 inch = 96 WPF pixels
+
+        private void DrawPunchCutGuides(PageLayout settings, float pageTop, float pageW, float pageH)
+        {
+            var pen = new SolidColorBrush(Color.FromArgb(160, 0, 0, 0));
+            bool horizontal = settings.IsPunchAxisHorizontal;
+            foreach (float cutMm in settings.GetPunchCutPositionsMm())
+            {
+                float p = cutMm * MmToPx;
+                var line = horizontal
+                    ? new Line { X1 = p, Y1 = pageTop, X2 = p, Y2 = pageTop + pageH }
+                    : new Line { X1 = 0, Y1 = pageTop + p, X2 = pageW, Y2 = pageTop + p };
+                line.Stroke = pen;
+                line.StrokeThickness = 0.75;
+                line.IsHitTestVisible = false;
+                Children.Add(line);
+            }
+        }
 
         private void DrawRegistrationMarksPreview(float pageTop, float pageW, float pageH, PrintSettings ps)
         {
@@ -983,7 +1004,7 @@ namespace MTGProxyBuilder.UI.Controls
             CardVisualRenderer.PlaceCard(this, card, bmp,
                 x, y, cellW, cellH, bleed, cardW, cardH,
                 pageTop, pageW, pageH, flipped, selected,
-                ShowCutGuides, PrintSettingsSource);
+                ShowCutGuides && PageSettings?.IsPunchActive != true, PrintSettingsSource);
 
             // Flip button overlay
             float btnSize = Math.Max(27, cardW * 0.135f);

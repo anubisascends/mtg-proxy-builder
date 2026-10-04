@@ -201,7 +201,9 @@ namespace MTGProxyBuilder.UI.ViewModels
 
             ExportPdfCommand = new RelayCommand(_ => ExportPdf());
             PreviewPdfCommand = new RelayCommand(_ => PreviewPdf());
-            ExportSvgCommand = new RelayCommand(_ => ExportSvgOnly());
+            ExportSvgCommand = new RelayCommand(_ => ExportSvgOnly(), _ => !_currentProject.PageSettings.IsPunchModeEnabled);
+            CalculatePunchLayoutCommand = new RelayCommand(_ => CalculatePunchLayout());
+            ClearPunchLayoutCommand = new RelayCommand(_ => ClearPunchLayout(), _ => _currentProject.PageSettings.IsPunchModeEnabled);
             SaveCardSizePresetCommand = new RelayCommand(_ => SaveCustomCardSizePreset());
             DeleteCardSizePresetCommand = new RelayCommand(_ => DeleteCustomCardSizePreset(), _ => _selectedCardSize?.IsCustom == true);
 
@@ -567,6 +569,38 @@ namespace MTGProxyBuilder.UI.ViewModels
         {
             get => _currentProject.PrintSettings.OutlineLineType;
             set { _currentProject.PrintSettings.OutlineLineType = value; OnPropertyChanged(); }
+        }
+
+        // Punch alignment
+        public ObservableCollection<PunchSide> PunchSideOptions { get; } = new(Enum.GetValues<PunchSide>());
+
+        private void CalculatePunchLayout()
+        {
+            var layout = _currentProject.PageSettings;
+            string? error = layout.PunchValidationError;
+            if (error != null)
+            {
+                MessageBox.Show(error, "Punch Alignment", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            // Punch strips replace the Silhouette workflow: registration marks would hide the
+            // strip cut guides, and SVG cut files don't apply.
+            _currentProject.PrintSettings.ShowRegistrationMarks = false;
+            _currentProject.PrintSettings.ExportSvgCutLines = false;
+
+            layout.IsPunchModeEnabled = true;
+            MarkDirty();
+            Log.Information("Punch layout applied: opening {OpeningMm}mm along {Side} side, {Strips} strips",
+                layout.PunchOpeningMm, layout.PunchSide, layout.PunchStripCount);
+            StatusText = $"Punch layout applied: {layout.PunchStripCount} strips × {layout.PunchOpeningMm:0.##} mm";
+        }
+
+        private void ClearPunchLayout()
+        {
+            _currentProject.PageSettings.IsPunchModeEnabled = false;
+            MarkDirty();
+            StatusText = "Punch mode turned off";
         }
 
         // Scryfall
@@ -1049,6 +1083,8 @@ namespace MTGProxyBuilder.UI.ViewModels
         public ICommand ExportPdfCommand { get; }
         public ICommand PreviewPdfCommand { get; }
         public ICommand ExportSvgCommand { get; }
+        public ICommand CalculatePunchLayoutCommand { get; }
+        public ICommand ClearPunchLayoutCommand { get; }
         public ICommand SaveCardSizePresetCommand { get; }
         public ICommand DeleteCardSizePresetCommand { get; }
         public ICommand AddBackArtToLibraryCommand { get; }
@@ -2017,7 +2053,7 @@ namespace MTGProxyBuilder.UI.ViewModels
                 if (success)
                 {
                     string svgInfo = "";
-                    if (_currentProject.PrintSettings.ExportSvgCutLines)
+                    if (_currentProject.PrintSettings.ExportSvgCutLines && !_currentProject.PageSettings.IsPunchModeEnabled)
                     {
                         var svgService = new SvgCutLineService();
                         string outputDir = Path.GetDirectoryName(dialog.FileName) ?? ".";
@@ -2053,6 +2089,13 @@ namespace MTGProxyBuilder.UI.ViewModels
 
         private async void ExportSvgOnly()
         {
+            if (_currentProject.PageSettings.IsPunchModeEnabled)
+            {
+                MessageBox.Show("SVG cut lines aren't available while punch mode is on.",
+                    "Export SVG", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Title = "Export SVG Cut Lines",
