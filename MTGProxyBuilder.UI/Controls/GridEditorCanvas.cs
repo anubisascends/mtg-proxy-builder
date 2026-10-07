@@ -271,9 +271,13 @@ namespace MTGProxyBuilder.UI.Controls
         public event Action<CardModel>? CreateTokenRequested; // (sourceCard)
         public event Action<List<CardModel>>? CreateTokensFromCardsRequested; // (sourceCards)
         public event Action<List<int>>? ApplyMajorityBackRequested; // (cardIndices)
+        public event Action<List<CardModel>>? SplitCardsRequested; // (sourceCards)
         public event Action<List<int>>? SelectFrontArtRequested; // (cardIndices)
         public event Action<List<int>>? SelectBackArtRequested; // (cardIndices)
         public event Action<int, bool>? CardFlipStateChanged; // (cardIndex, isShowingBack)
+
+        /// <summary>Decides whether "Split Card" is offered for a card (it has a unique back face).</summary>
+        public Func<CardModel, bool>? CanSplitCard { get; set; }
 
         public PageLayout? PageSettings
         {
@@ -718,6 +722,14 @@ namespace MTGProxyBuilder.UI.Controls
                 var dupItem = new MenuItem { Header = hasSelection ? $"Duplicate Selected{target}" : "Duplicate Card" };
                 dupItem.Click += (_, _) => DuplicateCards(cardIndices);
                 menu.Items.Add(dupItem);
+
+                var splitCards = cardIndices.Where(i => i >= 0 && i < CardsSource!.Count).Select(i => CardsSource![i]).ToList();
+                if (CanSplitCard != null && splitCards.Any(CanSplitCard))
+                {
+                    var splitItem = new MenuItem { Header = hasSelection ? $"Split Selected{target}" : "Split Card" };
+                    splitItem.Click += (_, _) => SplitCardsRequested?.Invoke(splitCards);
+                    menu.Items.Add(splitItem);
+                }
 
                 var delItem = new MenuItem { Header = hasSelection ? $"Delete Selected{target}" : "Delete Card" };
                 delItem.Click += (_, _) => DeleteCards(cardIndices);

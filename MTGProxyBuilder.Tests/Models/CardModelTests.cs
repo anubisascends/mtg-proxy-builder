@@ -162,4 +162,75 @@ public class CardModelTests
         card.OverlayText = "PROXY";
         Assert.Equal("OverlayText", changed);
     }
+
+    private static CardModel MakeDfc() => new()
+    {
+        Name = "Delver of Secrets",
+        ArtworkPath = "/front.jpg",
+        BackArtworkPath = "/back.jpg",
+        OriginalBackArtworkPath = "/back.jpg",
+        ScryfallId = "abc",
+        Quantity = 3,
+        IncludeBack = true,
+        IsDoubleFaced = true,
+        ManaCost = "{U}",
+        TypeLine = "Creature — Human Wizard",
+        Power = "1",
+        Toughness = "1",
+        SetCode = "ISD",
+        Artist = "Nils Hamm",
+        BackName = "Insectile Aberration",
+        BackTypeLine = "Creature — Human Insect",
+        BackOracleText = "Flying",
+        BackPower = "3",
+        BackToughness = "2"
+    };
+
+    [Fact]
+    public void CreateBackFaceCard_UsesBackArtAndMetadataAsFront()
+    {
+        var back = MakeDfc().CreateBackFaceCard();
+
+        Assert.Equal("Insectile Aberration", back.Name);
+        Assert.Equal("/back.jpg", back.ArtworkPath);
+        Assert.Equal("Creature — Human Insect", back.TypeLine);
+        Assert.Equal("Flying", back.OracleText);
+        Assert.Equal("3", back.Power);
+        Assert.Equal("2", back.Toughness);
+        Assert.Equal(string.Empty, back.ManaCost);
+        Assert.Equal("ISD", back.SetCode);
+        Assert.Equal("Nils Hamm", back.Artist);
+        Assert.Equal(3, back.Quantity);
+    }
+
+    [Fact]
+    public void CreateBackFaceCard_IsSingleFacedWithNoBackAndNoScryfallId()
+    {
+        var source = MakeDfc();
+        var back = source.CreateBackFaceCard();
+
+        Assert.NotEqual(source.CardId, back.CardId);
+        Assert.False(back.IsDoubleFaced);
+        Assert.False(back.IncludeBack);
+        Assert.Null(back.BackArtworkPath);
+        Assert.Null(back.OriginalBackArtworkPath);
+        Assert.Null(back.ScryfallId);
+        Assert.Equal(string.Empty, back.BackName);
+    }
+
+    [Fact]
+    public void CreateBackFaceCard_FallsBackToOriginalBackArtAndDerivedName()
+    {
+        var source = new CardModel
+        {
+            Name = "Custom DFC",
+            ArtworkPath = "/front.jpg",
+            OriginalBackArtworkPath = "/original-back.jpg"
+        };
+
+        var back = source.CreateBackFaceCard();
+
+        Assert.Equal("/original-back.jpg", back.ArtworkPath);
+        Assert.Equal("Custom DFC (Back)", back.Name);
+    }
 }

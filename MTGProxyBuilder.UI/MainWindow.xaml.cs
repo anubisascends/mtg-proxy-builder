@@ -182,6 +182,15 @@ public partial class MainWindow : Window
                     vm.ApplyMajorityBackToCards(cardIndices);
             };
 
+            GridCanvas.SplitCardsRequested += (sourceCards) =>
+            {
+                if (Shell?.ActiveProject?.Inner is MainViewModel vm)
+                    vm.SplitCards(sourceCards);
+            };
+
+            GridCanvas.CanSplitCard = card =>
+                Shell?.ActiveProject?.Inner is MainViewModel vm && vm.CanSplitCard(card);
+
             GridCanvas.SelectFrontArtRequested += (cardIndices) =>
             {
                 if (Shell?.ActiveProject?.Inner is MainViewModel vm)
