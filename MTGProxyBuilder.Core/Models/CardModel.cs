@@ -275,6 +275,34 @@ namespace MTGProxyBuilder.Core.Models
         public string PrimaryType =>
             TypeLine.Split("—")[0].Trim().Split(' ').LastOrDefault() ?? string.Empty;
 
+        /// <summary>
+        /// Builds a standalone single-faced card whose front is this card's back face
+        /// (art and metadata). The result has no back art — the caller assigns one.
+        /// ScryfallId is intentionally not copied so a metadata refresh can't
+        /// overwrite the back-face data with the front face.
+        /// </summary>
+        public CardModel CreateBackFaceCard() => new()
+        {
+            Name = string.IsNullOrEmpty(BackName) ? $"{Name} (Back)" : BackName,
+            ArtworkPath = BackArtworkPath ?? OriginalBackArtworkPath ?? string.Empty,
+            Quantity = Quantity,
+            ManaCost = BackManaCost,
+            CMC = CMC,
+            TypeLine = BackTypeLine,
+            OracleText = BackOracleText,
+            Power = BackPower,
+            Toughness = BackToughness,
+            Loyalty = BackLoyalty,
+            Rarity = Rarity,
+            Colors = Colors,
+            ColorIdentity = ColorIdentity,
+            SetCode = SetCode,
+            SetName = SetName,
+            CollectorNumber = CollectorNumber,
+            Artist = Artist,
+            DateAdded = DateTime.Now
+        };
+
         public event PropertyChangedEventHandler? PropertyChanged;
 
         protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

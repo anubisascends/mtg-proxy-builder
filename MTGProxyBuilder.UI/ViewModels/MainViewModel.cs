@@ -1728,6 +1728,50 @@ namespace MTGProxyBuilder.UI.ViewModels
             StatusText = $"Created {eligibleCards.Count} token card(s)";
         }
 
+        public bool CanSplitCard(CardModel card) =>
+            !card.IsPastedImage && IsEligibleForToken(card, GetMostCommonBackArt());
+
+        /// <summary>
+        /// Splits dual-faced cards into two single-faced cards: a new card showing the
+        /// original's back face is inserted directly after it, and both get the
+        /// project's common card back.
+        /// </summary>
+        public void SplitCards(List<CardModel> sourceCards)
+        {
+            string? commonBack = GetMostCommonBackArt();
+            var eligibleCards = sourceCards
+                .Where(c => Cards.Contains(c) && !c.IsPastedImage && IsEligibleForToken(c, commonBack))
+                .ToList();
+
+            if (eligibleCards.Count == 0)
+            {
+                MessageBox.Show("None of the selected cards have a unique back face to split off.",
+                    "Nothing to Split", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            PushUndo();
+
+            foreach (var source in eligibleCards)
+            {
+                var backFace = source.CreateBackFaceCard();
+
+                // Original becomes single-faced. OriginalBackArtworkPath is kept so the
+                // back art selector can still offer the DFC back as "Original (Scryfall)".
+                source.IsDoubleFaced = false;
+                source.BackArtworkPath = null;
+                source.IncludeBack = false;
+
+                ApplyDefaultBackArt(source);
+                ApplyDefaultBackArt(backFace);
+
+                Cards.Insert(Cards.IndexOf(source) + 1, backFace);
+            }
+
+            ApplyFilterAndSort();
+            StatusText = $"Split {eligibleCards.Count} card(s)";
+        }
+
         /// <summary>
         /// A card is eligible for token creation if it has back art that differs
         /// from the project's most common back art (i.e. it's a dual-faced card).
